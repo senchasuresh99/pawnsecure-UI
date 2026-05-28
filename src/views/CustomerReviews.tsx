@@ -163,7 +163,22 @@ export default function CustomerReviews() {
         { facingMode: "environment" },
         {
           fps: 10,
-          qrbox: { width: 250, height: 250 },
+aspectRatio: 1,
+qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+
+  const minEdge = Math.min(
+    viewfinderWidth,
+    viewfinderHeight
+  );
+
+  const qrSize = Math.floor(minEdge * 0.7);
+
+  return {
+    width: qrSize,
+    height: qrSize,
+  };
+
+},
         },
         async (decodedText) => {
           if (hasScanned) return;
@@ -961,38 +976,84 @@ export default function CustomerReviews() {
         </div>
       </div>
 
-      {showScanner && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[999] p-4">
-          <div className="bg-white rounded-2xl p-4 w-full max-w-[360px] shadow-2xl">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold">Scan Aadhaar QR</h2>
+     {showScanner && (
+  <div className="fixed inset-0 z-[999] bg-black/70 backdrop-blur-sm flex items-center justify-center px-4 py-4">
 
-              <button
-                onClick={() => {
-                  setShowScanner(false);
-                  setScannerError("");
-                }}
-                className="text-red-600 font-bold text-xl"
-              >
-                ✕
-              </button>
+    <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+
+        <div>
+          <h2 className="text-lg font-bold text-gray-900">
+            Scan Aadhaar QR
+          </h2>
+
+          <p className="text-xs text-gray-500 mt-1">
+            Position QR inside the box
+          </p>
+        </div>
+
+        <button
+          onClick={() => {
+            setShowScanner(false);
+            setScannerError("");
+          }}
+          className="text-red-500 text-3xl leading-none hover:text-red-600"
+        >
+          ×
+        </button>
+
+      </div>
+
+      {/* Scanner Area */}
+      <div className="p-4">
+
+        <div className="relative rounded-2xl overflow-hidden bg-black aspect-[3/4] shadow-inner">
+
+          {/* QR Scanner */}
+          <div
+            id="aadhaar-qr-reader"
+            className="w-full h-full"
+          />
+
+          {/* Overlay */}
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+
+            <div className="relative w-56 h-56 rounded-2xl border-4 border-white shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]">
+
+              {/* Corner Decorations */}
+              <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-purple-500 rounded-tl-xl" />
+              <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-purple-500 rounded-tr-xl" />
+              <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-purple-500 rounded-bl-xl" />
+              <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-purple-500 rounded-br-xl" />
+
             </div>
 
-            <div
-              id="aadhaar-qr-reader"
-              className="w-full max-h-[320px] overflow-hidden rounded-xl border"
-            />
-
-            {scannerError && (
-              <p className="text-sm text-red-600 mt-3">{scannerError}</p>
-            )}
-
-            <p className="text-xs text-gray-500 mt-3">
-              Allow camera access and place the Aadhaar QR code inside the box.
-            </p>
           </div>
+
         </div>
-      )}
+
+        {/* Error */}
+        {scannerError && (
+          <div className="mt-4 bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3 text-center">
+            {scannerError}
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="mt-4 text-center">
+          <p className="text-sm text-gray-500 leading-relaxed">
+            Allow camera access and place the Aadhaar QR code inside the scanning frame.
+          </p>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+)}
 
       {popup && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[999] p-4">

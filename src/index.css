@@ -6,3 +6,27 @@
 .input {
   @apply w-full border p-3 rounded-lg mb-3;
 }
+
+#aadhaar-qr-reader {
+  border: none !important;
+  background: black !important;
+}
+
+#aadhaar-qr-reader video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 16px;
+}
+
+#aadhaar-qr-reader__scan_region {
+  background: transparent !important;
+}
+
+#aadhaar-qr-reader img {
+  display: none !important;
+}
+
+#aadhaar-qr-reader span {
+  display: none !important;
+}
