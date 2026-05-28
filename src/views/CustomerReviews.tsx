@@ -1001,13 +1001,13 @@ if (qrData?.aadhaarNumber) {
                 name:
                   aadhaarData?.name,
 
-                aadhaarNumber:
+                aadhaar:
                   aadhaarData?.aadhaarNumber,
 
                 gender:
                   aadhaarData?.gender,
 
-                address:
+                customerAddress:
                   aadhaarData?.address,
 
                 phoneNumber:
@@ -1340,13 +1340,13 @@ if (qrData?.aadhaarNumber) {
                 name:
                   aadhaarData?.name,
 
-                aadhaarNumber:
+                aadhaar:
                   aadhaarData?.aadhaarNumber,
 
                 gender:
                   aadhaarData?.gender,
 
-                address:
+                customerAddress:
                   aadhaarData?.address,
 
                 phoneNumber:
