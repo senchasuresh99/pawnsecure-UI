@@ -430,11 +430,11 @@ export default function DealerDashboard() {
                     <p className="text-sm opacity-80">Open for business</p>
                   </div>
 
-                  <div>
+                  {/* <div>
                     <p className="text-sm opacity-80">Notifications</p>
                     <h3 className="text-xl font-bold">5 New</h3>
                     <p className="text-sm opacity-80">Need attention</p>
-                  </div>
+                  </div> */}
                 </div>
               </div>
 
