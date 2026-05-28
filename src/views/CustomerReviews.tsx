@@ -810,8 +810,6 @@ if (qrData?.aadhaarNumber) {
                 </div>
               </div>
             </div>
-
-            ```tsx
 {showRegister && (
 
   <div className="bg-white border border-gray-100 rounded-3xl p-6 mt-6 shadow-sm">
@@ -1155,8 +1153,6 @@ if (qrData?.aadhaarNumber) {
               </button>
             </div>
           </div>
-
-          ```tsx
 {showRegister && (
 
   <div className="mx-4 bg-white border border-gray-100 rounded-3xl p-5 mt-5 shadow-sm">
