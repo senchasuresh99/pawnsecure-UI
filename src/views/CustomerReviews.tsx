@@ -18,7 +18,7 @@ import {
   FaTrash,
 } from "react-icons/fa";
 
-const API_BASE = "http://localhost:8080/api";
+const API_BASE = "https://pawnsecure-1.onrender.com/api";
 
 export default function CustomerReviews() {
   const navigate = useNavigate();
@@ -43,7 +43,6 @@ export default function CustomerReviews() {
   const [scannerError, setScannerError] = useState("");
   const [uploadingQR, setUploadingQR] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [aadhaarData, setAadhaarData] = useState<any>(null);
 
   const [deletingReviewId, setDeletingReviewId] = useState<
     number | string | null
@@ -113,165 +112,84 @@ export default function CustomerReviews() {
     setPopup(null);
   }
 
-function extractAadhaarFromQR(text: string) {
-  const cleanedText =
-    text.replace(/\0/g, "");
-  // Aadhaar Number
-  const digits =
-    cleanedText.replace(/\D/g, "");
+  // ✅ RESTORED: Secure QR detection for the camera scanner
+  function extractAadhaarFromQR(text: string) {
+    if (!text) return "";
 
-  const aadhaarMatch =
-    digits.match(/\d{12}/);
+    const xmlMatch = text.match(/uid\s*=\s*"(\d{12})"/i);
+    if (xmlMatch) return xmlMatch[1];
 
-  const aadhaarNumber =
-    aadhaarMatch
-      ? aadhaarMatch[0]
-      : "";
-
-  // XML attribute parser
-  function getValue(key: string) {
-
-    const match =
-      cleanedText.match(
-        new RegExp(`${key}="([^"]*)"`)
-      );
-
-    return match
-      ? match[1]
-      : "";
-
-  }
-
-  // Name
-  const name =
-    getValue("name") ||
-    getValue("n");
-
-  // Gender
-  let gender =
-    getValue("gender") ||
-    getValue("g");
-
-  if (gender === "M") {
-    gender = "Male";
-  }
-
-  if (gender === "F") {
-    gender = "Female";
-  }
-
-  // Address
-  const house =
-    getValue("house");
-
-  const street =
-    getValue("street");
-
-  const loc =
-    getValue("loc");
-
-  const vtc =
-    getValue("vtc");
-
-  const dist =
-    getValue("dist");
-
-  const state =
-    getValue("state");
-
-  const pc =
-    getValue("pc");
-
-  const address = [
-
-    house,
-    street,
-    loc,
-    vtc,
-    dist,
-    state,
-    pc,
-
-  ]
-    .filter(Boolean)
-    .join(", ");
-
-  return {
-
-    aadhaarNumber,
-
-    name,
-
-    gender,
-
-    address,
-
-  };
-
-}
-
-  async function handleQRFileUpload(file: File) {
-
-  setUploadingQR(true);
-  setScannerError("");
-
-  const scanner = new Html5Qrcode(
-    "aadhaar-file-reader"
-  );
-
-  try {
-
-    const decodedText =
-      await scanner.scanFile(file, true);
-
-    const qrData =
-      extractAadhaarFromQR(decodedText);
-
-    if (qrData?.aadhaarNumber) {
-
-      setAadhaar(qrData.aadhaarNumber);
-
-      setAadhaarData(qrData);
-
-      showPopup(
-        "success",
-        "Aadhaar QR uploaded and details auto-filled"
-      );
-
-    } else {
-
-      showPopup(
-        "error",
-        "QR uploaded, but Aadhaar number not found."
-      );
-
+    if (text.length < 50) {
+      const digits = text.replace(/\D/g, "");
+      const match = digits.match(/\d{12}/);
+      return match ? match[0] : "";
     }
+
+    return "SECURE_QR_DETECTED";
+  }
+
+  // ✅ RESTORED: Backend verification for Image Uploads
+  async function handleQRFileUpload(file: File) {
+    const token = getToken();
+    const formData = new FormData();
+    formData.append("file", file);
 
     try {
+      setUploadingQR(true);
+      setScannerError("");
+      setCustomer(null);
+      setShowRegister(false);
 
-      scanner.clear();
+      const response = await fetch(`${API_BASE}/customers/verify/aadhaar-qr`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
 
-    } catch {}
+      if (!response.ok) {
+        showPopup("error", "Unable to read QR from image");
+        return;
+      }
 
-  } catch {
+      const data = await response.json();
+      console.log("QR Backend Response:", data); 
 
-    showPopup(
-      "error",
-      "Could not read QR from uploaded image."
-    );
+      if (data.id || data.name || data.fullName || data.customer_name || data.maskedAadhaar || data.aadhaarNumber) {
+        setAadhaar(data.maskedAadhaar || data.aadhaarNumber || data.uid || "");
+        
+        const parsedCustomer = {
+          id: data.id || data.customerId || "", 
+          name: data.name || data.fullName || data.customer_name || "Unknown Customer",
+          reviews: data.reviews || [],
+          address: data.address || "",
+          dob: data.dob || ""
+        };
 
-  } finally {
+        if (parsedCustomer.id) {
+          setCustomer(parsedCustomer);
+          showPopup("success", "Customer verified and loaded from QR!");
+        } else {
+          showPopup("success", "QR scanned successfully. Click Search.");
+        }
 
-    setUploadingQR(false);
+      } else {
+        const backendMessage = data.message || data.error || JSON.stringify(data);
+        showPopup("error", `Backend says: ${backendMessage}`);
+      }
 
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+    } catch {
+      showPopup("error", "QR upload failed or server offline.");
+    } finally {
+      setUploadingQR(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
-
   }
 
-}
-
+  // ✅ RESTORED: Camera scanner logic handling Secure QRs
   useEffect(() => {
     if (!showScanner) return;
 
@@ -283,50 +201,36 @@ function extractAadhaarFromQR(text: string) {
       .start(
         { facingMode: "environment" },
         {
-  fps: 10,
-
-  aspectRatio: 1,
-
-  qrbox: (
-    viewfinderWidth: number,
-    viewfinderHeight: number
-  ) => {
-
-    const minEdge = Math.min(
-      viewfinderWidth,
-      viewfinderHeight
-    );
-
-    const qrSize = Math.floor(minEdge * 0.7);
-
-    return {
-      width: qrSize,
-      height: qrSize,
-    };
-
-  },
-
-},
+          fps: 15,
+          qrbox: (width, height) => {
+            const size = Math.min(width, height) * 0.75;
+            return { width: size, height: size };
+          },
+        },
         async (decodedText) => {
           if (hasScanned) return;
 
-          const qrData =
-  extractAadhaarFromQR(decodedText);
+          const extractionResult = extractAadhaarFromQR(decodedText);
 
-if (qrData?.aadhaarNumber) {
-
-  hasScanned = true;
-
-  setAadhaar(qrData.aadhaarNumber);
-
-  setAadhaarData(qrData);
-
-  setScannerError("");
-
-  showPopup(
-    "success",
-    "Aadhaar QR scanned successfully"
-  );
+          if (extractionResult === "SECURE_QR_DETECTED") {
+            hasScanned = true;
+            setScannerError("");
+            showPopup(
+              "error", 
+              "Secure QR detected. Use the 'Upload' button to process this image via the backend."
+            );
+            try {
+              if (isScannerRunning) {
+                await scanner.stop();
+                scanner.clear();
+                isScannerRunning = false;
+              }
+            } catch {}
+            setShowScanner(false);
+          } else if (extractionResult) {
+            hasScanned = true;
+            setAadhaar(extractionResult);
+            setScannerError("");
 
             try {
               if (isScannerRunning) {
@@ -334,13 +238,10 @@ if (qrData?.aadhaarNumber) {
                 scanner.clear();
                 isScannerRunning = false;
               }
-            } catch {
-              // ignore scanner stop/clear error
-            }
-
+            } catch {}
             setShowScanner(false);
           } else {
-            setScannerError("QR scanned, but Aadhaar number not found.");
+            setScannerError("QR scanned, but valid Aadhaar format not recognized.");
           }
         },
         () => {}
@@ -357,27 +258,17 @@ if (qrData?.aadhaarNumber) {
         scanner
           .stop()
           .then(() => {
-            try {
-              scanner.clear();
-            } catch {
-              // ignore clear error
-            }
+            try { scanner.clear(); } catch {}
           })
-          .catch(() => {
-            // ignore stop error
-          });
+          .catch(() => {});
       } else {
-        try {
-          scanner.clear();
-        } catch {
-          // ignore clear error
-        }
+        try { scanner.clear(); } catch {}
       }
     };
   }, [showScanner]);
 
   async function searchCustomer() {
-    if (aadhaar.length !== 12) {
+    if (aadhaar.length !== 12 && !aadhaar.includes("XXXX")) {
       showPopup("error", "Enter valid 12-digit Aadhaar");
       return;
     }
@@ -438,7 +329,7 @@ if (qrData?.aadhaarNumber) {
 
   async function submitReview() {
     if (!customer?.id) {
-      showPopup("error", "Please search customer first");
+      showPopup("error", "Critical Error: Customer ID missing from profile. Please verify backend returns ID.");
       return;
     }
 
@@ -557,7 +448,9 @@ if (qrData?.aadhaarNumber) {
   }
 
   function maskAadhaar(a: string) {
-    if (!a || a.length !== 12) return a;
+    if (!a) return "";
+    if (a.includes("XXXX")) return a;
+    if (a.length !== 12) return a;
     return `XXXX-XXXX-${a.slice(8)}`;
   }
 
@@ -783,9 +676,7 @@ if (qrData?.aadhaarNumber) {
                     <FaSearch className="text-gray-400 mr-3" />
                     <input
                       value={maskAadhaar(aadhaar)}
-                      onChange={(e) =>
-                        setAadhaar(e.target.value.replace(/\D/g, ""))
-                      }
+                      onChange={(e) => setAadhaar(e.target.value)}
                       maxLength={14}
                       className="w-full outline-none text-sm bg-transparent"
                       placeholder="Enter Aadhaar number"
@@ -852,223 +743,12 @@ if (qrData?.aadhaarNumber) {
                 </div>
               </div>
             </div>
-{showRegister && (
 
-  <div className="bg-white border border-gray-100 rounded-3xl p-6 mt-6 shadow-sm">
-
-    <div className="flex items-start justify-between gap-4">
-
-      <div>
-
-        <h2 className="text-2xl font-bold text-gray-900">
-          Register New Customer
-        </h2>
-
-        <p className="text-sm text-gray-500 mt-1">
-          Aadhaar details auto-filled from QR scan
-        </p>
-
-      </div>
-
-      <div className="bg-yellow-100 text-yellow-700 text-xs font-bold px-3 py-1 rounded-full">
-        CUSTOMER NOT FOUND
-      </div>
-
-    </div>
-
-    <div className="grid grid-cols-2 gap-4 mt-6">
-
-      <div>
-
-        <label className="text-sm font-semibold text-gray-700">
-          Full Name
-        </label>
-
-        <input
-          value={aadhaarData?.name || ""}
-          readOnly
-          className="w-full mt-2 border rounded-2xl px-4 py-3 bg-gray-100 text-gray-700"
-        />
-
-      </div>
-
-      <div>
-
-        <label className="text-sm font-semibold text-gray-700">
-          Aadhaar Number
-        </label>
-
-        <input
-          value={aadhaarData?.aadhaarNumber || ""}
-          readOnly
-          className="w-full mt-2 border rounded-2xl px-4 py-3 bg-gray-100 text-gray-700"
-        />
-
-      </div>
-
-      <div>
-
-        <label className="text-sm font-semibold text-gray-700">
-          Gender
-        </label>
-
-        <input
-          value={aadhaarData?.gender || ""}
-          readOnly
-          className="w-full mt-2 border rounded-2xl px-4 py-3 bg-gray-100 text-gray-700"
-        />
-
-      </div>
-
-      <div>
-
-        <label className="text-sm font-semibold text-gray-700">
-          Mobile Number
-        </label>
-
-        <input
-          value={comment}
-          onChange={(e) =>
-            setComment(
-              e.target.value.replace(/\D/g, "")
-            )
-          }
-          maxLength={10}
-          placeholder="Enter mobile number"
-          className="w-full mt-2 border rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500"
-        />
-
-      </div>
-
-    </div>
-
-    <div className="mt-4">
-
-      <label className="text-sm font-semibold text-gray-700">
-        Address
-      </label>
-
-      <textarea
-        value={aadhaarData?.address || ""}
-        readOnly
-        rows={3}
-        className="w-full mt-2 border rounded-2xl px-4 py-3 bg-gray-100 text-gray-700"
-      />
-
-    </div>
-
-    <button
-      onClick={async () => {
-
-        const token =
-          localStorage.getItem("ps_token");
-
-        if (comment.length !== 10) {
-
-          showPopup(
-            "error",
-            "Enter valid mobile number"
-          );
-
-          return;
-
-        }
-
-        try {
-
-          setLoading(true);
-
-          const response = await fetch(
-
-            `${API_BASE}/customers`,
-
-            {
-
-              method: "POST",
-
-              headers: {
-
-                "Content-Type":
-                  "application/json",
-
-                Authorization:
-                  `Bearer ${token}`,
-
-              },
-
-body: JSON.stringify({
-
-  name:
-    aadhaarData?.name || "",
-
-  aadhaar:
-    aadhaarData?.aadhaarNumber || "",
-
-  gender:
-    aadhaarData?.gender || "",
-
-  customerAddress:
-    aadhaarData?.address || "",
-
-  phoneNumber:
-    comment || "",
-
-}),
-
-            }
-
-          );
-
-          const message =
-            await response.text();
-
-          if (!response.ok) {
-
-            showPopup(
-              "error",
-              message
-            );
-
-            return;
-
-          }
-
-          showPopup(
-            "success",
-            "Customer registered successfully"
-          );
-
-          setShowRegister(false);
-
-          setComment("");
-
-          searchCustomer();
-
-        } catch {
-
-          showPopup(
-            "error",
-            "Server error"
-          );
-
-        } finally {
-
-          setLoading(false);
-
-        }
-
-      }}
-      disabled={loading}
-      className="mt-6 w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-2xl font-bold"
-    >
-      {loading
-        ? "Registering..."
-        : "Register Customer"}
-    </button>
-
-  </div>
-
-)}
+            {showRegister && (
+              <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-2xl p-4 mt-6">
+                Customer not found. Please register customer first.
+              </div>
+            )}
 
             {customer && (
               <div className="mt-6 max-w-3xl">
@@ -1154,9 +834,7 @@ body: JSON.stringify({
                 <FaSearch className="text-gray-400 mr-3" />
                 <input
                   value={maskAadhaar(aadhaar)}
-                  onChange={(e) =>
-                    setAadhaar(e.target.value.replace(/\D/g, ""))
-                  }
+                  onChange={(e) => setAadhaar(e.target.value)}
                   maxLength={14}
                   className="w-full outline-none text-sm bg-transparent"
                   placeholder="Enter Aadhaar"
@@ -1195,219 +873,12 @@ body: JSON.stringify({
               </button>
             </div>
           </div>
-{showRegister && (
 
-  <div className="mx-4 bg-white border border-gray-100 rounded-3xl p-5 mt-5 shadow-sm">
-
-    <div className="flex items-center justify-between">
-
-      <h2 className="text-xl font-bold text-gray-900">
-        Register Customer
-      </h2>
-
-      <div className="bg-yellow-100 text-yellow-700 text-[10px] font-bold px-2 py-1 rounded-full">
-        NOT FOUND
-      </div>
-
-    </div>
-
-    <p className="text-sm text-gray-500 mt-1">
-      Aadhaar details auto-filled
-    </p>
-
-    <div className="mt-5 space-y-4">
-
-      <div>
-
-        <label className="text-sm font-semibold text-gray-700">
-          Full Name
-        </label>
-
-        <input
-          value={aadhaarData?.name || ""}
-          readOnly
-          className="w-full mt-2 border rounded-xl px-4 py-3 bg-gray-100"
-        />
-
-      </div>
-
-      <div>
-
-        <label className="text-sm font-semibold text-gray-700">
-          Aadhaar Number
-        </label>
-
-        <input
-          value={aadhaarData?.aadhaarNumber || ""}
-          readOnly
-          className="w-full mt-2 border rounded-xl px-4 py-3 bg-gray-100"
-        />
-
-      </div>
-
-      <div>
-
-        <label className="text-sm font-semibold text-gray-700">
-          Gender
-        </label>
-
-        <input
-          value={aadhaarData?.gender || ""}
-          readOnly
-          className="w-full mt-2 border rounded-xl px-4 py-3 bg-gray-100"
-        />
-
-      </div>
-
-      <div>
-
-        <label className="text-sm font-semibold text-gray-700">
-          Address
-        </label>
-
-        <textarea
-          value={aadhaarData?.address || ""}
-          readOnly
-          rows={3}
-          className="w-full mt-2 border rounded-xl px-4 py-3 bg-gray-100"
-        />
-
-      </div>
-
-      <div>
-
-        <label className="text-sm font-semibold text-gray-700">
-          Mobile Number
-        </label>
-
-        <input
-          value={comment}
-          onChange={(e) =>
-            setComment(
-              e.target.value.replace(/\D/g, "")
-            )
-          }
-          maxLength={10}
-          placeholder="Enter mobile number"
-          className="w-full mt-2 border rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500"
-        />
-
-      </div>
-
-    </div>
-
-    <button
-      onClick={async () => {
-
-        const token =
-          localStorage.getItem("ps_token");
-
-        if (comment.length !== 10) {
-
-          showPopup(
-            "error",
-            "Enter valid mobile number"
-          );
-
-          return;
-
-        }
-
-        try {
-
-          setLoading(true);
-
-          const response = await fetch(
-
-            `${API_BASE}/customers`,
-
-            {
-
-              method: "POST",
-
-              headers: {
-
-                "Content-Type":
-                  "application/json",
-
-                Authorization:
-                  `Bearer ${token}`,
-
-              },
-
-              body: JSON.stringify({
-
-                name:
-                  aadhaarData?.name,
-
-                aadhaar:
-                  aadhaarData?.aadhaarNumber,
-
-                gender:
-                  aadhaarData?.gender,
-
-                customerAddress:
-                  aadhaarData?.address,
-
-                phoneNumber:
-                  comment,
-
-              }),
-
-            }
-
-          );
-
-          const message =
-            await response.text();
-
-          if (!response.ok) {
-
-            showPopup(
-              "error",
-              message
-            );
-
-            return;
-
-          }
-
-          showPopup(
-            "success",
-            "Customer registered successfully"
-          );
-
-          setShowRegister(false);
-
-          setComment("");
-
-          searchCustomer();
-
-        } catch {
-
-          showPopup(
-            "error",
-            "Server error"
-          );
-
-        } finally {
-
-          setLoading(false);
-
-        }
-
-      }}
-      disabled={loading}
-      className="mt-6 w-full bg-purple-600 text-white py-4 rounded-xl font-bold"
-    >
-      {loading
-        ? "Registering..."
-        : "Register Customer"}
-    </button>
-
-  </div>
-
-)}
+          {showRegister && (
+            <div className="mx-4 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-xl p-3 mt-5 text-sm">
+              Customer not found. Please register customer first.
+            </div>
+          )}
 
           {customer && (
             <div ref={resultRef} className="px-4 mt-5">
@@ -1531,68 +1002,38 @@ body: JSON.stringify({
         </div>
       </div>
 
-{showScanner && (
-  <div className="fixed inset-0 z-[999] bg-black/70 backdrop-blur-sm flex items-center justify-center px-4 py-4">
+      {showScanner && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[999] p-4">
+          <div className="bg-white rounded-2xl p-4 w-full max-w-[360px] shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-bold">Scan Aadhaar QR</h2>
 
-    <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden">
+              <button
+                onClick={() => {
+                  setShowScanner(false);
+                  setScannerError("");
+                }}
+                className="text-red-600 font-bold text-xl"
+              >
+                ✕
+              </button>
+            </div>
 
-      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <div
+              id="aadhaar-qr-reader"
+              className="w-full max-h-[320px] overflow-hidden rounded-xl border"
+            />
 
-        <div>
-          <h2 className="text-lg font-bold text-gray-900">
-            Scan Aadhaar QR
-          </h2>
+            {scannerError && (
+              <p className="text-sm text-red-600 mt-3">{scannerError}</p>
+            )}
 
-          <p className="text-xs text-gray-500 mt-1">
-            Position QR inside the box
-          </p>
-        </div>
-
-        <button
-          onClick={() => {
-            setShowScanner(false);
-            setScannerError("");
-          }}
-          className="text-red-500 text-3xl leading-none hover:text-red-600"
-        >
-          ×
-        </button>
-
-      </div>
-
-      <div className="p-4">
-
-        <div className="relative rounded-2xl overflow-hidden bg-black aspect-[3/4]">
-
-          <div
-            id="aadhaar-qr-reader"
-            className="w-full h-full"
-          />
-
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-
-            <div className="w-56 h-56 border-4 border-white rounded-2xl shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]" />
-
+            <p className="text-xs text-gray-500 mt-3">
+              Allow camera access and place the Aadhaar QR code inside the box.
+            </p>
           </div>
-
         </div>
-
-        {scannerError && (
-          <p className="text-sm text-red-600 mt-4 text-center">
-            {scannerError}
-          </p>
-        )}
-
-        <p className="text-xs text-gray-500 text-center mt-4 leading-relaxed">
-          Place Aadhaar QR code inside the scanning box
-        </p>
-
-      </div>
-
-    </div>
-
-  </div>
-)}
+      )}
 
       {popup && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[999] p-4">

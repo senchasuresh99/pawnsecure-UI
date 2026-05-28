@@ -5,6 +5,7 @@ import ResetPassword from "./views/ResetPassword";
 import AdminDashboard from "./admin/AdminDashboard";
 import CustomerReviews from "./views/CustomerReviews";
 import DealerDashboard from "./dealer/DealerDashboard";
+import RegisterCustomer from "./views/RegisterCustomer";
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
       {/* ✅ Dealer routes */}
       <Route path="/dealer/dashboard" element={<DealerDashboard />} />
       <Route path="/dealer/customer-search" element={<CustomerReviews />} />
+      <Route path="/dealer/customer" element={<RegisterCustomer />} />
     </Routes>
   );
 }
