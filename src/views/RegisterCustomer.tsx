@@ -88,26 +88,24 @@ export default function RegisterCustomer() {
               `Bearer ${token}`,
 
           },
+body: JSON.stringify({
 
-          body: JSON.stringify({
+  name:
+    formData.fullName,
 
-            name:
-              formData.fullName,
+  aadhaar:
+    formData.aadhaarNumber,
 
-            aadhaarNumber:
-              formData.aadhaarNumber,
+  gender:
+    formData.gender,
 
-            gender:
-              formData.gender,
+  customerAddress:
+    formData.address,
 
-            address:
-              formData.address,
+  phoneNumber:
+    formData.mobileNumber,
 
-            phoneNumber:
-              formData.mobileNumber,
-
-          }),
-
+}),
         }
 
       );
