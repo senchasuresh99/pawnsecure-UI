@@ -996,24 +996,24 @@ if (qrData?.aadhaarNumber) {
 
               },
 
-              body: JSON.stringify({
+body: JSON.stringify({
 
-                name:
-                  aadhaarData?.name,
+  name:
+    aadhaarData?.name || "",
 
-                aadhaar:
-                  aadhaarData?.aadhaarNumber,
+  aadhaar:
+    aadhaarData?.aadhaarNumber || "",
 
-                gender:
-                  aadhaarData?.gender,
+  gender:
+    aadhaarData?.gender || "",
 
-                customerAddress:
-                  aadhaarData?.address,
+  customerAddress:
+    aadhaarData?.address || "",
 
-                phoneNumber:
-                  comment,
+  phoneNumber:
+    comment || "",
 
-              }),
+}),
 
             }
 
