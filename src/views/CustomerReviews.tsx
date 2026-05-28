@@ -113,57 +113,99 @@ export default function CustomerReviews() {
     setPopup(null);
   }
 
-  function extractAadhaarFromQR(text: string) {
+function extractAadhaarFromQR(text: string) {
+  const cleanedText =
+    text.replace(/\0/g, "");
+  // Aadhaar Number
+  const digits =
+    cleanedText.replace(/\D/g, "");
 
-  const cleanedText = text.replace(/\0/g, "");
+  const aadhaarMatch =
+    digits.match(/\d{12}/);
 
-  const digits = cleanedText.replace(/\D/g, "");
-  const aadhaarMatch = digits.match(/\d{12}/);
+  const aadhaarNumber =
+    aadhaarMatch
+      ? aadhaarMatch[0]
+      : "";
 
-  const aadhaarNumber = aadhaarMatch
-    ? aadhaarMatch[0]
-    : "";
+  // XML attribute parser
+  function getValue(key: string) {
 
-  let name = "";
-  let gender = "";
-  let address = "";
+    const match =
+      cleanedText.match(
+        new RegExp(`${key}="([^"]*)"`)
+      );
 
-  const lines = cleanedText
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean);
-
-  for (const line of lines) {
-
-    if (
-      !name &&
-      /^[A-Za-z ]+$/.test(line) &&
-      line.length > 3
-    ) {
-      name = line;
-    }
-
-    if (
-      line.toLowerCase().includes("male")
-    ) {
-      gender = "Male";
-    }
-
-    if (
-      line.toLowerCase().includes("female")
-    ) {
-      gender = "Female";
-    }
+    return match
+      ? match[1]
+      : "";
 
   }
 
-  address = lines.slice(-3).join(", ");
+  // Name
+  const name =
+    getValue("name") ||
+    getValue("n");
+
+  // Gender
+  let gender =
+    getValue("gender") ||
+    getValue("g");
+
+  if (gender === "M") {
+    gender = "Male";
+  }
+
+  if (gender === "F") {
+    gender = "Female";
+  }
+
+  // Address
+  const house =
+    getValue("house");
+
+  const street =
+    getValue("street");
+
+  const loc =
+    getValue("loc");
+
+  const vtc =
+    getValue("vtc");
+
+  const dist =
+    getValue("dist");
+
+  const state =
+    getValue("state");
+
+  const pc =
+    getValue("pc");
+
+  const address = [
+
+    house,
+    street,
+    loc,
+    vtc,
+    dist,
+    state,
+    pc,
+
+  ]
+    .filter(Boolean)
+    .join(", ");
 
   return {
+
     aadhaarNumber,
+
     name,
+
     gender,
+
     address,
+
   };
 
 }
