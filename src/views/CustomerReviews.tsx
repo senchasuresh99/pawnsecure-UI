@@ -43,6 +43,7 @@ export default function CustomerReviews() {
   const [scannerError, setScannerError] = useState("");
   const [uploadingQR, setUploadingQR] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [aadhaarData, setAadhaarData] = useState<any>(null);
 
   const [deletingReviewId, setDeletingReviewId] = useState<
     number | string | null
@@ -113,43 +114,121 @@ export default function CustomerReviews() {
   }
 
   function extractAadhaarFromQR(text: string) {
-    const digits = text.replace(/\D/g, "");
-    const match = digits.match(/\d{12}/);
-    return match ? match[0] : "";
+
+  const cleanedText = text.replace(/\0/g, "");
+
+  const digits = cleanedText.replace(/\D/g, "");
+  const aadhaarMatch = digits.match(/\d{12}/);
+
+  const aadhaarNumber = aadhaarMatch
+    ? aadhaarMatch[0]
+    : "";
+
+  let name = "";
+  let gender = "";
+  let address = "";
+
+  const lines = cleanedText
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  for (const line of lines) {
+
+    if (
+      !name &&
+      /^[A-Za-z ]+$/.test(line) &&
+      line.length > 3
+    ) {
+      name = line;
+    }
+
+    if (
+      line.toLowerCase().includes("male")
+    ) {
+      gender = "Male";
+    }
+
+    if (
+      line.toLowerCase().includes("female")
+    ) {
+      gender = "Female";
+    }
+
   }
+
+  address = lines.slice(-3).join(", ");
+
+  return {
+    aadhaarNumber,
+    name,
+    gender,
+    address,
+  };
+
+}
 
   async function handleQRFileUpload(file: File) {
-    setUploadingQR(true);
-    setScannerError("");
 
-    const scanner = new Html5Qrcode("aadhaar-file-reader");
+  setUploadingQR(true);
+  setScannerError("");
+
+  const scanner = new Html5Qrcode(
+    "aadhaar-file-reader"
+  );
+
+  try {
+
+    const decodedText =
+      await scanner.scanFile(file, true);
+
+    const qrData =
+      extractAadhaarFromQR(decodedText);
+
+    if (qrData?.aadhaarNumber) {
+
+      setAadhaar(qrData.aadhaarNumber);
+
+      setAadhaarData(qrData);
+
+      showPopup(
+        "success",
+        "Aadhaar QR uploaded and details auto-filled"
+      );
+
+    } else {
+
+      showPopup(
+        "error",
+        "QR uploaded, but Aadhaar number not found."
+      );
+
+    }
 
     try {
-      const decodedText = await scanner.scanFile(file, true);
-      const extractedAadhaar = extractAadhaarFromQR(decodedText);
 
-      if (extractedAadhaar) {
-        setAadhaar(extractedAadhaar);
-        showPopup("success", "Aadhaar QR uploaded and Aadhaar auto-filled");
-      } else {
-        showPopup("error", "QR uploaded, but Aadhaar number not found.");
-      }
+      scanner.clear();
 
-      try {
-        scanner.clear();
-      } catch {
-        // ignore clear error
-      }
-    } catch {
-      showPopup("error", "Could not read QR from uploaded image.");
-    } finally {
-      setUploadingQR(false);
+    } catch {}
 
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+  } catch {
+
+    showPopup(
+      "error",
+      "Could not read QR from uploaded image."
+    );
+
+  } finally {
+
+    setUploadingQR(false);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
+
   }
+
+}
 
   useEffect(() => {
     if (!showScanner) return;
@@ -162,34 +241,50 @@ export default function CustomerReviews() {
       .start(
         { facingMode: "environment" },
         {
-          fps: 10,
-aspectRatio: 1,
-qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+  fps: 10,
 
-  const minEdge = Math.min(
-    viewfinderWidth,
-    viewfinderHeight
-  );
+  aspectRatio: 1,
 
-  const qrSize = Math.floor(minEdge * 0.7);
+  qrbox: (
+    viewfinderWidth: number,
+    viewfinderHeight: number
+  ) => {
 
-  return {
-    width: qrSize,
-    height: qrSize,
-  };
+    const minEdge = Math.min(
+      viewfinderWidth,
+      viewfinderHeight
+    );
+
+    const qrSize = Math.floor(minEdge * 0.7);
+
+    return {
+      width: qrSize,
+      height: qrSize,
+    };
+
+  },
 
 },
-        },
         async (decodedText) => {
           if (hasScanned) return;
 
-          const extractedAadhaar = extractAadhaarFromQR(decodedText);
+          const qrData =
+  extractAadhaarFromQR(decodedText);
 
-          if (extractedAadhaar) {
-            hasScanned = true;
+if (qrData?.aadhaarNumber) {
 
-            setAadhaar(extractedAadhaar);
-            setScannerError("");
+  hasScanned = true;
+
+  setAadhaar(qrData.aadhaarNumber);
+
+  setAadhaarData(qrData);
+
+  setScannerError("");
+
+  showPopup(
+    "success",
+    "Aadhaar QR scanned successfully"
+  );
 
             try {
               if (isScannerRunning) {
@@ -717,10 +812,36 @@ qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
             </div>
 
             {showRegister && (
-              <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-2xl p-4 mt-6">
-                Customer not found. Please register customer first.
-              </div>
-            )}
+
+  <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-5 mt-6">
+
+    <p className="text-yellow-700 font-bold">
+      Customer not found
+    </p>
+
+    <p className="text-sm text-yellow-600 mt-1">
+      Register customer using Aadhaar details
+    </p>
+
+    <button
+      onClick={() =>
+        navigate(
+          "/dealer/register-customer",
+          {
+            state: {
+              aadhaarData,
+            },
+          }
+        )
+      }
+      className="mt-4 bg-purple-600 hover:bg-purple-700 text-white px-5 py-3 rounded-xl font-semibold"
+    >
+      Register Customer →
+    </button>
+
+  </div>
+
+)}
 
             {customer && (
               <div className="mt-6 max-w-3xl">
@@ -849,10 +970,36 @@ qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
           </div>
 
           {showRegister && (
-            <div className="mx-4 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-xl p-3 mt-5 text-sm">
-              Customer not found. Please register customer first.
-            </div>
-          )}
+
+  <div className="mx-4 bg-yellow-50 border border-yellow-200 rounded-2xl p-4 mt-5">
+
+    <p className="text-yellow-700 font-bold">
+      Customer not found
+    </p>
+
+    <p className="text-sm text-yellow-600 mt-1">
+      Register customer using Aadhaar details
+    </p>
+
+    <button
+      onClick={() =>
+        navigate(
+          "/dealer/register-customer",
+          {
+            state: {
+              aadhaarData,
+            },
+          }
+        )
+      }
+      className="mt-4 w-full bg-purple-600 text-white py-3 rounded-xl font-semibold"
+    >
+      Register Customer →
+    </button>
+
+  </div>
+
+)}
 
           {customer && (
             <div ref={resultRef} className="px-4 mt-5">
@@ -976,12 +1123,11 @@ qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
         </div>
       </div>
 
-     {showScanner && (
+{showScanner && (
   <div className="fixed inset-0 z-[999] bg-black/70 backdrop-blur-sm flex items-center justify-center px-4 py-4">
 
-    <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+    <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden">
 
-      {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
 
         <div>
@@ -1006,47 +1152,32 @@ qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
 
       </div>
 
-      {/* Scanner Area */}
       <div className="p-4">
 
-        <div className="relative rounded-2xl overflow-hidden bg-black aspect-[3/4] shadow-inner">
+        <div className="relative rounded-2xl overflow-hidden bg-black aspect-[3/4]">
 
-          {/* QR Scanner */}
           <div
             id="aadhaar-qr-reader"
             className="w-full h-full"
           />
 
-          {/* Overlay */}
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
 
-            <div className="relative w-56 h-56 rounded-2xl border-4 border-white shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]">
-
-              {/* Corner Decorations */}
-              <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-purple-500 rounded-tl-xl" />
-              <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-purple-500 rounded-tr-xl" />
-              <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-purple-500 rounded-bl-xl" />
-              <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-purple-500 rounded-br-xl" />
-
-            </div>
+            <div className="w-56 h-56 border-4 border-white rounded-2xl shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]" />
 
           </div>
 
         </div>
 
-        {/* Error */}
         {scannerError && (
-          <div className="mt-4 bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3 text-center">
+          <p className="text-sm text-red-600 mt-4 text-center">
             {scannerError}
-          </div>
+          </p>
         )}
 
-        {/* Footer */}
-        <div className="mt-4 text-center">
-          <p className="text-sm text-gray-500 leading-relaxed">
-            Allow camera access and place the Aadhaar QR code inside the scanning frame.
-          </p>
-        </div>
+        <p className="text-xs text-gray-500 text-center mt-4 leading-relaxed">
+          Place Aadhaar QR code inside the scanning box
+        </p>
 
       </div>
 
