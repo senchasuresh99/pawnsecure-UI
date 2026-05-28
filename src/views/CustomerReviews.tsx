@@ -811,32 +811,219 @@ if (qrData?.aadhaarNumber) {
               </div>
             </div>
 
-            {showRegister && (
+            ```tsx
+{showRegister && (
 
-  <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-5 mt-6">
+  <div className="bg-white border border-gray-100 rounded-3xl p-6 mt-6 shadow-sm">
 
-    <p className="text-yellow-700 font-bold">
-      Customer not found
-    </p>
+    <div className="flex items-start justify-between gap-4">
 
-    <p className="text-sm text-yellow-600 mt-1">
-      Register customer using Aadhaar details
-    </p>
+      <div>
+
+        <h2 className="text-2xl font-bold text-gray-900">
+          Register New Customer
+        </h2>
+
+        <p className="text-sm text-gray-500 mt-1">
+          Aadhaar details auto-filled from QR scan
+        </p>
+
+      </div>
+
+      <div className="bg-yellow-100 text-yellow-700 text-xs font-bold px-3 py-1 rounded-full">
+        CUSTOMER NOT FOUND
+      </div>
+
+    </div>
+
+    <div className="grid grid-cols-2 gap-4 mt-6">
+
+      <div>
+
+        <label className="text-sm font-semibold text-gray-700">
+          Full Name
+        </label>
+
+        <input
+          value={aadhaarData?.name || ""}
+          readOnly
+          className="w-full mt-2 border rounded-2xl px-4 py-3 bg-gray-100 text-gray-700"
+        />
+
+      </div>
+
+      <div>
+
+        <label className="text-sm font-semibold text-gray-700">
+          Aadhaar Number
+        </label>
+
+        <input
+          value={aadhaarData?.aadhaarNumber || ""}
+          readOnly
+          className="w-full mt-2 border rounded-2xl px-4 py-3 bg-gray-100 text-gray-700"
+        />
+
+      </div>
+
+      <div>
+
+        <label className="text-sm font-semibold text-gray-700">
+          Gender
+        </label>
+
+        <input
+          value={aadhaarData?.gender || ""}
+          readOnly
+          className="w-full mt-2 border rounded-2xl px-4 py-3 bg-gray-100 text-gray-700"
+        />
+
+      </div>
+
+      <div>
+
+        <label className="text-sm font-semibold text-gray-700">
+          Mobile Number
+        </label>
+
+        <input
+          value={comment}
+          onChange={(e) =>
+            setComment(
+              e.target.value.replace(/\D/g, "")
+            )
+          }
+          maxLength={10}
+          placeholder="Enter mobile number"
+          className="w-full mt-2 border rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500"
+        />
+
+      </div>
+
+    </div>
+
+    <div className="mt-4">
+
+      <label className="text-sm font-semibold text-gray-700">
+        Address
+      </label>
+
+      <textarea
+        value={aadhaarData?.address || ""}
+        readOnly
+        rows={3}
+        className="w-full mt-2 border rounded-2xl px-4 py-3 bg-gray-100 text-gray-700"
+      />
+
+    </div>
 
     <button
-      onClick={() =>
-        navigate(
-          "/dealer/register-customer",
-          {
-            state: {
-              aadhaarData,
-            },
+      onClick={async () => {
+
+        const token =
+          localStorage.getItem("ps_token");
+
+        if (comment.length !== 10) {
+
+          showPopup(
+            "error",
+            "Enter valid mobile number"
+          );
+
+          return;
+
+        }
+
+        try {
+
+          setLoading(true);
+
+          const response = await fetch(
+
+            `${API_BASE}/customers`,
+
+            {
+
+              method: "POST",
+
+              headers: {
+
+                "Content-Type":
+                  "application/json",
+
+                Authorization:
+                  `Bearer ${token}`,
+
+              },
+
+              body: JSON.stringify({
+
+                name:
+                  aadhaarData?.name,
+
+                aadhaarNumber:
+                  aadhaarData?.aadhaarNumber,
+
+                gender:
+                  aadhaarData?.gender,
+
+                address:
+                  aadhaarData?.address,
+
+                phoneNumber:
+                  comment,
+
+              }),
+
+            }
+
+          );
+
+          const message =
+            await response.text();
+
+          if (!response.ok) {
+
+            showPopup(
+              "error",
+              message
+            );
+
+            return;
+
           }
-        )
-      }
-      className="mt-4 bg-purple-600 hover:bg-purple-700 text-white px-5 py-3 rounded-xl font-semibold"
+
+          showPopup(
+            "success",
+            "Customer registered successfully"
+          );
+
+          setShowRegister(false);
+
+          setComment("");
+
+          searchCustomer();
+
+        } catch {
+
+          showPopup(
+            "error",
+            "Server error"
+          );
+
+        } finally {
+
+          setLoading(false);
+
+        }
+
+      }}
+      disabled={loading}
+      className="mt-6 w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-2xl font-bold"
     >
-      Register Customer →
+      {loading
+        ? "Registering..."
+        : "Register Customer"}
     </button>
 
   </div>
@@ -969,32 +1156,215 @@ if (qrData?.aadhaarNumber) {
             </div>
           </div>
 
-          {showRegister && (
+          ```tsx
+{showRegister && (
 
-  <div className="mx-4 bg-yellow-50 border border-yellow-200 rounded-2xl p-4 mt-5">
+  <div className="mx-4 bg-white border border-gray-100 rounded-3xl p-5 mt-5 shadow-sm">
 
-    <p className="text-yellow-700 font-bold">
-      Customer not found
+    <div className="flex items-center justify-between">
+
+      <h2 className="text-xl font-bold text-gray-900">
+        Register Customer
+      </h2>
+
+      <div className="bg-yellow-100 text-yellow-700 text-[10px] font-bold px-2 py-1 rounded-full">
+        NOT FOUND
+      </div>
+
+    </div>
+
+    <p className="text-sm text-gray-500 mt-1">
+      Aadhaar details auto-filled
     </p>
 
-    <p className="text-sm text-yellow-600 mt-1">
-      Register customer using Aadhaar details
-    </p>
+    <div className="mt-5 space-y-4">
+
+      <div>
+
+        <label className="text-sm font-semibold text-gray-700">
+          Full Name
+        </label>
+
+        <input
+          value={aadhaarData?.name || ""}
+          readOnly
+          className="w-full mt-2 border rounded-xl px-4 py-3 bg-gray-100"
+        />
+
+      </div>
+
+      <div>
+
+        <label className="text-sm font-semibold text-gray-700">
+          Aadhaar Number
+        </label>
+
+        <input
+          value={aadhaarData?.aadhaarNumber || ""}
+          readOnly
+          className="w-full mt-2 border rounded-xl px-4 py-3 bg-gray-100"
+        />
+
+      </div>
+
+      <div>
+
+        <label className="text-sm font-semibold text-gray-700">
+          Gender
+        </label>
+
+        <input
+          value={aadhaarData?.gender || ""}
+          readOnly
+          className="w-full mt-2 border rounded-xl px-4 py-3 bg-gray-100"
+        />
+
+      </div>
+
+      <div>
+
+        <label className="text-sm font-semibold text-gray-700">
+          Address
+        </label>
+
+        <textarea
+          value={aadhaarData?.address || ""}
+          readOnly
+          rows={3}
+          className="w-full mt-2 border rounded-xl px-4 py-3 bg-gray-100"
+        />
+
+      </div>
+
+      <div>
+
+        <label className="text-sm font-semibold text-gray-700">
+          Mobile Number
+        </label>
+
+        <input
+          value={comment}
+          onChange={(e) =>
+            setComment(
+              e.target.value.replace(/\D/g, "")
+            )
+          }
+          maxLength={10}
+          placeholder="Enter mobile number"
+          className="w-full mt-2 border rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500"
+        />
+
+      </div>
+
+    </div>
 
     <button
-      onClick={() =>
-        navigate(
-          "/dealer/register-customer",
-          {
-            state: {
-              aadhaarData,
-            },
+      onClick={async () => {
+
+        const token =
+          localStorage.getItem("ps_token");
+
+        if (comment.length !== 10) {
+
+          showPopup(
+            "error",
+            "Enter valid mobile number"
+          );
+
+          return;
+
+        }
+
+        try {
+
+          setLoading(true);
+
+          const response = await fetch(
+
+            `${API_BASE}/customers`,
+
+            {
+
+              method: "POST",
+
+              headers: {
+
+                "Content-Type":
+                  "application/json",
+
+                Authorization:
+                  `Bearer ${token}`,
+
+              },
+
+              body: JSON.stringify({
+
+                name:
+                  aadhaarData?.name,
+
+                aadhaarNumber:
+                  aadhaarData?.aadhaarNumber,
+
+                gender:
+                  aadhaarData?.gender,
+
+                address:
+                  aadhaarData?.address,
+
+                phoneNumber:
+                  comment,
+
+              }),
+
+            }
+
+          );
+
+          const message =
+            await response.text();
+
+          if (!response.ok) {
+
+            showPopup(
+              "error",
+              message
+            );
+
+            return;
+
           }
-        )
-      }
-      className="mt-4 w-full bg-purple-600 text-white py-3 rounded-xl font-semibold"
+
+          showPopup(
+            "success",
+            "Customer registered successfully"
+          );
+
+          setShowRegister(false);
+
+          setComment("");
+
+          searchCustomer();
+
+        } catch {
+
+          showPopup(
+            "error",
+            "Server error"
+          );
+
+        } finally {
+
+          setLoading(false);
+
+        }
+
+      }}
+      disabled={loading}
+      className="mt-6 w-full bg-purple-600 text-white py-4 rounded-xl font-bold"
     >
-      Register Customer →
+      {loading
+        ? "Registering..."
+        : "Register Customer"}
     </button>
 
   </div>
