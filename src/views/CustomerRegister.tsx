@@ -52,6 +52,7 @@ export default function CustomerRegister() {
   const { setCustomer, loanDetails, setLoanDetails } = useGirvi();
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const autoNavigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
@@ -74,7 +75,6 @@ export default function CustomerRegister() {
 
   const [qrStep, setQrStep] = useState<QrStep>("idle");
 
-  // ✅ Used to know whether success popup should navigate to Girvi details
   const [goToGirviAfterSuccess, setGoToGirviAfterSuccess] = useState(false);
 
   useEffect(() => {
@@ -94,7 +94,6 @@ export default function CustomerRegister() {
     };
   }, [customerPhotoPreview]);
 
-  // ✅ Cleanup auto-navigation timer
   useEffect(() => {
     return () => {
       if (autoNavigateTimerRef.current) {
@@ -271,7 +270,7 @@ export default function CustomerRegister() {
         };
       }
 
-      // ✅ Fallback only Aadhaar number
+      // ✅ Fallback Aadhaar number only
       const extractedAadhaar = extractAadhaarFromQR(text);
 
       if (extractedAadhaar) {
@@ -288,60 +287,29 @@ export default function CustomerRegister() {
     }
   }
 
-  function handleScannedAadhaarQR(decodedText: string) {
-    const parsed = parseAadhaarQRText(decodedText);
-
-    if (!parsed) {
-      setScannerError(
-        "QR scanned, but Aadhaar details not found. Please upload Aadhaar QR image for full details."
-      );
-      return;
-    }
-
-    const scannedAadhaar = parsed.aadhaar || parsed.uid || "";
-
-    if (scannedAadhaar && scannedAadhaar.length === 12) {
-      setAadhaar(scannedAadhaar);
-    }
-
-    const hasFullDetails =
-      parsed.fullName ||
-      parsed.name ||
-      parsed.address ||
-      parsed.dob ||
-      parsed.gender;
-
-    if (hasFullDetails) {
-      goToAddCustomer({
-        fullName: parsed.fullName || parsed.name || "",
-        name: parsed.fullName || parsed.name || "",
-        aadhaar: scannedAadhaar,
-        uid: scannedAadhaar,
-        maskedAadhaar: parsed.maskedAadhaar || "",
-        gender: parsed.gender || "",
-        dob: parsed.dob || "",
-        address: parsed.address || "",
-        house: parsed.house,
-        street: parsed.street,
-        loc: parsed.loc,
-        vtc: parsed.vtc,
-        dist: parsed.dist,
-        state: parsed.state,
-        pc: parsed.pc,
-      });
-
-      return;
-    }
-
-    showPopup(
-      "success",
-      "Aadhaar number scanned. You can continue manual customer register."
-    );
-  }
-
   function maskAadhaar(a: string) {
     if (!a || a.length !== 12) return a;
     return `XXXX-XXXX-${a.slice(8)}`;
+  }
+
+  function validateQrScanBeforeOpen() {
+    if (!qrPhoneNumber || !/^[6-9]\d{9}$/.test(qrPhoneNumber)) {
+      showPopup(
+        "error",
+        "Please enter a valid 10-digit phone number before scanning Aadhaar QR"
+      );
+      return false;
+    }
+
+    if (!customerPhoto) {
+      showPopup(
+        "error",
+        "Please upload customer photo before scanning Aadhaar QR"
+      );
+      return false;
+    }
+
+    return true;
   }
 
   function goToAddCustomer(prefill: any = {}) {
@@ -493,6 +461,43 @@ export default function CustomerRegister() {
     fileInputRef.current?.click();
   }
 
+  async function handleCustomerRegisteredSuccess(data: any) {
+    setQrStep("success");
+
+    setCustomer(data);
+
+    setLoanDetails({
+      ...(loanDetails as any),
+      customerId: data.id || data.customerId || data.customer_id || "",
+    } as any);
+
+    setGoToGirviAfterSuccess(true);
+
+    showPopup(
+      "success",
+      `Customer registered successfully: ${
+        data.fullName || data.name || "Customer"
+      }`
+    );
+
+    autoNavigateTimerRef.current = setTimeout(() => {
+      setPopup(null);
+      setGoToGirviAfterSuccess(false);
+      autoNavigateTimerRef.current = null;
+      navigate("/dealer/details");
+    }, 1200);
+
+    setQrPhoneNumber("");
+    setAadhaar("");
+    setCustomerPhoto(null);
+
+    if (customerPhotoPreview) {
+      URL.revokeObjectURL(customerPhotoPreview);
+    }
+
+    setCustomerPhotoPreview("");
+  }
+
   async function verifyAadhaarQRWithBackend(file: File) {
     const token = getToken();
 
@@ -562,42 +567,7 @@ export default function CustomerRegister() {
 
       const data = await res.json();
 
-      setQrStep("success");
-
-      // ✅ Save customer for Girvi flow
-      setCustomer(data);
-
-      // ✅ Store customerId for final Girvi creation
-      setLoanDetails({
-        ...(loanDetails as any),
-        customerId: data.id || data.customerId || data.customer_id || "",
-      } as any);
-
-      // ✅ Success popup should auto-move to Girvi Details
-      setGoToGirviAfterSuccess(true);
-
-      showPopup(
-        "success",
-        `Customer registered successfully: ${data.fullName || "Customer"}`
-      );
-
-      // ✅ Auto navigate to Girvi Details after 1.2 seconds
-      autoNavigateTimerRef.current = setTimeout(() => {
-        setPopup(null);
-        setGoToGirviAfterSuccess(false);
-        autoNavigateTimerRef.current = null;
-        navigate("/dealer/details");
-      }, 1200);
-
-      setQrPhoneNumber("");
-      setAadhaar("");
-      setCustomerPhoto(null);
-
-      if (customerPhotoPreview) {
-        URL.revokeObjectURL(customerPhotoPreview);
-      }
-
-      setCustomerPhotoPreview("");
+      await handleCustomerRegisteredSuccess(data);
     } catch {
       setQrStep("error");
       showPopup("error", "Server error while verifying Aadhaar QR");
@@ -616,6 +586,48 @@ export default function CustomerRegister() {
 
   async function handleQRFileUpload(file: File) {
     await verifyAadhaarQRWithBackend(file);
+  }
+
+  // ✅ Capture current camera frame as image file for Scan QR flow
+  async function captureScannerFrameAsFile(): Promise<File | null> {
+    const video = document.querySelector(
+      "#aadhaar-qr-reader video"
+    ) as HTMLVideoElement | null;
+
+    if (!video || !video.videoWidth || !video.videoHeight) {
+      return null;
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const ctx = canvas.getContext("2d");
+
+    if (!ctx) {
+      return null;
+    }
+
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    return new Promise((resolve) => {
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            resolve(null);
+            return;
+          }
+
+          const file = new File([blob], "scanned-aadhaar-qr.png", {
+            type: "image/png",
+          });
+
+          resolve(file);
+        },
+        "image/png",
+        0.95
+      );
+    });
   }
 
   // ✅ Back camera only scanner
@@ -654,29 +666,42 @@ export default function CustomerRegister() {
         async (decodedText) => {
           if (hasScanned) return;
 
-          const parsed = parseAadhaarQRText(decodedText);
-
-          if (parsed) {
-            hasScanned = true;
-            setScannerError("");
-
-            try {
-              if (isScannerRunning) {
-                await scanner.stop();
-                scanner.clear();
-                isScannerRunning = false;
-              }
-            } catch {
-              // ignore scanner stop/clear error
-            }
-
-            setShowScanner(false);
-            handleScannedAadhaarQR(decodedText);
-          } else {
+          if (!decodedText) {
             setScannerError(
-              "QR scanned, but Aadhaar details were not readable in browser. Please upload Aadhaar QR image for full details."
+              "QR scanned, but data was not readable. Please try again."
             );
+            return;
           }
+
+          hasScanned = true;
+          setScannerError("");
+
+          // ✅ Capture current frame BEFORE stopping camera
+          const scannedQrImageFile = await captureScannerFrameAsFile();
+
+          try {
+            if (isScannerRunning) {
+              await scanner.stop();
+              scanner.clear();
+              isScannerRunning = false;
+            }
+          } catch {
+            // ignore scanner stop/clear error
+          }
+
+          setShowScanner(false);
+
+          if (!scannedQrImageFile) {
+            setQrStep("error");
+            showPopup(
+              "error",
+              "Could not capture QR image from camera. Please try again or upload Aadhaar QR image."
+            );
+            return;
+          }
+
+          // ✅ Same backend flow as Upload QR
+          await verifyAadhaarQRWithBackend(scannedQrImageFile);
         },
         () => {
           // ignore frame scan errors
@@ -797,39 +822,36 @@ export default function CustomerRegister() {
   }
 
   function QrUploadProgress() {
-  if (qrStep === "idle") return null;
+    if (qrStep === "idle") return null;
 
-  return (
-    <div className="mt-3 text-sm space-y-1">
-      <QrStatus
-        done={!!customerPhoto}
-        text="Customer photo added"
-      />
+    return (
+      <div className="mt-3 text-sm space-y-1">
+        <QrStatus done={!!customerPhoto} text="Customer photo added" />
 
-      <QrStatus
-        done={/^[6-9]\d{9}$/.test(qrPhoneNumber)}
-        text="Phone number added"
-      />
+        <QrStatus
+          done={/^[6-9]\d{9}$/.test(qrPhoneNumber)}
+          text="Phone number added"
+        />
 
-      <QrStatus
-        active={qrStep === "uploading"}
-        done={
-          qrStep === "verifying" ||
-          qrStep === "success" ||
-          qrStep === "error"
-        }
-        text="Uploading Aadhaar QR"
-      />
+        <QrStatus
+          active={qrStep === "uploading"}
+          done={
+            qrStep === "verifying" ||
+            qrStep === "success" ||
+            qrStep === "error"
+          }
+          text="Uploading Aadhaar QR"
+        />
 
-      <QrStatus
-        active={qrStep === "verifying"}
-        done={qrStep === "success"}
-        error={qrStep === "error"}
-        text="Verifying Aadhaar details"
-      />
-    </div>
-  );
-}
+        <QrStatus
+          active={qrStep === "verifying"}
+          done={qrStep === "success"}
+          error={qrStep === "error"}
+          text="Verifying Aadhaar details"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f4f5f7]">
@@ -840,6 +862,7 @@ export default function CustomerRegister() {
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
+
           if (file) {
             handleQRFileUpload(file);
           }
@@ -1043,6 +1066,7 @@ export default function CustomerRegister() {
                 <div className="grid grid-cols-12 gap-4 mt-4">
                   <div className="col-span-7 flex items-center border border-gray-200 rounded-2xl px-4 py-4 bg-gray-50 focus-within:ring-2 focus-within:ring-purple-500">
                     <FaSearch className="text-gray-400 mr-3" />
+
                     <input
                       value={maskAadhaar(aadhaar)}
                       onChange={(e) =>
@@ -1057,10 +1081,13 @@ export default function CustomerRegister() {
                   <button
                     type="button"
                     onClick={() => {
+                      if (!validateQrScanBeforeOpen()) return;
+
                       setScannerError("");
                       setShowScanner(true);
                     }}
-                    className="col-span-3 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-2xl font-bold flex items-center justify-center gap-2"
+                    disabled={uploadingQR}
+                    className="col-span-3 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-2xl font-bold flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <FaQrcode />
                     Scan QR
@@ -1122,11 +1149,13 @@ export default function CustomerRegister() {
                     title="Scan Aadhaar QR"
                     text="Use camera to scan Aadhaar QR and fill registration details."
                   />
+
                   <GuideBox
                     color="yellow"
                     title="Upload Aadhaar QR"
                     text="Upload Aadhaar QR image from phone/gallery and create customer securely."
                   />
+
                   <GuideBox
                     color="red"
                     title="Manual Register"
@@ -1202,6 +1231,7 @@ export default function CustomerRegister() {
 
               <div className="flex items-center border rounded-xl px-4 py-3 bg-gray-50 mt-4">
                 <FaSearch className="text-gray-400 mr-3" />
+
                 <input
                   value={maskAadhaar(aadhaar)}
                   onChange={(e) =>
@@ -1237,10 +1267,13 @@ export default function CustomerRegister() {
                 <button
                   type="button"
                   onClick={() => {
+                    if (!validateQrScanBeforeOpen()) return;
+
                     setScannerError("");
                     setShowScanner(true);
                   }}
-                  className="bg-purple-100 text-purple-700 py-3 rounded-xl font-bold flex items-center justify-center gap-2 text-sm"
+                  disabled={uploadingQR}
+                  className="bg-purple-100 text-purple-700 py-3 rounded-xl font-bold flex items-center justify-center gap-2 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <FaQrcode />
                   Scan QR
@@ -1282,11 +1315,13 @@ export default function CustomerRegister() {
                   title="Scan Aadhaar QR"
                   text="Use camera to scan Aadhaar QR."
                 />
+
                 <GuideBox
                   color="yellow"
                   title="Upload Aadhaar QR"
                   text="Upload QR image from phone/gallery."
                 />
+
                 <GuideBox
                   color="red"
                   title="Manual Customer Register"
@@ -1373,8 +1408,8 @@ export default function CustomerRegister() {
             )}
 
             <p className="text-xs text-gray-500 mt-3">
-              Back camera only. For Aadhaar Secure QR, upload QR image for best
-              accuracy.
+              Back camera only. Scanned Aadhaar QR image will be verified by
+              backend to extract full customer details.
             </p>
           </div>
         </div>
