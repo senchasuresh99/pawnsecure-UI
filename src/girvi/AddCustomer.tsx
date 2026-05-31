@@ -4,7 +4,7 @@ import { useGirvi } from "./GirviContext";
 import { FaArrowLeft, FaSave, FaUpload } from "react-icons/fa";
 import DealerBottomNav from "../dealer/DealerBottomNav";
 
-const API_BASE = "https://pawn-qa.netlify.app/api";
+const API_BASE = "https://pawnsecure-1.onrender.com/api";
 
 type CustomerForm = {
   name: string;

@@ -53,7 +53,7 @@ export default function LockerReview() {
     };
 
     try {
-      const res = await fetch("https://pawn-qa.netlify.app/api/girvi", {
+      const res = await fetch("https://pawnsecure-1.onrender.com/api/girvi", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
