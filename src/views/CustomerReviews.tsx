@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Html5Qrcode } from "html5-qrcode";
+import {
+  Html5Qrcode,
+  Html5QrcodeSupportedFormats,
+} from "html5-qrcode";
 
 import {
   FaHome,
@@ -16,7 +19,29 @@ import {
   FaTrash,
 } from "react-icons/fa";
 
-const API_BASE = "https://pawnsecure-1.onrender.com/api";
+const API_BASE = "https://pawn-qa.netlify.app/api";
+
+type ParsedAadhaarQR = {
+  fullName?: string;
+  name?: string;
+  aadhaar?: string;
+  maskedAadhaar?: string;
+  uid?: string;
+  gender?: string;
+  dob?: string;
+  address?: string;
+  co?: string;
+  house?: string;
+  street?: string;
+  lm?: string;
+  loc?: string;
+  vtc?: string;
+  po?: string;
+  subdist?: string;
+  dist?: string;
+  state?: string;
+  pc?: string;
+};
 
 export default function CustomerReviews() {
   const navigate = useNavigate();
@@ -29,6 +54,9 @@ export default function CustomerReviews() {
   const [aadhaar, setAadhaar] = useState("");
   const [loading, setLoading] = useState(false);
   const [customer, setCustomer] = useState<any>(null);
+
+  const [scannedQrInfo, setScannedQrInfo] =
+    useState<ParsedAadhaarQR | null>(null);
 
   const [riskLevel, setRiskLevel] = useState("");
   const [comment, setComment] = useState("");
@@ -114,54 +142,212 @@ export default function CustomerReviews() {
     return match ? match[0] : "";
   }
 
+  function normalizeGenderFromQR(gender?: string) {
+    if (!gender) return "";
+
+    const g = gender.trim().toUpperCase();
+
+    if (g === "M" || g === "MALE") return "M";
+    if (g === "F" || g === "FEMALE") return "F";
+    if (g === "O" || g === "OTHER") return "O";
+
+    return gender;
+  }
+
+  function buildAddressFromQR(data: ParsedAadhaarQR) {
+    return [
+      data.co,
+      data.house,
+      data.street,
+      data.lm,
+      data.loc,
+      data.vtc,
+      data.po,
+      data.subdist,
+      data.dist,
+      data.state,
+      data.pc,
+    ]
+      .filter(Boolean)
+      .join(", ");
+  }
+
+  function parseAadhaarQRText(decodedText: string): ParsedAadhaarQR | null {
+    if (!decodedText) return null;
+
+    try {
+      const text = decodedText.trim();
+
+      // ✅ Old Aadhaar QR XML format
+      if (text.includes("PrintLetterBarcodeData") || text.startsWith("<")) {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(text, "text/xml");
+
+        const parserError = xmlDoc.getElementsByTagName("parsererror")[0];
+        if (parserError) return null;
+
+        const node =
+          xmlDoc.getElementsByTagName("PrintLetterBarcodeData")[0] ||
+          xmlDoc.documentElement;
+
+        if (!node) return null;
+
+        const getAttr = (key: string) => node.getAttribute(key) || "";
+
+        const uid = getAttr("uid");
+        const name = getAttr("name");
+        const gender = getAttr("gender");
+        const dob = getAttr("dob") || getAttr("yob");
+
+        const addressData: ParsedAadhaarQR = {
+          co: getAttr("co"),
+          house: getAttr("house"),
+          street: getAttr("street"),
+          lm: getAttr("lm"),
+          loc: getAttr("loc"),
+          vtc: getAttr("vtc"),
+          po: getAttr("po"),
+          subdist: getAttr("subdist"),
+          dist: getAttr("dist"),
+          state: getAttr("state"),
+          pc: getAttr("pc"),
+        };
+
+        return {
+          fullName: name,
+          name,
+          aadhaar: uid,
+          uid,
+          maskedAadhaar:
+            uid && uid.length === 12 ? `XXXX-XXXX-${uid.slice(8)}` : "",
+          gender: normalizeGenderFromQR(gender),
+          dob,
+          address: buildAddressFromQR(addressData),
+          ...addressData,
+        };
+      }
+
+      // ✅ JSON QR support
+      if (text.startsWith("{")) {
+        const data = JSON.parse(text);
+        const uid = data.aadhaar || data.uid || "";
+
+        return {
+          fullName: data.fullName || data.name || data.customerName || "",
+          name: data.fullName || data.name || data.customerName || "",
+          aadhaar: uid,
+          uid,
+          maskedAadhaar:
+            data.maskedAadhaar ||
+            (uid && uid.length === 12 ? `XXXX-XXXX-${uid.slice(8)}` : ""),
+          gender: normalizeGenderFromQR(data.gender || data.sex || ""),
+          dob: data.dob || data.dateOfBirth || data.birthDate || "",
+          address: data.address || data.fullAddress || "",
+        };
+      }
+
+      // ✅ Fallback only Aadhaar number
+      const extractedAadhaar = extractAadhaarFromQR(text);
+
+      if (extractedAadhaar) {
+        return {
+          aadhaar: extractedAadhaar,
+          uid: extractedAadhaar,
+          maskedAadhaar: `XXXX-XXXX-${extractedAadhaar.slice(8)}`,
+        };
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function handleScannedQR(decodedText: string) {
+    const parsed = parseAadhaarQRText(decodedText);
+
+    const scannedAadhaar =
+      parsed?.aadhaar || parsed?.uid || extractAadhaarFromQR(decodedText);
+
+    if (!scannedAadhaar || scannedAadhaar.length !== 12) {
+      setScannerError(
+        "QR scanned, but Aadhaar details were not readable. Please enter Aadhaar manually."
+      );
+      return;
+    }
+
+    const finalParsed: ParsedAadhaarQR = {
+      ...parsed,
+      aadhaar: scannedAadhaar,
+      uid: scannedAadhaar,
+      maskedAadhaar:
+        parsed?.maskedAadhaar || `XXXX-XXXX-${scannedAadhaar.slice(8)}`,
+    };
+
+    setAadhaar(scannedAadhaar);
+    setScannedQrInfo(finalParsed);
+    setScannerError("");
+
+    await searchCustomer(scannedAadhaar, true);
+  }
+
   useEffect(() => {
     if (!showScanner) return;
 
-    const scanner = new Html5Qrcode("aadhaar-qr-reader");
+    const scanner = new Html5Qrcode("aadhaar-qr-reader", {
+      formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+      verbose: false,
+    });
+
     let isScannerRunning = false;
     let hasScanned = false;
 
     scanner
       .start(
-        { facingMode: "environment" },
         {
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
+          facingMode: "environment",
+        },
+        {
+          fps: 15,
+          qrbox: (viewfinderWidth, viewfinderHeight) => {
+            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+            const size = Math.floor(minEdge * 0.85);
+
+            return {
+              width: size,
+              height: size,
+            };
+          },
+          aspectRatio: 1.0,
+          disableFlip: false,
         },
         async (decodedText) => {
           if (hasScanned) return;
 
-          const extractedAadhaar = extractAadhaarFromQR(decodedText);
-
-          if (extractedAadhaar) {
-            hasScanned = true;
-
-            setAadhaar(extractedAadhaar);
-            setScannerError("");
-
-            try {
-              if (isScannerRunning) {
-                await scanner.stop();
-                scanner.clear();
-                isScannerRunning = false;
-              }
-            } catch {
-              // ignore scanner stop/clear error
-            }
-
-            setShowScanner(false);
-
-            showPopup(
-              "success",
-              "Aadhaar number scanned. Please click Check Customer Review."
-            );
-          } else {
-            setScannerError(
-              "QR scanned, but Aadhaar number not found. Please enter Aadhaar manually."
-            );
+          if (!decodedText) {
+            setScannerError("QR not readable. Please try again.");
+            return;
           }
+
+          hasScanned = true;
+
+          try {
+            if (isScannerRunning) {
+              await scanner.stop();
+              scanner.clear();
+              isScannerRunning = false;
+            }
+          } catch {
+            // ignore scanner stop/clear error
+          }
+
+          setShowScanner(false);
+
+          await handleScannedQR(decodedText);
         },
-        () => {}
+        () => {
+          // ignore frame scan errors
+        }
       )
       .then(() => {
         isScannerRunning = true;
@@ -194,8 +380,10 @@ export default function CustomerReviews() {
     };
   }, [showScanner]);
 
-  async function searchCustomer() {
-    if (aadhaar.length !== 12) {
+  async function searchCustomer(targetAadhaar?: string, fromScan = false) {
+    const aadhaarToSearch = targetAadhaar || aadhaar;
+
+    if (aadhaarToSearch.length !== 12) {
       showPopup("error", "Enter valid 12-digit Aadhaar");
       return;
     }
@@ -211,11 +399,14 @@ export default function CustomerReviews() {
     setCustomer(null);
 
     try {
-      const res = await fetch(`${API_BASE}/customers/search?aadhaar=${aadhaar}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const res = await fetch(
+        `${API_BASE}/customers/search?aadhaar=${aadhaarToSearch}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       if (res.status === 401 || res.status === 403) {
         handleUnauthorized();
@@ -243,6 +434,10 @@ export default function CustomerReviews() {
 
       const data = await res.json();
       setCustomer(data);
+
+      if (fromScan) {
+        showPopup("success", "Aadhaar QR scanned and customer review loaded.");
+      }
     } catch {
       showPopup("error", "Server error");
     } finally {
@@ -572,9 +767,10 @@ export default function CustomerReviews() {
                     <FaSearch className="text-gray-400 mr-3" />
                     <input
                       value={maskAadhaar(aadhaar)}
-                      onChange={(e) =>
-                        setAadhaar(e.target.value.replace(/\D/g, ""))
-                      }
+                      onChange={(e) => {
+                        setAadhaar(e.target.value.replace(/\D/g, ""));
+                        setScannedQrInfo(null);
+                      }}
                       maxLength={14}
                       className="w-full outline-none text-sm bg-transparent"
                       placeholder="Enter Aadhaar number"
@@ -594,9 +790,16 @@ export default function CustomerReviews() {
                   </button>
                 </div>
 
+                {scannedQrInfo && (
+                  <ScannedQrDetails
+                    scannedQrInfo={scannedQrInfo}
+                    maskAadhaar={maskAadhaar}
+                  />
+                )}
+
                 <button
                   type="button"
-                  onClick={searchCustomer}
+                  onClick={() => searchCustomer()}
                   disabled={loading}
                   className="mt-5 w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-2xl font-bold"
                 >
@@ -715,9 +918,10 @@ export default function CustomerReviews() {
                 <FaSearch className="text-gray-400 mr-3" />
                 <input
                   value={maskAadhaar(aadhaar)}
-                  onChange={(e) =>
-                    setAadhaar(e.target.value.replace(/\D/g, ""))
-                  }
+                  onChange={(e) => {
+                    setAadhaar(e.target.value.replace(/\D/g, ""));
+                    setScannedQrInfo(null);
+                  }}
                   maxLength={14}
                   className="w-full outline-none text-sm bg-transparent"
                   placeholder="Enter Aadhaar"
@@ -736,9 +940,16 @@ export default function CustomerReviews() {
                 Scan QR
               </button>
 
+              {scannedQrInfo && (
+                <ScannedQrDetails
+                  scannedQrInfo={scannedQrInfo}
+                  maskAadhaar={maskAadhaar}
+                />
+              )}
+
               <button
                 type="button"
-                onClick={searchCustomer}
+                onClick={() => searchCustomer()}
                 disabled={loading}
                 className="mt-3 w-full bg-purple-600 text-white py-3 rounded-xl font-bold"
               >
@@ -844,7 +1055,7 @@ export default function CustomerReviews() {
 
       {showScanner && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[999] p-4">
-          <div className="bg-white rounded-2xl p-4 w-full max-w-[360px] shadow-2xl">
+          <div className="bg-white rounded-2xl p-4 w-full max-w-[420px] shadow-2xl">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-bold">Scan Aadhaar QR</h2>
 
@@ -862,7 +1073,7 @@ export default function CustomerReviews() {
 
             <div
               id="aadhaar-qr-reader"
-              className="w-full max-h-[320px] overflow-hidden rounded-xl border"
+              className="w-full min-h-[340px] overflow-hidden rounded-xl border"
             />
 
             {scannerError && (
@@ -870,7 +1081,9 @@ export default function CustomerReviews() {
             )}
 
             <p className="text-xs text-gray-500 mt-3">
-              Live scan fills Aadhaar number only. Then click Check Review.
+              Scan Aadhaar QR to read available name, Aadhaar, gender, DOB and
+              address. Secure QR may require backend verification for full
+              details.
             </p>
           </div>
         </div>
@@ -907,6 +1120,65 @@ export default function CustomerReviews() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ScannedQrDetails({
+  scannedQrInfo,
+  maskAadhaar,
+}: {
+  scannedQrInfo: ParsedAadhaarQR;
+  maskAadhaar: (a: string) => string;
+}) {
+  const name =
+    scannedQrInfo.fullName || scannedQrInfo.name || "Name not available";
+
+  const aadhaarValue = scannedQrInfo.aadhaar || scannedQrInfo.uid || "";
+
+  return (
+    <div className="mt-4 bg-purple-50 border border-purple-100 rounded-2xl p-4 text-sm">
+      <p className="font-bold text-purple-700 mb-3">Scanned QR Details</p>
+
+      <div className="space-y-2">
+        <InfoRow label="Name" value={name} />
+
+        <InfoRow
+          label="Aadhaar"
+          value={
+            scannedQrInfo.maskedAadhaar ||
+            (aadhaarValue ? maskAadhaar(aadhaarValue) : "N/A")
+          }
+        />
+
+        {scannedQrInfo.gender && (
+          <InfoRow label="Gender" value={scannedQrInfo.gender} />
+        )}
+
+        {scannedQrInfo.dob && (
+          <InfoRow label="DOB" value={scannedQrInfo.dob} />
+        )}
+
+        {scannedQrInfo.address && (
+          <div className="pt-2 border-t border-purple-100">
+            <p className="text-xs text-purple-600 font-semibold">Address</p>
+            <p className="text-sm text-gray-800 mt-1 leading-relaxed">
+              {scannedQrInfo.address}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: any }) {
+  return (
+    <div className="flex justify-between gap-3">
+      <span className="text-gray-500">{label}</span>
+      <span className="font-semibold text-gray-800 text-right">
+        {value || "N/A"}
+      </span>
     </div>
   );
 }
