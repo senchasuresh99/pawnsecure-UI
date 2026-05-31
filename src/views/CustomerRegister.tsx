@@ -630,7 +630,27 @@ export default function CustomerRegister() {
     });
   }
 
-  // ✅ Back camera only scanner
+  // ✅ Manual capture fallback when browser decoder cannot read dense Aadhaar QR
+  async function captureAndVerifyFromCamera() {
+    if (uploadingQR) return;
+
+    const scannedQrImageFile = await captureScannerFrameAsFile();
+
+    if (!scannedQrImageFile) {
+      showPopup(
+        "error",
+        "Could not capture QR image from camera. Please try again or upload Aadhaar QR image."
+      );
+      return;
+    }
+
+    setShowScanner(false);
+    setScannerError("");
+
+    await verifyAadhaarQRWithBackend(scannedQrImageFile);
+  }
+
+  // ✅ Back camera scanner
   useEffect(() => {
     if (!showScanner) return;
 
@@ -646,6 +666,8 @@ export default function CustomerRegister() {
       .start(
         {
           facingMode: "environment",
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
         },
         {
           fps: 15,
@@ -1408,9 +1430,18 @@ export default function CustomerRegister() {
             )}
 
             <p className="text-xs text-gray-500 mt-3">
-              Back camera only. Scanned Aadhaar QR image will be verified by
-              backend to extract full customer details.
+              Back camera only. If Aadhaar QR does not scan automatically, tap
+              Capture & Verify QR.
             </p>
+
+            <button
+              type="button"
+              onClick={captureAndVerifyFromCamera}
+              disabled={uploadingQR}
+              className="mt-3 w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl font-bold disabled:bg-gray-400"
+            >
+              {uploadingQR ? "Verifying..." : "Capture & Verify QR"}
+            </button>
           </div>
         </div>
       )}
