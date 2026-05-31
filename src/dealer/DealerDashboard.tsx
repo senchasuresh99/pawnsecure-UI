@@ -3,16 +3,15 @@ import { useNavigate } from "react-router-dom";
 import {
   FaRupeeSign,
   FaUserFriends,
+  FaUserPlus,
   FaCalendarAlt,
   FaClock,
   FaPlus,
-  FaSearch,
-  FaSync,
+  FaUserCheck,
   FaBox,
   FaChartBar,
   FaPrint,
   FaEllipsisH,
-  FaBell,
   FaHome,
   FaCoins,
 } from "react-icons/fa";
@@ -58,14 +57,15 @@ const actions = [
     label: "New Girvi",
     color: "text-purple-600",
     bg: "bg-purple-100",
-    path: "/dealer/new-girvi",
+    path: "/dealer/customer",
   },
   {
-    icon: <FaSearch />,
-    label: "Customer Search",
+    icon: <FaUserPlus />,
+    label: "Register Customer",
     color: "text-blue-600",
     bg: "bg-blue-100",
-    path: "/dealer/customer-search",
+    path: "/dealer/customer-register",
+    state: { mode: "CUSTOMER_REVIEW" },
   },
   {
     icon: <FaRupeeSign />,
@@ -75,11 +75,12 @@ const actions = [
     path: "/dealer/collections",
   },
   {
-    icon: <FaSync />,
-    label: "Renewal / Extend",
+    icon: <FaUserCheck />,
+    label: "Check Customer Review",
     color: "text-orange-600",
     bg: "bg-orange-100",
-    path: "/dealer/renewal",
+    path: "/dealer/customer-search",
+    state: { mode: "RENEWAL_EXTEND" },
   },
   {
     icon: <FaBox />,
@@ -144,7 +145,6 @@ const activities = [
 export default function DealerDashboard() {
   const navigate = useNavigate();
 
-  // ✅ Admin preview support using query params
   const query = new URLSearchParams(window.location.search);
   const isAdminView = query.get("adminView") === "true";
 
@@ -205,7 +205,6 @@ export default function DealerDashboard() {
   }
 
   function handleLogout() {
-    // ✅ If admin is previewing dealer dashboard, go back to admin dashboard
     if (isAdminView) {
       navigate("/admin/dashboard", { replace: true });
       return;
@@ -219,13 +218,12 @@ export default function DealerDashboard() {
     navigate("/", { replace: true });
   }
 
-  function handleActionNavigation(path: string) {
-    // ✅ In admin preview, avoid moving admin into dealer flow
+  function handleActionNavigation(path: string, state?: any) {
     if (isAdminView) {
       return;
     }
 
-    navigate(path);
+    navigate(path, state ? { state } : undefined);
   }
 
   const dealerIdDisplay = getDealerIdDisplay(dealerId);
@@ -234,7 +232,6 @@ export default function DealerDashboard() {
     <div className="min-h-screen bg-[#f4f5f7]">
       {/* ================= DESKTOP / LAPTOP VIEW ================= */}
       <div className="hidden lg:flex min-h-screen">
-        {/* LEFT SIDEBAR */}
         <aside className="w-64 bg-white border-r border-gray-200 px-5 py-6 fixed left-0 top-0 bottom-0">
           <div className="flex items-center gap-3 mb-10">
             <div className="w-12 h-12 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
@@ -275,7 +272,11 @@ export default function DealerDashboard() {
             </button>
 
             <button
-              onClick={() => handleActionNavigation("/dealer/customer-search")}
+              onClick={() =>
+                handleActionNavigation("/dealer/customer-search", {
+                  mode: "CUSTOMER_REVIEW",
+                })
+              }
               disabled={isAdminView}
               className={`w-full px-4 py-3 rounded-xl flex items-center gap-3 font-semibold ${
                 isAdminView
@@ -284,11 +285,11 @@ export default function DealerDashboard() {
               }`}
             >
               <FaUserFriends />
-              Customers
+              Customers Reivew
             </button>
 
             <button
-              onClick={() => handleActionNavigation("/dealer/new-girvi")}
+              onClick={() => handleActionNavigation("/dealer/customer")}
               disabled={isAdminView}
               className={`w-full px-4 py-3 rounded-xl flex items-center gap-3 font-semibold ${
                 isAdminView
@@ -335,9 +336,7 @@ export default function DealerDashboard() {
           </nav>
         </aside>
 
-        {/* DESKTOP MAIN */}
         <main className="ml-64 flex-1">
-          {/* TOP BAR */}
           <div className="h-16 bg-white border-b border-gray-200 px-8 flex items-center justify-between sticky top-0 z-30">
             <div>
               <h2 className="text-lg font-bold text-gray-900">
@@ -358,14 +357,6 @@ export default function DealerDashboard() {
                 </p>
               </div>
 
-              <div className="relative">
-                <FaBell className="text-purple-700 text-xl" />
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] rounded-full px-1">
-                  5
-                </span>
-              </div>
-
-              {/* ✅ Dynamic profile avatar */}
               <div className="relative">
                 <button
                   onClick={() => setShowProfileMenu(!showProfileMenu)}
@@ -398,7 +389,6 @@ export default function DealerDashboard() {
           </div>
 
           <div className="p-8">
-            {/* DESKTOP HERO */}
             <div className="grid grid-cols-12 gap-6 mb-8">
               <div className="col-span-8 bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-3xl p-8">
                 <p className="text-sm opacity-90">{getGreeting()} 👋</p>
@@ -417,7 +407,7 @@ export default function DealerDashboard() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 mt-8">
+                <div className="grid grid-cols-2 gap-4 mt-8">
                   <div>
                     <p className="text-sm opacity-80">Today</p>
                     <h3 className="text-xl font-bold">{todayDate}</h3>
@@ -429,12 +419,6 @@ export default function DealerDashboard() {
                     <h3 className="text-xl font-bold">Active</h3>
                     <p className="text-sm opacity-80">Open for business</p>
                   </div>
-
-                  {/* <div>
-                    <p className="text-sm opacity-80">Notifications</p>
-                    <h3 className="text-xl font-bold">5 New</h3>
-                    <p className="text-sm opacity-80">Need attention</p>
-                  </div> */}
                 </div>
               </div>
 
@@ -457,7 +441,6 @@ export default function DealerDashboard() {
               </div>
             </div>
 
-            {/* DESKTOP STATS */}
             <div className="grid grid-cols-4 gap-6 mb-8">
               {stats.map((item, index) => (
                 <div
@@ -487,9 +470,7 @@ export default function DealerDashboard() {
               ))}
             </div>
 
-            {/* DESKTOP CONTENT */}
             <div className="grid grid-cols-12 gap-6">
-              {/* ACTIVITY */}
               <div className="col-span-8 bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-xl font-bold text-gray-900">
@@ -533,7 +514,6 @@ export default function DealerDashboard() {
                 </div>
               </div>
 
-              {/* QUICK ACTIONS */}
               <div className="col-span-4 bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-xl font-bold text-gray-900">
@@ -555,7 +535,9 @@ export default function DealerDashboard() {
                   {actions.map((item, index) => (
                     <button
                       key={index}
-                      onClick={() => handleActionNavigation(item.path)}
+                      onClick={() =>
+                        handleActionNavigation(item.path, item.state)
+                      }
                       disabled={isAdminView}
                       className={`border border-gray-100 rounded-2xl p-4 transition text-center ${
                         isAdminView
@@ -584,7 +566,6 @@ export default function DealerDashboard() {
       {/* ================= MOBILE VIEW ================= */}
       <div className="lg:hidden">
         <div className="max-w-7xl mx-auto px-0 sm:px-4 pb-24">
-          {/* MOBILE HEADER */}
           <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-b-[32px] px-5 py-8 relative overflow-hidden">
             <div className="flex justify-between items-start">
               <div>
@@ -638,14 +619,6 @@ export default function DealerDashboard() {
               <div className="text-right">
                 <div className="flex justify-end gap-4 mb-5">
                   <div className="relative">
-                    <FaBell className="text-2xl" />
-                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-1">
-                      5
-                    </span>
-                  </div>
-
-                  {/* ✅ Mobile profile avatar */}
-                  <div className="relative">
                     <button
                       onClick={() => setShowProfileMenu(!showProfileMenu)}
                       className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center font-bold"
@@ -682,7 +655,6 @@ export default function DealerDashboard() {
             </div>
           </div>
 
-          {/* MOBILE STATS */}
           <div className="grid grid-cols-2 gap-4 -mt-6 relative z-10 px-2">
             {stats.map((item, index) => (
               <div
@@ -710,7 +682,6 @@ export default function DealerDashboard() {
             ))}
           </div>
 
-          {/* MOBILE QUICK ACTIONS */}
           <div className="mt-7 px-2">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-bold">Quick Actions</h2>
@@ -730,7 +701,9 @@ export default function DealerDashboard() {
               {actions.map((item, index) => (
                 <button
                   key={index}
-                  onClick={() => handleActionNavigation(item.path)}
+                  onClick={() =>
+                    handleActionNavigation(item.path, item.state)
+                  }
                   disabled={isAdminView}
                   className={`bg-white rounded-xl min-h-[95px] p-3 border border-gray-100 shadow-sm flex flex-col items-center justify-center text-center ${
                     isAdminView ? "opacity-50 cursor-not-allowed" : ""
@@ -750,7 +723,6 @@ export default function DealerDashboard() {
             </div>
           </div>
 
-          {/* MOBILE ACTIVITY */}
           <div className="mx-2 mt-7 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-bold">Today's Activity</h2>
@@ -791,7 +763,6 @@ export default function DealerDashboard() {
           </div>
         </div>
 
-        {/* MOBILE BOTTOM NAV */}
         {!isAdminView && (
           <div className="fixed bottom-0 left-0 w-full bg-white border-t flex justify-around py-3 z-50">
             <button
@@ -803,11 +774,15 @@ export default function DealerDashboard() {
             </button>
 
             <button
-              onClick={() => navigate("/dealer/customer-search")}
+              onClick={() =>
+                navigate("/dealer/customer-search", {
+                  state: { mode: "CUSTOMER_REVIEW" },
+                })
+              }
               className="text-gray-500 flex flex-col items-center text-xs"
             >
               <FaUserFriends className="text-xl mb-1" />
-              Customers
+              Customers Review
             </button>
 
             <button

@@ -11,18 +11,16 @@ import {
   FaEllipsisH,
   FaArrowLeft,
   FaSearch,
-  FaBell,
   FaQrcode,
-  FaUpload,
   FaSignOutAlt,
   FaTrash,
 } from "react-icons/fa";
 
-const API_BASE = "https://pawnsecure-1.onrender.com/api";
+const API_BASE = "https://pawn-qa.netlify.app/api";
 
 export default function CustomerReviews() {
   const navigate = useNavigate();
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const resultRef = useRef<HTMLDivElement | null>(null);
 
   const dealerName = localStorage.getItem("ps_dealer_name") || "Dealer";
@@ -31,7 +29,6 @@ export default function CustomerReviews() {
   const [aadhaar, setAadhaar] = useState("");
   const [loading, setLoading] = useState(false);
   const [customer, setCustomer] = useState<any>(null);
-  const [showRegister, setShowRegister] = useState(false);
 
   const [riskLevel, setRiskLevel] = useState("");
   const [comment, setComment] = useState("");
@@ -41,7 +38,6 @@ export default function CustomerReviews() {
 
   const [showScanner, setShowScanner] = useState(false);
   const [scannerError, setScannerError] = useState("");
-  const [uploadingQR, setUploadingQR] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   const [deletingReviewId, setDeletingReviewId] = useState<
@@ -112,84 +108,12 @@ export default function CustomerReviews() {
     setPopup(null);
   }
 
-  // ✅ RESTORED: Secure QR detection for the camera scanner
   function extractAadhaarFromQR(text: string) {
-    if (!text) return "";
-
-    const xmlMatch = text.match(/uid\s*=\s*"(\d{12})"/i);
-    if (xmlMatch) return xmlMatch[1];
-
-    if (text.length < 50) {
-      const digits = text.replace(/\D/g, "");
-      const match = digits.match(/\d{12}/);
-      return match ? match[0] : "";
-    }
-
-    return "SECURE_QR_DETECTED";
+    const digits = text.replace(/\D/g, "");
+    const match = digits.match(/\d{12}/);
+    return match ? match[0] : "";
   }
 
-  // ✅ RESTORED: Backend verification for Image Uploads
-  async function handleQRFileUpload(file: File) {
-    const token = getToken();
-    const formData = new FormData();
-    formData.append("file", file);
-
-    try {
-      setUploadingQR(true);
-      setScannerError("");
-      setCustomer(null);
-      setShowRegister(false);
-
-      const response = await fetch(`${API_BASE}/customers/verify/aadhaar-qr`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        showPopup("error", "Unable to read QR from image");
-        return;
-      }
-
-      const data = await response.json();
-      console.log("QR Backend Response:", data); 
-
-      if (data.id || data.name || data.fullName || data.customer_name || data.maskedAadhaar || data.aadhaarNumber) {
-        setAadhaar(data.maskedAadhaar || data.aadhaarNumber || data.uid || "");
-        
-        const parsedCustomer = {
-          id: data.id || data.customerId || "", 
-          name: data.name || data.fullName || data.customer_name || "Unknown Customer",
-          reviews: data.reviews || [],
-          address: data.address || "",
-          dob: data.dob || ""
-        };
-
-        if (parsedCustomer.id) {
-          setCustomer(parsedCustomer);
-          showPopup("success", "Customer verified and loaded from QR!");
-        } else {
-          showPopup("success", "QR scanned successfully. Click Search.");
-        }
-
-      } else {
-        const backendMessage = data.message || data.error || JSON.stringify(data);
-        showPopup("error", `Backend says: ${backendMessage}`);
-      }
-
-    } catch {
-      showPopup("error", "QR upload failed or server offline.");
-    } finally {
-      setUploadingQR(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    }
-  }
-
-  // ✅ RESTORED: Camera scanner logic handling Secure QRs
   useEffect(() => {
     if (!showScanner) return;
 
@@ -201,47 +125,40 @@ export default function CustomerReviews() {
       .start(
         { facingMode: "environment" },
         {
-          fps: 15,
-          qrbox: (width, height) => {
-            const size = Math.min(width, height) * 0.75;
-            return { width: size, height: size };
-          },
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
         },
         async (decodedText) => {
           if (hasScanned) return;
 
-          const extractionResult = extractAadhaarFromQR(decodedText);
+          const extractedAadhaar = extractAadhaarFromQR(decodedText);
 
-          if (extractionResult === "SECURE_QR_DETECTED") {
+          if (extractedAadhaar) {
             hasScanned = true;
+
+            setAadhaar(extractedAadhaar);
             setScannerError("");
+
+            try {
+              if (isScannerRunning) {
+                await scanner.stop();
+                scanner.clear();
+                isScannerRunning = false;
+              }
+            } catch {
+              // ignore scanner stop/clear error
+            }
+
+            setShowScanner(false);
+
             showPopup(
-              "error", 
-              "Secure QR detected. Use the 'Upload' button to process this image via the backend."
+              "success",
+              "Aadhaar number scanned. Please click Check Customer Review."
             );
-            try {
-              if (isScannerRunning) {
-                await scanner.stop();
-                scanner.clear();
-                isScannerRunning = false;
-              }
-            } catch {}
-            setShowScanner(false);
-          } else if (extractionResult) {
-            hasScanned = true;
-            setAadhaar(extractionResult);
-            setScannerError("");
-
-            try {
-              if (isScannerRunning) {
-                await scanner.stop();
-                scanner.clear();
-                isScannerRunning = false;
-              }
-            } catch {}
-            setShowScanner(false);
           } else {
-            setScannerError("QR scanned, but valid Aadhaar format not recognized.");
+            setScannerError(
+              "QR scanned, but Aadhaar number not found. Please enter Aadhaar manually."
+            );
           }
         },
         () => {}
@@ -258,17 +175,27 @@ export default function CustomerReviews() {
         scanner
           .stop()
           .then(() => {
-            try { scanner.clear(); } catch {}
+            try {
+              scanner.clear();
+            } catch {
+              // ignore clear error
+            }
           })
-          .catch(() => {});
+          .catch(() => {
+            // ignore stop error
+          });
       } else {
-        try { scanner.clear(); } catch {}
+        try {
+          scanner.clear();
+        } catch {
+          // ignore clear error
+        }
       }
     };
   }, [showScanner]);
 
   async function searchCustomer() {
-    if (aadhaar.length !== 12 && !aadhaar.includes("XXXX")) {
+    if (aadhaar.length !== 12) {
       showPopup("error", "Enter valid 12-digit Aadhaar");
       return;
     }
@@ -282,17 +209,13 @@ export default function CustomerReviews() {
 
     setLoading(true);
     setCustomer(null);
-    setShowRegister(false);
 
     try {
-      const res = await fetch(
-        `${API_BASE}/customers/search?aadhaar=${aadhaar}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const res = await fetch(`${API_BASE}/customers/search?aadhaar=${aadhaar}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       if (res.status === 401 || res.status === 403) {
         handleUnauthorized();
@@ -300,7 +223,7 @@ export default function CustomerReviews() {
       }
 
       if (res.status === 404) {
-        setShowRegister(true);
+        showPopup("error", "Customer not found. Please register customer first.");
         return;
       }
 
@@ -329,7 +252,7 @@ export default function CustomerReviews() {
 
   async function submitReview() {
     if (!customer?.id) {
-      showPopup("error", "Critical Error: Customer ID missing from profile. Please verify backend returns ID.");
+      showPopup("error", "Please search customer first");
       return;
     }
 
@@ -448,29 +371,12 @@ export default function CustomerReviews() {
   }
 
   function maskAadhaar(a: string) {
-    if (!a) return "";
-    if (a.includes("XXXX")) return a;
-    if (a.length !== 12) return a;
+    if (!a || a.length !== 12) return a;
     return `XXXX-XXXX-${a.slice(8)}`;
   }
 
   return (
     <div className="min-h-screen bg-[#f4f5f7]">
-      <div id="aadhaar-file-reader" className="hidden" />
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) {
-            handleQRFileUpload(file);
-          }
-        }}
-      />
-
       {/* ================= DESKTOP VIEW ================= */}
       <div className="hidden xl:flex min-h-screen">
         <aside className="w-64 bg-white border-r border-gray-200 px-5 py-6 fixed left-0 top-0 bottom-0">
@@ -484,9 +390,7 @@ export default function CustomerReviews() {
             </div>
 
             <div>
-              <h1 className="text-xl font-bold text-purple-700">
-                PawnSecure
-              </h1>
+              <h1 className="text-xl font-bold text-purple-700">PawnSecure</h1>
               <p className="text-xs text-gray-500">Dealer Portal</p>
             </div>
           </div>
@@ -505,11 +409,11 @@ export default function CustomerReviews() {
               className="w-full bg-purple-600 text-white px-4 py-3 rounded-xl flex items-center gap-3 font-semibold"
             >
               <FaUserFriends />
-              Customers
+              Customers Review
             </button>
 
             <button
-              onClick={() => navigate("/dealer/new-girvi")}
+              onClick={() => navigate("/dealer/customer")}
               className="w-full text-gray-600 px-4 py-3 rounded-xl flex items-center gap-3 hover:bg-gray-100"
             >
               <FaRupeeSign />
@@ -546,47 +450,39 @@ export default function CustomerReviews() {
           <div className="h-16 bg-white border-b border-gray-200 px-8 flex items-center justify-between sticky top-0 z-30">
             <div>
               <h2 className="text-lg font-bold text-gray-900">
-                Customer Search
+                Check Customer Review
               </h2>
+
               <p className="text-xs text-gray-500">
-                Verify Aadhaar, search customer history and submit dealer review
+                Search customer history and review dealer feedback
               </p>
             </div>
 
-            <div className="flex items-center gap-5">
-              <div className="relative">
-                <FaBell className="text-purple-700 text-xl" />
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] rounded-full px-1">
-                  5
-                </span>
-              </div>
+            <div className="relative">
+              <button
+                onClick={() => setShowProfileMenu(!showProfileMenu)}
+                className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold"
+              >
+                {getInitials(dealerName)}
+              </button>
 
-              <div className="relative">
-                <button
-                  onClick={() => setShowProfileMenu(!showProfileMenu)}
-                  className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold"
-                >
-                  {getInitials(dealerName)}
-                </button>
-
-                {showProfileMenu && (
-                  <div className="absolute right-0 mt-2 w-44 bg-white rounded-xl shadow-lg border z-50 overflow-hidden">
-                    <div className="px-4 py-3 border-b">
-                      <p className="text-sm font-bold text-gray-800">
-                        {dealerName}
-                      </p>
-                      <p className="text-xs text-gray-500">Dealer</p>
-                    </div>
-
-                    <button
-                      onClick={handleLogout}
-                      className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 font-semibold"
-                    >
-                      Logout
-                    </button>
+              {showProfileMenu && (
+                <div className="absolute right-0 mt-2 w-44 bg-white rounded-xl shadow-lg border z-50 overflow-hidden">
+                  <div className="px-4 py-3 border-b">
+                    <p className="text-sm font-bold text-gray-800">
+                      {dealerName}
+                    </p>
+                    <p className="text-xs text-gray-500">Dealer</p>
                   </div>
-                )}
-              </div>
+
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 font-semibold"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -596,13 +492,12 @@ export default function CustomerReviews() {
                 <p className="text-sm opacity-90">Dealer Portal</p>
 
                 <h1 className="text-3xl font-bold mt-2">
-                  Verify Customer Aadhaar
+                  Check Customer Review
                 </h1>
 
                 <p className="text-sm opacity-80 mt-3 max-w-2xl">
                   Search existing customer records, review previous dealer
-                  feedback, and add safety remarks before creating a Girvi
-                  account.
+                  feedback, and check customer risk history.
                 </p>
 
                 <div className="grid grid-cols-3 gap-4 mt-8">
@@ -612,8 +507,8 @@ export default function CustomerReviews() {
                   </div>
 
                   <div className="bg-white/10 rounded-2xl p-4">
-                    <p className="text-xs opacity-80">QR Options</p>
-                    <h3 className="font-bold mt-1">Scan / Upload</h3>
+                    <p className="text-xs opacity-80">Review</p>
+                    <h3 className="font-bold mt-1">Dealer Notes</h3>
                   </div>
 
                   <div className="bg-white/10 rounded-2xl p-4">
@@ -629,8 +524,8 @@ export default function CustomerReviews() {
                 </h2>
 
                 <p className="text-sm text-gray-500 mt-2">
-                  Enter Aadhaar manually, scan live QR, or upload a QR image
-                  from phone/gallery.
+                  Enter Aadhaar manually or scan live QR to check customer
+                  review history.
                 </p>
 
                 <div className="mt-6 space-y-3">
@@ -654,10 +549,11 @@ export default function CustomerReviews() {
                 <div className="flex justify-between items-start mb-6">
                   <div>
                     <h2 className="text-xl font-bold text-gray-900">
-                      Customer Aadhaar Verification
+                      Customer Review Search
                     </h2>
+
                     <p className="text-sm text-gray-500 mt-1">
-                      Enter 12-digit Aadhaar number or use QR options.
+                      Enter Aadhaar number to check customer review history.
                     </p>
                   </div>
 
@@ -672,11 +568,13 @@ export default function CustomerReviews() {
                 </div>
 
                 <div className="grid grid-cols-12 gap-4">
-                  <div className="col-span-7 flex items-center border border-gray-200 rounded-2xl px-4 py-4 bg-gray-50 focus-within:ring-2 focus-within:ring-purple-500">
+                  <div className="col-span-9 flex items-center border border-gray-200 rounded-2xl px-4 py-4 bg-gray-50 focus-within:ring-2 focus-within:ring-purple-500">
                     <FaSearch className="text-gray-400 mr-3" />
                     <input
                       value={maskAadhaar(aadhaar)}
-                      onChange={(e) => setAadhaar(e.target.value)}
+                      onChange={(e) =>
+                        setAadhaar(e.target.value.replace(/\D/g, ""))
+                      }
                       maxLength={14}
                       className="w-full outline-none text-sm bg-transparent"
                       placeholder="Enter Aadhaar number"
@@ -694,23 +592,15 @@ export default function CustomerReviews() {
                     <FaQrcode />
                     Scan QR
                   </button>
-
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="col-span-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl font-bold flex items-center justify-center gap-2"
-                  >
-                    <FaUpload />
-                    {uploadingQR ? "..." : "Upload"}
-                  </button>
                 </div>
 
                 <button
+                  type="button"
                   onClick={searchCustomer}
                   disabled={loading}
                   className="mt-5 w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-2xl font-bold"
                 >
-                  {loading ? "Searching..." : "Search Customer"}
+                  {loading ? "Checking..." : "Check Customer Review"}
                 </button>
               </div>
 
@@ -720,35 +610,24 @@ export default function CustomerReviews() {
                 </h2>
 
                 <div className="mt-5 space-y-4">
-                  <div className="bg-green-50 border border-green-100 rounded-2xl p-4">
-                    <p className="font-bold text-green-700">Safe</p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Customer has good repayment or transaction history.
-                    </p>
-                  </div>
-
-                  <div className="bg-yellow-50 border border-yellow-100 rounded-2xl p-4">
-                    <p className="font-bold text-yellow-700">Low Risk</p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Some caution needed based on previous dealer notes.
-                    </p>
-                  </div>
-
-                  <div className="bg-red-50 border border-red-100 rounded-2xl p-4">
-                    <p className="font-bold text-red-700">High Risk</p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Serious issue reported by one or more dealers.
-                    </p>
-                  </div>
+                  <GuideBox
+                    color="green"
+                    title="Safe"
+                    text="Customer has good repayment or transaction history."
+                  />
+                  <GuideBox
+                    color="yellow"
+                    title="Low Risk"
+                    text="Some caution needed based on previous dealer notes."
+                  />
+                  <GuideBox
+                    color="red"
+                    title="High Risk"
+                    text="Serious issue reported by one or more dealers."
+                  />
                 </div>
               </div>
             </div>
-
-            {showRegister && (
-              <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-2xl p-4 mt-6">
-                Customer not found. Please register customer first.
-              </div>
-            )}
 
             {customer && (
               <div className="mt-6 max-w-3xl">
@@ -778,17 +657,18 @@ export default function CustomerReviews() {
         <div className="max-w-md mx-auto bg-[#f4f5f7] min-h-screen">
           <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-b-[32px] px-5 py-6">
             <div className="flex justify-between items-center mb-6">
-              <button onClick={() => navigate("/dealer/dashboard")}>
+              <button type="button" onClick={() => navigate("/dealer/dashboard")}>
                 <FaArrowLeft className="text-xl" />
               </button>
 
               <div className="text-center">
-                <h1 className="font-bold text-lg">Customer Search</h1>
+                <h1 className="font-bold text-lg">Check Review</h1>
                 <p className="text-xs opacity-80">PawnSecure</p>
               </div>
 
               <div className="relative">
                 <button
+                  type="button"
                   onClick={() => setShowProfileMenu(!showProfileMenu)}
                   className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center font-bold"
                 >
@@ -798,6 +678,7 @@ export default function CustomerReviews() {
                 {showProfileMenu && (
                   <div className="absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-lg border z-50 overflow-hidden text-left">
                     <button
+                      type="button"
                       onClick={handleLogout}
                       className="w-full px-4 py-3 text-sm text-red-600 hover:bg-red-50 font-semibold flex items-center gap-2"
                     >
@@ -809,7 +690,7 @@ export default function CustomerReviews() {
               </div>
             </div>
 
-            <h2 className="text-2xl font-bold">Verify Customer</h2>
+            <h2 className="text-2xl font-bold">Check Customer</h2>
             <p className="text-sm opacity-80 mt-1">
               Search Aadhaar and view customer reviews
             </p>
@@ -834,51 +715,37 @@ export default function CustomerReviews() {
                 <FaSearch className="text-gray-400 mr-3" />
                 <input
                   value={maskAadhaar(aadhaar)}
-                  onChange={(e) => setAadhaar(e.target.value)}
+                  onChange={(e) =>
+                    setAadhaar(e.target.value.replace(/\D/g, ""))
+                  }
                   maxLength={14}
                   className="w-full outline-none text-sm bg-transparent"
                   placeholder="Enter Aadhaar"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mt-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setScannerError("");
-                    setShowScanner(true);
-                  }}
-                  className="bg-purple-100 text-purple-700 py-3 rounded-xl font-bold flex items-center justify-center gap-2 text-sm"
-                >
-                  <FaQrcode />
-                  Scan
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="bg-gray-100 text-gray-700 py-3 rounded-xl font-bold flex items-center justify-center gap-2 text-sm"
-                >
-                  <FaUpload />
-                  {uploadingQR ? "Reading..." : "Upload"}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setScannerError("");
+                  setShowScanner(true);
+                }}
+                className="mt-3 w-full bg-purple-100 text-purple-700 py-3 rounded-xl font-bold flex items-center justify-center gap-2 text-sm"
+              >
+                <FaQrcode />
+                Scan QR
+              </button>
 
               <button
+                type="button"
                 onClick={searchCustomer}
                 disabled={loading}
                 className="mt-3 w-full bg-purple-600 text-white py-3 rounded-xl font-bold"
               >
-                {loading ? "Searching..." : "Search"}
+                {loading ? "Checking..." : "Check Review"}
               </button>
             </div>
           </div>
-
-          {showRegister && (
-            <div className="mx-4 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-xl p-3 mt-5 text-sm">
-              Customer not found. Please register customer first.
-            </div>
-          )}
 
           {customer && (
             <div ref={resultRef} className="px-4 mt-5">
@@ -903,57 +770,25 @@ export default function CustomerReviews() {
           <div className="px-4 mt-6">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
               <h2 className="text-lg font-bold text-gray-900">
-                Quick Verification
-              </h2>
-
-              <p className="text-sm text-gray-500 mt-2">
-                Enter Aadhaar manually, scan live QR, or upload a QR image from
-                phone/gallery.
-              </p>
-
-              <div className="mt-5 space-y-3">
-                <div className="bg-purple-50 text-purple-700 px-4 py-3 rounded-2xl text-sm font-semibold">
-                  1. Enter or scan Aadhaar
-                </div>
-
-                <div className="bg-blue-50 text-blue-700 px-4 py-3 rounded-2xl text-sm font-semibold">
-                  2. Search customer record
-                </div>
-
-                <div className="bg-green-50 text-green-700 px-4 py-3 rounded-2xl text-sm font-semibold">
-                  3. Submit dealer review
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="px-4 mt-6">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-              <h2 className="text-lg font-bold text-gray-900">
                 Safety Review Guide
               </h2>
 
               <div className="mt-5 space-y-4">
-                <div className="bg-green-50 border border-green-100 rounded-2xl p-4">
-                  <p className="font-bold text-green-700">Safe</p>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Customer has good repayment or transaction history.
-                  </p>
-                </div>
-
-                <div className="bg-yellow-50 border border-yellow-100 rounded-2xl p-4">
-                  <p className="font-bold text-yellow-700">Low Risk</p>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Some caution needed based on previous dealer notes.
-                  </p>
-                </div>
-
-                <div className="bg-red-50 border border-red-100 rounded-2xl p-4">
-                  <p className="font-bold text-red-700">High Risk</p>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Serious issue reported by one or more dealers.
-                  </p>
-                </div>
+                <GuideBox
+                  color="green"
+                  title="Safe"
+                  text="Customer has good repayment or transaction history."
+                />
+                <GuideBox
+                  color="yellow"
+                  title="Low Risk"
+                  text="Some caution needed based on previous dealer notes."
+                />
+                <GuideBox
+                  color="red"
+                  title="High Risk"
+                  text="Serious issue reported by one or more dealers."
+                />
               </div>
             </div>
           </div>
@@ -961,6 +796,7 @@ export default function CustomerReviews() {
 
         <div className="fixed bottom-0 left-0 w-full bg-white border-t flex justify-around py-3 z-50">
           <button
+            type="button"
             onClick={() => navigate("/dealer/dashboard")}
             className="text-gray-500 flex flex-col items-center text-xs"
           >
@@ -969,15 +805,17 @@ export default function CustomerReviews() {
           </button>
 
           <button
+            type="button"
             onClick={() => navigate("/dealer/customer-search")}
             className="text-purple-700 flex flex-col items-center text-xs font-semibold"
           >
             <FaUserFriends className="text-xl mb-1" />
-            Customers
+            Customers Review
           </button>
 
           <button
-            onClick={() => navigate("/dealer/new-girvi")}
+            type="button"
+            onClick={() => navigate("/dealer/customer")}
             className="text-gray-500 flex flex-col items-center text-xs"
           >
             <FaRupeeSign className="text-xl mb-1" />
@@ -985,6 +823,7 @@ export default function CustomerReviews() {
           </button>
 
           <button
+            type="button"
             onClick={() => navigate("/dealer/collections")}
             className="text-gray-500 flex flex-col items-center text-xs"
           >
@@ -993,6 +832,7 @@ export default function CustomerReviews() {
           </button>
 
           <button
+            type="button"
             onClick={() => navigate("/dealer/more")}
             className="text-gray-500 flex flex-col items-center text-xs"
           >
@@ -1009,6 +849,7 @@ export default function CustomerReviews() {
               <h2 className="text-lg font-bold">Scan Aadhaar QR</h2>
 
               <button
+                type="button"
                 onClick={() => {
                   setShowScanner(false);
                   setScannerError("");
@@ -1029,7 +870,7 @@ export default function CustomerReviews() {
             )}
 
             <p className="text-xs text-gray-500 mt-3">
-              Allow camera access and place the Aadhaar QR code inside the box.
+              Live scan fills Aadhaar number only. Then click Check Review.
             </p>
           </div>
         </div>
@@ -1053,6 +894,7 @@ export default function CustomerReviews() {
             <p className="text-gray-600 text-sm mb-5">{popup.message}</p>
 
             <button
+              type="button"
               onClick={closePopup}
               className={`px-5 py-2 rounded-lg text-white font-semibold ${
                 popup.type === "success"
@@ -1069,7 +911,30 @@ export default function CustomerReviews() {
   );
 }
 
-/* ✅ RESULT COMPONENT */
+function GuideBox({
+  color,
+  title,
+  text,
+}: {
+  color: "green" | "yellow" | "red";
+  title: string;
+  text: string;
+}) {
+  const cls =
+    color === "green"
+      ? "bg-green-50 border-green-100 text-green-700"
+      : color === "yellow"
+      ? "bg-yellow-50 border-yellow-100 text-yellow-700"
+      : "bg-red-50 border-red-100 text-red-700";
+
+  return (
+    <div className={`${cls} border rounded-2xl p-4`}>
+      <p className="font-bold">{title}</p>
+      <p className="text-sm text-gray-500 mt-1">{text}</p>
+    </div>
+  );
+}
+
 function CustomerResult({
   customer,
   aadhaar,
@@ -1131,7 +996,7 @@ function CustomerResult({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="font-bold text-xl text-gray-900 truncate">
-            {customer.name}
+            {customer.name || customer.fullName || customer.customerName}
           </h3>
           <p className="text-gray-500 text-sm">{maskAadhaar(aadhaar)}</p>
         </div>
@@ -1224,6 +1089,7 @@ function CustomerResult({
 
         <div className="flex flex-wrap gap-2">
           <button
+            type="button"
             onClick={() => setRiskLevel("SAFE")}
             className={`px-4 py-2 rounded-xl text-sm font-semibold ${
               riskLevel === "SAFE"
@@ -1235,6 +1101,7 @@ function CustomerResult({
           </button>
 
           <button
+            type="button"
             onClick={() => setRiskLevel("MEDIUM_RISK")}
             className={`px-4 py-2 rounded-xl text-sm font-semibold ${
               riskLevel === "MEDIUM_RISK"
@@ -1246,6 +1113,7 @@ function CustomerResult({
           </button>
 
           <button
+            type="button"
             onClick={() => setRiskLevel("HIGH_RISK")}
             className={`px-4 py-2 rounded-xl text-sm font-semibold ${
               riskLevel === "HIGH_RISK"
@@ -1265,6 +1133,7 @@ function CustomerResult({
         />
 
         <button
+          type="button"
           onClick={submitReview}
           disabled={submitting}
           className="mt-4 w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-2xl font-bold"

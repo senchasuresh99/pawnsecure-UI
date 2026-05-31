@@ -15,7 +15,7 @@ import {
   FaSyncAlt,
 } from "react-icons/fa";
 
-const API_BASE = "https://pawnsecure-1.onrender.com/api";
+const API_BASE = "https://pawn-qa.netlify.app/api";
 
 type Dealer = {
   id: number;
