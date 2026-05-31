@@ -662,13 +662,10 @@ export default function CustomerRegister() {
     let isScannerRunning = false;
     let hasScanned = false;
 
-    scanner
-      .start(
-        {
-          facingMode: "environment",
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-        },
+    scanner.start(
+  {
+    facingMode: { ideal: "environment" }
+  },
         {
           fps: 15,
 
