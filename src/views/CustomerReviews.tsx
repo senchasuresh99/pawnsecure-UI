@@ -142,7 +142,7 @@ function extractAadhaarFromQR(text: string) {
   const raw = text.trim();
 
   try {
-    // ✅ Old Aadhaar XML QR format
+    // ✅ ONLY old Aadhaar XML QR
     if (raw.includes("PrintLetterBarcodeData") || raw.startsWith("<")) {
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(raw, "text/xml");
@@ -156,28 +156,14 @@ function extractAadhaarFromQR(text: string) {
 
       const uid = node?.getAttribute("uid") || "";
 
+      // ✅ Strict validation
       if (/^\d{12}$/.test(uid)) {
         return uid;
       }
     }
 
-    // ✅ Escaped XML fallback (NO replaceAll)
-    if (raw.startsWith("&lt;")) {
-      const xml = raw
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&quot;/g, `"`)
-        .replace(/&apos;/g, "'")
-        .replace(/&amp;/g, "&");
-
-      return extractAadhaarFromQR(xml);
-    }
-
-    // ✅ Any QR text containing 12 digits
-    const digits = raw.replace(/\D/g, "");
-    const match = digits.match(/\d{12}/);
-
-    return match ? match[0] : "";
+    // ✅ DO NOT guess Aadhaar from encrypted QR
+    return "";
   } catch {
     return "";
   }
