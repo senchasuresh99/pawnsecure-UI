@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Html5Qrcode } from "html5-qrcode";
+import {Html5Qrcode,Html5QrcodeSupportedFormats,} from "html5-qrcode";
 
 import {
   FaHome,
@@ -108,91 +108,230 @@ export default function CustomerReviews() {
     setPopup(null);
   }
 
-  function extractAadhaarFromQR(text: string) {
-    const digits = text.replace(/\D/g, "");
+function extractAadhaarFromQR(text: string) {
+  if (!text) return "";
+
+  const raw = text.trim();
+
+  try {
+    // ✅ Old Aadhaar XML QR format
+    if (raw.includes("PrintLetterBarcodeData") || raw.startsWith("<")) {
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(raw, "text/xml");
+
+      const parserError = xmlDoc.getElementsByTagName("parsererror")[0];
+      if (parserError) return "";
+
+      const node =
+        xmlDoc.getElementsByTagName("PrintLetterBarcodeData")[0] ||
+        xmlDoc.documentElement;
+
+      const uid = node?.getAttribute("uid") || "";
+
+      if (/^\d{12}$/.test(uid)) {
+        return uid;
+      }
+    }
+
+    // ✅ Escaped XML fallback (NO replaceAll)
+    if (raw.startsWith("&lt;")) {
+      const xml = raw
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, `"`)
+        .replace(/&apos;/g, "'")
+        .replace(/&amp;/g, "&");
+
+      return extractAadhaarFromQR(xml);
+    }
+
+    // ✅ Any QR text containing 12 digits
+    const digits = raw.replace(/\D/g, "");
     const match = digits.match(/\d{12}/);
+
     return match ? match[0] : "";
+  } catch {
+    return "";
+  }
+}
+
+useEffect(() => {
+  if (!showScanner) return;
+
+  let scanner: Html5Qrcode | null = null;
+  let isScannerRunning = false;
+  let hasScanned = false;
+  let isUnmounted = false;
+
+  const scanConfig = {
+    fps: 15,
+
+    qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+      const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+      const size = Math.floor(minEdge * 0.9);
+
+      return {
+        width: size,
+        height: size,
+      };
+    },
+
+    aspectRatio: 1.0,
+    disableFlip: true,
+  };
+
+  async function stopScanner() {
+    try {
+      if (scanner && isScannerRunning) {
+        await scanner.stop();
+        scanner.clear();
+        isScannerRunning = false;
+      } else if (scanner) {
+        scanner.clear();
+      }
+    } catch {
+      // ignore scanner stop/clear error
+    }
   }
 
-  useEffect(() => {
-    if (!showScanner) return;
+  async function onScanSuccess(decodedText: string) {
+    if (hasScanned) return;
 
-    const scanner = new Html5Qrcode("aadhaar-qr-reader");
-    let isScannerRunning = false;
-    let hasScanned = false;
+    if (!decodedText) {
+      setScannerError("QR scanned, but data was not readable. Please try again.");
+      return;
+    }
 
-    scanner
-      .start(
-        { facingMode: "environment" },
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
-        },
-        async (decodedText) => {
-          if (hasScanned) return;
+    const extractedAadhaar = extractAadhaarFromQR(decodedText);
 
-          const extractedAadhaar = extractAadhaarFromQR(decodedText);
+    if (!extractedAadhaar) {
+      setScannerError(
+        "QR scanned, but full Aadhaar number was not found. Secure Aadhaar QR may not contain full Aadhaar. Please enter Aadhaar manually."
+      );
+      return;
+    }
 
-          if (extractedAadhaar) {
-            hasScanned = true;
+    hasScanned = true;
 
-            setAadhaar(extractedAadhaar);
-            setScannerError("");
+    setAadhaar(extractedAadhaar);
+    setScannerError("");
 
-            try {
-              if (isScannerRunning) {
-                await scanner.stop();
-                scanner.clear();
-                isScannerRunning = false;
-              }
-            } catch {
-              // ignore scanner stop/clear error
-            }
+    await stopScanner();
 
-            setShowScanner(false);
+    setShowScanner(false);
 
-            showPopup(
-              "success",
-              "Aadhaar number scanned. Please click Check Customer Review."
-            );
-          } else {
-            setScannerError(
-              "QR scanned, but Aadhaar number not found. Please enter Aadhaar manually."
-            );
-          }
-        },
-        () => {}
-      )
-      .then(() => {
-        isScannerRunning = true;
-      })
-      .catch(() => {
-        setScannerError("Camera permission denied or camera not available.");
+    showPopup(
+      "success",
+      "Aadhaar number scanned. Please click Check Customer Review."
+    );
+  }
+
+  async function startAndroidBackCamera() {
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      if (isUnmounted) return;
+
+      scanner = new Html5Qrcode("aadhaar-qr-reader", {
+        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+        verbose: false,
       });
 
-    return () => {
-      if (isScannerRunning) {
-        scanner
-          .stop()
-          .then(() => {
-            try {
-              scanner.clear();
-            } catch {
-              // ignore clear error
-            }
-          })
-          .catch(() => {
-            // ignore stop error
-          });
-      } else {
-        try {
-          scanner.clear();
-        } catch {
-          // ignore clear error
-        }
+      const cameras = await Html5Qrcode.getCameras();
+
+      if (!cameras || cameras.length === 0) {
+        throw new Error("No camera found on this device");
       }
-    };
-  }, [showScanner]);
+
+      const backCamera =
+        cameras.find((camera) =>
+          /back|rear|environment|facing back/i.test(camera.label || "")
+        ) || cameras[cameras.length - 1];
+
+      try {
+        await scanner.start(
+          backCamera.id,
+          scanConfig,
+          onScanSuccess,
+          () => {
+            // ignore frame decode errors
+          }
+        );
+
+        isScannerRunning = true;
+        setScannerError("");
+        return;
+      } catch {
+        // fallback below
+      }
+
+      try {
+        await scanner.start(
+          { facingMode: "environment" },
+          scanConfig,
+          onScanSuccess,
+          () => {
+            // ignore frame decode errors
+          }
+        );
+
+        isScannerRunning = true;
+        setScannerError("");
+        return;
+      } catch {
+        // fallback below
+      }
+
+      await scanner.start(
+        cameras[cameras.length - 1].id,
+        scanConfig,
+        onScanSuccess,
+        () => {
+          // ignore frame decode errors
+        }
+      );
+
+      isScannerRunning = true;
+      setScannerError("");
+    } catch (err: any) {
+      const message =
+        err?.message ||
+        err?.name ||
+        "Camera permission denied or camera not available";
+
+      setScannerError(
+        `Camera start failed: ${message}. Please allow camera permission and try again.`
+      );
+    }
+  }
+
+  startAndroidBackCamera();
+
+  return () => {
+    isUnmounted = true;
+
+    if (scanner && isScannerRunning) {
+      scanner
+        .stop()
+        .then(() => {
+          try {
+            scanner?.clear();
+          } catch {
+            // ignore clear error
+          }
+        })
+        .catch(() => {
+          // ignore stop error
+        });
+    } else if (scanner) {
+      try {
+        scanner.clear();
+      } catch {
+        // ignore clear error
+      }
+    }
+  };
+}, [showScanner]);
 
   async function searchCustomer() {
     if (aadhaar.length !== 12) {
@@ -860,9 +999,8 @@ export default function CustomerReviews() {
               </button>
             </div>
 
-            <div
-              id="aadhaar-qr-reader"
-              className="w-full max-h-[320px] overflow-hidden rounded-xl border"
+            <div id="aadhaar-qr-reader"
+              className="w-full min-h-[420px] overflow-hidden rounded-xl border bg-black"
             />
 
             {scannerError && (
