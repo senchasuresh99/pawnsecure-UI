@@ -44,6 +44,9 @@ export default function CustomerReviews() {
     number | string | null
   >(null);
 
+const [itemPhoto, setItemPhoto] = useState<File | null>(null);
+const [itemPhotoPreview, setItemPhotoPreview] = useState<string>("");
+
   useEffect(() => {
     const token = localStorage.getItem("ps_token");
 
@@ -67,6 +70,31 @@ export default function CustomerReviews() {
   function getToken() {
     return localStorage.getItem("ps_token");
   }
+
+function handleItemPhotoChange(file: File | null) {
+  if (itemPhotoPreview) {
+    URL.revokeObjectURL(itemPhotoPreview);
+  }
+
+  if (!file) {
+    setItemPhoto(null);
+    setItemPhotoPreview("");
+    return;
+  }
+
+  if (!file.type.startsWith("image/")) {
+    showPopup("error", "Only image files are allowed");
+    return;
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    showPopup("error", "Item photo must be less than 5MB");
+    return;
+  }
+
+  setItemPhoto(file);
+  setItemPhotoPreview(URL.createObjectURL(file));
+}
 
   function handleUnauthorized() {
     showPopup("error", "Session expired or unauthorized. Please login again.");
@@ -389,76 +417,88 @@ useEffect(() => {
     }
   }
 
-  async function submitReview() {
-    if (!customer?.id) {
-      showPopup("error", "Please search customer first");
-      return;
+ async function submitReview() {
+  if (!customer?.id) {
+    showPopup("error", "Please search customer first");
+    return;
+  }
+
+  if (!riskLevel) {
+    showPopup("error", "Please select a review risk level");
+    return;
+  }
+
+  if (!comment.trim()) {
+    showPopup("error", "Please enter review details");
+    return;
+  }
+
+  const token = getToken();
+  if (!token) {
+    handleUnauthorized();
+    return;
+  }
+
+  setSubmitting(true);
+
+  try {
+    const formData = new FormData();
+
+    // ✅ JSON part
+    formData.append(
+      "review",
+      new Blob(
+        [
+          JSON.stringify({
+            customerId: customer.id,
+            type: riskLevel,
+            comment: comment,
+          }),
+        ],
+        { type: "application/json" }
+      )
+    );
+
+    // ✅ Image part
+    if (itemPhoto) {
+      formData.append("itemPhoto", itemPhoto);
     }
 
-    if (!riskLevel) {
-      showPopup("error", "Please select a review risk level");
-      return;
-    }
+    const res = await fetch(`${API_BASE}/reviews`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        // ❌ DO NOT set Content-Type
+      },
+      body: formData,
+    });
 
-    if (!comment.trim()) {
-      showPopup("error", "Please enter review details");
-      return;
-    }
-
-    const token = getToken();
-
-    if (!token) {
+    if (res.status === 401 || res.status === 403) {
       handleUnauthorized();
       return;
     }
 
-    setSubmitting(true);
-
-    try {
-      const res = await fetch(`${API_BASE}/reviews`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          customerId: customer.id,
-          type: riskLevel,
-          comment: comment,
-        }),
-      });
-
-      if (res.status === 401 || res.status === 403) {
-        handleUnauthorized();
-        return;
-      }
-
-      if (!res.ok) {
-        let message = "Something went wrong";
-
-        try {
-          const data = await res.json();
-          message = data.message || message;
-        } catch {
-          message = await res.text();
-        }
-
-        showPopup("error", message || "Something went wrong");
-        return;
-      }
-
-      showPopup("success", "Feedback submitted successfully");
-
-      setRiskLevel("");
-      setComment("");
-
-      searchCustomer();
-    } catch {
-      showPopup("error", "Server error");
-    } finally {
-      setSubmitting(false);
+    if (!res.ok) {
+      const msg = await res.text();
+      showPopup("error", msg || "Failed to submit review");
+      return;
     }
+
+    showPopup("success", "Review submitted successfully");
+
+    // ✅ Reset
+    setRiskLevel("");
+    setComment("");
+    setItemPhoto(null);
+    setItemPhotoPreview("");
+
+    searchCustomer();
+  } catch {
+    showPopup("error", "Server error while submitting review");
+  } finally {
+    setSubmitting(false);
   }
+}
 
   async function deleteReview(reviewId: number | string) {
     const token = getToken();
@@ -784,6 +824,8 @@ useEffect(() => {
                   currentDealerName={dealerName}
                   deleteReview={deleteReview}
                   deletingReviewId={deletingReviewId}
+                  itemPhotoPreview={itemPhotoPreview}
+                  onItemPhotoChange={handleItemPhotoChange}
                 />
               </div>
             )}
@@ -902,6 +944,8 @@ useEffect(() => {
                 currentDealerName={dealerName}
                 deleteReview={deleteReview}
                 deletingReviewId={deletingReviewId}
+                itemPhotoPreview={itemPhotoPreview}
+                onItemPhotoChange={handleItemPhotoChange}
               />
             </div>
           )}
@@ -1087,6 +1131,9 @@ function CustomerResult({
   currentDealerName,
   deleteReview,
   deletingReviewId,
+  itemPhotoPreview,
+  onItemPhotoChange,
+
 }: any) {
   function getReviewType(r: any) {
     return r.riskLevel || r.type || "REVIEW";
@@ -1132,12 +1179,32 @@ function CustomerResult({
   return (
     <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 w-full overflow-hidden">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="font-bold text-xl text-gray-900 truncate">
-            {customer.name || customer.fullName || customer.customerName}
-          </h3>
-          <p className="text-gray-500 text-sm">{maskAadhaar(aadhaar)}</p>
-        </div>
+        <div className="flex items-center gap-3">
+  {/* ✅ Customer Photo Avatar */}
+  {customer.customerPhotoBase64 ? (
+    <img
+      src={`data:${customer.customerPhotoContentType};base64,${customer.customerPhotoBase64}`}
+      alt="Customer"
+      className="w-10 h-10 rounded-full object-cover border shrink-0"
+    />
+  ) : (
+    <div className="w-10 h-10 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold shrink-0">
+      {(customer.fullName || customer.name || customer.customerName || "?")
+        .charAt(0)
+        .toUpperCase()}
+    </div>
+  )}
+
+  {/* ✅ Name + Aadhaar */}
+  <div className="min-w-0">
+    <h3 className="font-bold text-xl text-gray-900 truncate">
+      {customer.fullName || customer.name || customer.customerName}
+    </h3>
+    <p className="text-gray-500 text-sm">
+      {maskAadhaar(aadhaar)}
+    </p>
+  </div>
+</div>
 
         <span className="bg-purple-50 text-purple-700 px-3 py-1 rounded-full text-xs font-bold shrink-0">
           Reviews: {customer.reviews?.length || 0}
@@ -1210,11 +1277,24 @@ function CustomerResult({
                     </button>
                   </div>
 
-                  <div className="mt-3 bg-gray-50 rounded-2xl p-3 max-h-36 overflow-y-auto overflow-x-hidden">
-                    <p className="text-sm text-gray-800 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-                      {r.comment || "No comment provided"}
-                    </p>
-                  </div>
+                  <div className="mt-3 bg-gray-50 rounded-2xl p-3 space-y-3">
+  {/* ✅ Review Comment */}
+  <p className="text-sm text-gray-800 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+    {r.comment || "No comment provided"}
+  </p>
+
+  {/* ✅ Item Photo (from DB, Base64) */}
+  {r.itemPhotoBase64 && r.itemPhotoContentType && (
+    <div className="pt-2 border-t border-gray-200">
+      <img
+        src={`data:${r.itemPhotoContentType};base64,${r.itemPhotoBase64}`}
+        alt="Item"
+        className="w-full max-h-60 object-contain rounded-xl border bg-white"
+      />
+    </div>
+  )}
+</div>
+
                 </div>
               );
             })}
@@ -1262,6 +1342,43 @@ function CustomerResult({
             🚫 High Risk
           </button>
         </div>
+
+{/* ✅ Item Photo Upload */}
+<div className="mt-4">
+  <label className="block text-xs font-semibold text-gray-600 mb-2">
+    Item Photo (optional)
+  </label>
+
+  {!itemPhotoPreview ? (
+    <label className="cursor-pointer flex items-center justify-center border-2 border-dashed rounded-xl p-4 text-sm text-gray-500 hover:bg-gray-50">
+      Click to upload item photo
+      <input
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) =>
+          onItemPhotoChange(e.target.files?.[0] || null)
+        }
+      />
+    </label>
+  ) : (
+    <div className="flex items-center gap-3">
+      <img
+        src={itemPhotoPreview}
+        alt="Item preview"
+        className="w-24 h-24 rounded-xl object-cover border"
+      />
+
+      <button
+        type="button"
+        onClick={() => onItemPhotoChange(null)}
+        className="text-xs text-red-600 font-bold"
+      >
+        Remove
+      </button>
+    </div>
+  )}
+</div>
 
         <textarea
           value={comment}
