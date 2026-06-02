@@ -1,9 +1,12 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useState,
   type ReactNode,
 } from "react";
+
+/* ---------------- TYPES ---------------- */
 
 type Customer = {
   id?: number | string;
@@ -24,7 +27,7 @@ type Customer = {
 };
 
 type LoanDetails = {
-  customerId: string | number;
+  customerId: number | string | null;
   amount: string;
   interestRate: string;
   interestType: string;
@@ -48,26 +51,47 @@ type LockerDetails = {
   otherCharges: string;
 };
 
+type GirviState = {
+  customer: Customer | null;
+  loanDetails: LoanDetails;
+  items: GirviItem[];
+  locker: LockerDetails;
+};
+
 type GirviContextType = {
   customer: Customer | null;
-  setCustomer: React.Dispatch<React.SetStateAction<Customer | null>>;
+  setCustomer: (value: Customer | null) => void;
 
   loanDetails: LoanDetails;
-  setLoanDetails: React.Dispatch<React.SetStateAction<LoanDetails>>;
+  setLoanDetails: (
+    data: Partial<LoanDetails> | ((prev: LoanDetails) => LoanDetails)
+  ) => void;
 
   items: GirviItem[];
-  setItems: React.Dispatch<React.SetStateAction<GirviItem[]>>;
+  setItems: (
+    data: GirviItem[] | ((prev: GirviItem[]) => GirviItem[])
+  ) => void;
 
   locker: LockerDetails;
-  setLocker: React.Dispatch<React.SetStateAction<LockerDetails>>;
+  setLocker: (
+    data: Partial<LockerDetails> | ((prev: LockerDetails) => LockerDetails)
+  ) => void;
 
   resetGirvi: () => void;
 };
 
+/* ---------------- CONTEXT ---------------- */
+
 const GirviContext = createContext<GirviContextType | null>(null);
 
+const STORAGE_KEY = "ps_girvi_context";
+const CUSTOMER_ID_KEY = "ps_customer_id";
+const SELECTED_CUSTOMER_KEY = "ps_selected_customer";
+
+/* ---------------- INITIAL STATE ---------------- */
+
 const initialLoanDetails: LoanDetails = {
-  customerId: "",
+  customerId: null,
   amount: "",
   interestRate: "",
   interestType: "Monthly",
@@ -84,37 +108,197 @@ const initialLockerDetails: LockerDetails = {
   otherCharges: "",
 };
 
+const initialState: GirviState = {
+  customer: null,
+  loanDetails: initialLoanDetails,
+  items: [],
+  locker: initialLockerDetails,
+};
+
+/* ---------------- HELPERS ---------------- */
+
+function getCustomerId(customer: Customer | null | undefined) {
+  if (!customer) return null;
+
+  return (
+    customer.id ||
+    customer.customerId ||
+    customer.customer_id ||
+    customer.customer?.id ||
+    customer.customer?.customerId ||
+    null
+  );
+}
+
+function loadInitialState(): GirviState {
+  try {
+    const savedContext = localStorage.getItem(STORAGE_KEY);
+    const savedCustomerId = localStorage.getItem(CUSTOMER_ID_KEY);
+    const savedCustomer = localStorage.getItem(SELECTED_CUSTOMER_KEY);
+
+    if (savedContext) {
+      const parsed = JSON.parse(savedContext) as GirviState;
+
+      return {
+        ...initialState,
+        ...parsed,
+        loanDetails: {
+          ...initialLoanDetails,
+          ...(parsed.loanDetails || {}),
+          customerId:
+            parsed.loanDetails?.customerId ||
+            getCustomerId(parsed.customer) ||
+            savedCustomerId ||
+            null,
+        },
+      };
+    }
+
+    if (savedCustomerId || savedCustomer) {
+      const parsedCustomer = savedCustomer
+        ? (JSON.parse(savedCustomer) as Customer)
+        : null;
+
+      return {
+        ...initialState,
+        customer: parsedCustomer,
+        loanDetails: {
+          ...initialLoanDetails,
+          customerId: savedCustomerId || getCustomerId(parsedCustomer),
+        },
+      };
+    }
+
+    return initialState;
+  } catch {
+    return initialState;
+  }
+}
+
+/* ---------------- PROVIDER ---------------- */
+
 export function GirviProvider({ children }: { children: ReactNode }) {
-  const [customer, setCustomer] = useState<Customer | null>(null);
+  const [state, setState] = useState<GirviState>(() => loadInitialState());
 
-  const [loanDetails, setLoanDetails] =
-    useState<LoanDetails>(initialLoanDetails);
+  /* ✅ Persist full girvi context */
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 
-  const [items, setItems] = useState<GirviItem[]>([]);
+    const customerId =
+      state.loanDetails.customerId || getCustomerId(state.customer);
 
-  const [locker, setLocker] =
-    useState<LockerDetails>(initialLockerDetails);
+    if (customerId) {
+      localStorage.setItem(CUSTOMER_ID_KEY, String(customerId));
+    }
+
+    if (state.customer) {
+      localStorage.setItem(
+        SELECTED_CUSTOMER_KEY,
+        JSON.stringify(state.customer)
+      );
+    }
+  }, [state]);
+
+  /* ---------------- SAFE SETTERS ---------------- */
+
+  function setCustomer(customer: Customer | null) {
+    setState((prev) => {
+      if (!customer) {
+        localStorage.removeItem(CUSTOMER_ID_KEY);
+        localStorage.removeItem(SELECTED_CUSTOMER_KEY);
+
+        return {
+          ...prev,
+          customer: null,
+          loanDetails: {
+            ...prev.loanDetails,
+            customerId: null,
+          },
+        };
+      }
+
+      const customerId = getCustomerId(customer);
+
+      const normalizedCustomer: Customer = {
+        ...customer,
+        id: customerId || customer.id,
+        customerId: customerId || customer.customerId,
+      };
+
+      if (customerId) {
+        localStorage.setItem(CUSTOMER_ID_KEY, String(customerId));
+      }
+
+      localStorage.setItem(
+        SELECTED_CUSTOMER_KEY,
+        JSON.stringify(normalizedCustomer)
+      );
+
+      return {
+        ...prev,
+        customer: normalizedCustomer,
+        loanDetails: {
+          ...prev.loanDetails,
+          customerId: customerId || prev.loanDetails.customerId,
+        },
+      };
+    });
+  }
+
+  function setLoanDetails(
+    data: Partial<LoanDetails> | ((prev: LoanDetails) => LoanDetails)
+  ) {
+    setState((prev) => ({
+      ...prev,
+      loanDetails:
+        typeof data === "function"
+          ? data(prev.loanDetails)
+          : { ...prev.loanDetails, ...data },
+    }));
+  }
+
+  function setItems(
+    data: GirviItem[] | ((prev: GirviItem[]) => GirviItem[])
+  ) {
+    setState((prev) => ({
+      ...prev,
+      items: typeof data === "function" ? data(prev.items) : data,
+    }));
+  }
+
+  function setLocker(
+    data: Partial<LockerDetails> | ((prev: LockerDetails) => LockerDetails)
+  ) {
+    setState((prev) => ({
+      ...prev,
+      locker:
+        typeof data === "function"
+          ? data(prev.locker)
+          : { ...prev.locker, ...data },
+    }));
+  }
 
   function resetGirvi() {
-    setCustomer(null);
-    setLoanDetails(initialLoanDetails);
-    setItems([]);
-    setLocker(initialLockerDetails);
+    setState(initialState);
+
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(CUSTOMER_ID_KEY);
+    localStorage.removeItem(SELECTED_CUSTOMER_KEY);
   }
 
   return (
     <GirviContext.Provider
       value={{
-        customer,
+        customer: state.customer,
         setCustomer,
 
-        loanDetails,
+        loanDetails: state.loanDetails,
         setLoanDetails,
 
-        items,
+        items: state.items,
         setItems,
 
-        locker,
+        locker: state.locker,
         setLocker,
 
         resetGirvi,
@@ -125,12 +309,14 @@ export function GirviProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useGirvi() {
-  const context = useContext(GirviContext);
+/* ---------------- HOOK ---------------- */
 
-  if (!context) {
+export function useGirvi() {
+  const ctx = useContext(GirviContext);
+
+  if (!ctx) {
     throw new Error("useGirvi must be used inside GirviProvider");
   }
 
-  return context;
+  return ctx;
 }
