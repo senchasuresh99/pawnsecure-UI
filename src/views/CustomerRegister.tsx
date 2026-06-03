@@ -76,6 +76,7 @@ export default function CustomerRegister() {
   const [qrStep, setQrStep] = useState<QrStep>("idle");
 
   const [goToGirviAfterSuccess, setGoToGirviAfterSuccess] = useState(false);
+  const [qrPreviewData, setQrPreviewData] = useState<any | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("ps_token");
@@ -627,9 +628,25 @@ async function handleCustomerRegisteredSuccess(data: any) {
       return;
     }
 
-    const data = await res.json();
+const data = await res.json();
 
-    await handleCustomerRegisteredSuccess(data);
+setQrStep("success");
+
+/*
+  ✅ QR verified / customer created by backend.
+  ✅ Do NOT go to Girvi immediately.
+  ✅ Show customer preview first.
+*/
+setQrPreviewData({
+  ...data,
+  phoneNumber: qrPhoneNumber,
+  customerPhotoPreview,
+});
+
+showPopup(
+  "success",
+  "Aadhaar QR verified successfully. Please confirm customer details."
+);
   } catch {
     setQrStep("error");
     showPopup("error", "Server error while verifying Aadhaar QR");
@@ -922,6 +939,134 @@ async function onScanSuccess(decodedText: string) {
   };
 }, [showScanner]);
 
+function QrCustomerPreviewCard() {
+  if (!qrPreviewData) return null;
+
+  const customerName =
+    qrPreviewData.fullName ||
+    qrPreviewData.name ||
+    qrPreviewData.customerName ||
+    "Not available";
+
+  const customerId =
+    qrPreviewData.id ||
+    qrPreviewData.customerId ||
+    qrPreviewData.customer_id ||
+    qrPreviewData.customer?.id ||
+    qrPreviewData.customer?.customerId ||
+    "";
+
+  const masked =
+    qrPreviewData.maskedAadhaar ||
+    qrPreviewData.masked_aadhaar ||
+    "Not shared via QR";
+
+  const address =
+    qrPreviewData.address ||
+    qrPreviewData.fullAddress ||
+    [
+      qrPreviewData.house,
+      qrPreviewData.street,
+      qrPreviewData.loc,
+      qrPreviewData.vtc,
+      qrPreviewData.dist,
+      qrPreviewData.state,
+      qrPreviewData.pc,
+    ]
+      .filter(Boolean)
+      .join(", ") ||
+    "Not available";
+
+  return (
+    <div className="mt-6 border border-purple-200 bg-purple-50 rounded-3xl p-5">
+      <h3 className="text-lg font-bold text-purple-800 mb-4">
+        Confirm Customer Details
+      </h3>
+
+      <div className="flex gap-4">
+        {customerPhotoPreview ? (
+          <img
+            src={customerPhotoPreview}
+            alt="Customer"
+            className="w-24 h-24 rounded-2xl object-cover border bg-white shrink-0"
+          />
+        ) : (
+          <div className="w-24 h-24 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold shrink-0">
+            {customerName.charAt(0).toUpperCase()}
+          </div>
+        )}
+
+        <div className="flex-1 text-sm space-y-1 min-w-0">
+          <p>
+            <span className="font-semibold text-gray-700">Customer ID:</span>{" "}
+            {customerId || "Not returned"}
+          </p>
+
+          <p>
+            <span className="font-semibold text-gray-700">Name:</span>{" "}
+            {customerName}
+          </p>
+
+          <p>
+            <span className="font-semibold text-gray-700">Aadhaar:</span>{" "}
+            {masked}
+          </p>
+
+          <p>
+            <span className="font-semibold text-gray-700">DOB:</span>{" "}
+            {qrPreviewData.dob ||
+              qrPreviewData.dateOfBirth ||
+              qrPreviewData.birthDate ||
+              "Not available"}
+          </p>
+
+          <p>
+            <span className="font-semibold text-gray-700">Gender:</span>{" "}
+            {qrPreviewData.gender || qrPreviewData.sex || "Not available"}
+          </p>
+
+          <p>
+            <span className="font-semibold text-gray-700">Phone:</span>{" "}
+            {qrPreviewData.phoneNumber || qrPhoneNumber}
+          </p>
+
+          <p className="text-xs text-gray-600 mt-2 break-words">
+            <span className="font-semibold">Address:</span> {address}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex gap-3 mt-5">
+        <button
+          type="button"
+          className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl font-bold"
+          onClick={async () => {
+            /*
+              ✅ Dealer confirmed.
+              ✅ Now set customer in Girvi context.
+              ✅ Then go to Add Girvi page.
+            */
+            await handleCustomerRegisteredSuccess(qrPreviewData);
+            setQrPreviewData(null);
+          }}
+        >
+          Confirm & Continue
+        </button>
+
+        <button
+          type="button"
+          className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-bold"
+          onClick={() => {
+            setQrPreviewData(null);
+            setQrStep("idle");
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
   function CustomerPhotoUploadCard() {
     return (
       <div>
@@ -1306,16 +1451,19 @@ async function onScanSuccess(decodedText: string) {
                   <div className="col-span-12">
                     <CustomerPhotoUploadCard />
                   </div>
+                  <div className="col-span-12">
+                      <QrCustomerPreviewCard />
+                  </div>
                 </div>
 
                 <button
-                  type="button"
-                  onClick={handleManualRegister}
-                  disabled={loading}
-                  className="mt-5 w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-2xl font-bold disabled:bg-gray-400"
-                >
-                  {loading ? "Checking..." : "Continue Customer Register"}
-                </button>
+  type="button"
+  onClick={handleManualRegister}
+  disabled={loading || !!qrPreviewData}
+  className="mt-5 w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-2xl font-bold disabled:bg-gray-400"
+>
+  {loading ? "Checking..." : "Continue Customer Register"}
+</button>
               </div>
 
               <div className="col-span-4 bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
@@ -1469,17 +1617,16 @@ async function onScanSuccess(decodedText: string) {
                   {uploadingQR ? "Saving..." : "Upload QR"}
                 </button>
               </div>
-
               <QrUploadProgress />
-
+              <QrCustomerPreviewCard />
               <button
-                type="button"
-                onClick={handleManualRegister}
-                disabled={loading}
-                className="mt-3 w-full bg-purple-600 text-white py-3 rounded-xl font-bold disabled:bg-gray-400"
-              >
-                {loading ? "Checking..." : "Manual Customer Register"}
-              </button>
+  type="button"
+  onClick={handleManualRegister}
+  disabled={loading || !!qrPreviewData}
+  className="mt-3 w-full bg-purple-600 text-white py-3 rounded-xl font-bold disabled:bg-gray-400"
+>
+  {loading ? "Checking..." : "Manual Customer Register"}
+</button>
             </div>
           </div>
 
