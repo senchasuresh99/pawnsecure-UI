@@ -171,9 +171,9 @@ export default function DealerDashboard() {
 
   const getGreeting = () => {
     const hour = currentDate.getHours();
-    if (hour >= 0 && hour < 12) return "Good Morning";
-    if (hour >= 12 && hour < 18) return "Good Afternoon";
-    if (hour >= 18 && hour < 21) return "Good Evening";
+    if (hour >= 0 && hour < 12) return "Welcome Back";
+    if (hour >= 12 && hour < 18) return "Welcome Back";
+    if (hour >= 18 && hour < 21) return "Welcome Back";
     return "Good Night";
   };
 
