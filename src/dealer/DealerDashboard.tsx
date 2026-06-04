@@ -187,17 +187,19 @@ export default function DealerDashboard() {
     weekday: "long",
   });
 
-  function getInitials(name) {
+  // ✅ Fixed TypeScript parameter type
+  function getInitials(name: string) {
     return name
       .split(" ")
       .filter(Boolean)
-      .map((word) => word[0])
+      .map((word: string) => word[0]) // ✅ Fixed implicitly any
       .join("")
       .slice(0, 2)
       .toUpperCase();
   }
 
-  function getDealerIdDisplay(id) {
+  // ✅ Fixed TypeScript parameter type
+  function getDealerIdDisplay(id: string | null) {
     if (!id || id === "-") return "-";
     return id.startsWith("DP") ? id : `DP${id}`;
   }
@@ -215,7 +217,8 @@ export default function DealerDashboard() {
     navigate("/", { replace: true });
   }
 
-  function handleActionNavigation(path, state) {
+  // ✅ Added ? to make state optional, preventing the "Expected 2 arguments" error
+  function handleActionNavigation(path: string, state?: any) {
     if (isAdminView) return;
     navigate(path, state ? { state } : undefined);
   }
@@ -332,7 +335,6 @@ export default function DealerDashboard() {
             </div>
           </header>
 
-          {/* Clean, fluid layout without scale hack */}
           <div className="p-6 xl:p-8 max-w-[1400px] w-full mx-auto flex-1">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
               <div className="lg:col-span-8 bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-3xl p-8">
@@ -387,7 +389,6 @@ export default function DealerDashboard() {
               ))}
             </div>
 
-            {/* Quick Actions properly responsive (4 cols on smaller laptops, 8 on ultra-wides) */}
             <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm mb-8">
               <div className="flex justify-between items-center mb-5">
                 <h2 className="text-xl font-bold text-gray-900">Quick Actions</h2>
@@ -550,7 +551,6 @@ export default function DealerDashboard() {
               </div>
             )}
             
-            {/* Fixed Mobile Grid: Tighter gap and smaller text prevents wrapping issues */}
             <div className="grid grid-cols-4 gap-2">
               {actions.map((item, index) => (
                 <button
