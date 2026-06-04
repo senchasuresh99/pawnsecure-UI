@@ -408,7 +408,7 @@ export default function DealerDashboard() {
               </div>
             </div>
 
-            {/* ✅ Added LIVE METAL RATES Segment */}
+            {/* LIVE METAL RATES Segment */}
             <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm mb-8">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
@@ -416,7 +416,7 @@ export default function DealerDashboard() {
                     Live Metal Rates
                   </h3>
                   <span className="flex items-center gap-1 bg-green-50 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-green-200">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-500捷 animate-pulse bg-green-600"></span>{" "}
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse bg-green-600"></span>{" "}
                     Live
                   </span>
                 </div>
@@ -623,7 +623,7 @@ export default function DealerDashboard() {
             ))}
           </div>
 
-          {/* ✅ Added LIVE METAL RATES Segment for Mobile Layout */}
+          {/* LIVE METAL RATES Segment for Mobile Layout */}
           <div className="mt-6 px-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-1.5">
@@ -635,12 +635,12 @@ export default function DealerDashboard() {
               <span className="text-[10px] text-gray-400">10:35 AM</span>
             </div>
 
-            {/* Horizontal scroll track for smooth mobile navigation without crowding */}
-            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none snap-x">
+            {/* Vertically stacked full-width cards without horizontal scrolling */}
+            <div className="flex flex-col gap-3 pb-2">
               {metalRates.map((rate, i) => (
                 <div
                   key={i}
-                  className={`snap-center shrink-0 w-[240px] border rounded-xl p-3 flex items-center justify-between shadow-xs ${rate.cardBg}`}
+                  className={`w-full border rounded-xl p-3 flex items-center justify-between shadow-xs ${rate.cardBg}`}
                 >
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-base shrink-0 ${rate.iconBg}`}>
