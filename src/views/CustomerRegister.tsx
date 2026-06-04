@@ -203,7 +203,6 @@ export default function CustomerRegister() {
     try {
       const text = decodedText.trim();
 
-      // ✅ Old Aadhaar QR XML format
       if (text.includes("PrintLetterBarcodeData") || text.startsWith("<")) {
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(text, "text/xml");
@@ -252,7 +251,6 @@ export default function CustomerRegister() {
         };
       }
 
-      // ✅ JSON QR support
       if (text.startsWith("{")) {
         const data = JSON.parse(text);
         const uid = data.aadhaar || data.uid || "";
@@ -271,7 +269,6 @@ export default function CustomerRegister() {
         };
       }
 
-      // ✅ Fallback Aadhaar number only
       const extractedAadhaar = extractAadhaarFromQR(text);
 
       if (extractedAadhaar) {
@@ -318,19 +315,15 @@ export default function CustomerRegister() {
       state: {
         fullName: prefill.fullName || prefill.name || prefill.customerName || "",
         name: prefill.fullName || prefill.name || prefill.customerName || "",
-
         maskedAadhaar: prefill.maskedAadhaar || prefill.masked_aadhaar || "",
-
         aadhaar:
           prefill.aadhaarNumber ||
           prefill.aadhaar ||
           prefill.uid ||
           aadhaar ||
           "",
-
         gender: prefill.gender || prefill.sex || "",
         dob: prefill.dob || prefill.dateOfBirth || prefill.birthDate || "",
-
         address:
           prefill.address ||
           prefill.fullAddress ||
@@ -345,7 +338,6 @@ export default function CustomerRegister() {
           ]
             .filter(Boolean)
             .join(", "),
-
         phoneNumber: "",
         mobile: "",
         phone: "",
@@ -360,7 +352,6 @@ export default function CustomerRegister() {
     }
 
     const token = getToken();
-
     if (!token) {
       handleUnauthorized();
       return;
@@ -391,7 +382,6 @@ export default function CustomerRegister() {
       }
 
       let message = "Something went wrong while checking customer";
-
       try {
         const data = await res.json();
         message = data.message || message;
@@ -399,10 +389,7 @@ export default function CustomerRegister() {
         message = await res.text();
       }
 
-      showPopup(
-        "error",
-        message || "Something went wrong while checking customer"
-      );
+      showPopup("error", message);
     } catch {
       showPopup("error", "Server error while checking customer");
     } finally {
@@ -462,212 +449,179 @@ export default function CustomerRegister() {
     fileInputRef.current?.click();
   }
 
-async function handleCustomerRegisteredSuccess(data: any) {
-  setQrStep("success");
+  async function handleCustomerRegisteredSuccess(data: any) {
+    setQrStep("success");
 
-  const customerId =
-    data.id ||
-    data.customerId ||
-    data.customer_id ||
-    data.customer?.id ||
-    data.customer?.customerId ||
-    "";
+    const customerId =
+      data.id ||
+      data.customerId ||
+      data.customer_id ||
+      data.customer?.id ||
+      data.customer?.customerId ||
+      "";
 
-  if (!customerId) {
-    setQrStep("error");
-    showPopup(
-      "error",
-      "Customer registered, but customer ID was not returned by backend."
-    );
-    return;
-  }
-
-  const normalizedCustomer = {
-    ...data,
-    id: customerId,
-    customerId: customerId,
-  };
-
-  /*
-    ✅ IMPORTANT:
-    GirviContext automatically sets loanDetails.customerId
-    when setCustomer is called.
-  */
-  setCustomer(normalizedCustomer);
-
-  /*
-    ✅ Extra fallback:
-    If context resets or page refreshes, Girvi page can still get customerId.
-  */
-  localStorage.setItem("ps_customer_id", String(customerId));
-  localStorage.setItem(
-    "ps_selected_customer",
-    JSON.stringify(normalizedCustomer)
-  );
-
-  setGoToGirviAfterSuccess(true);
-
-  showPopup(
-    "success",
-    `Customer registered successfully: ${
-      normalizedCustomer.fullName ||
-      normalizedCustomer.name ||
-      normalizedCustomer.customerName ||
-      "Customer"
-    }`
-  );
-
-  autoNavigateTimerRef.current = setTimeout(() => {
-    setPopup(null);
-    setGoToGirviAfterSuccess(false);
-    autoNavigateTimerRef.current = null;
-
-    navigate("/dealer/details");
-  }, 1200);
-
-  setQrPhoneNumber("");
-  setAadhaar("");
-  setCustomerPhoto(null);
-
-  if (customerPhotoPreview) {
-    URL.revokeObjectURL(customerPhotoPreview);
-  }
-
-  setCustomerPhotoPreview("");
-}
-
- async function verifyAadhaarQRWithBackend(
-  file?: File | null,
-  qrText?: string
-) {
-  const token = getToken();
-
-  if (!token) {
-    handleUnauthorized();
-    return;
-  }
-
-  if (!qrPhoneNumber || !/^[6-9]\d{9}$/.test(qrPhoneNumber)) {
-    showPopup(
-      "error",
-      "Please enter a valid 10-digit phone number before uploading Aadhaar QR"
-    );
-    return;
-  }
-
-  if (!customerPhoto) {
-    showPopup(
-      "error",
-      "Please upload customer photo before uploading Aadhaar QR"
-    );
-    return;
-  }
-
-  if (!file && !qrText) {
-    showPopup("error", "QR image or QR data is required");
-    return;
-  }
-
-  setUploadingQR(true);
-  setQrStep("uploading");
-  setScannerError("");
-
-  try {
-    const formData = new FormData();
-
-    /*
-      ✅ Upload QR flow sends file.
-      ✅ Scan QR flow sends qrText also.
-    */
-    if (file) {
-      formData.append("file", file);
+    if (!customerId) {
+      setQrStep("error");
+      showPopup(
+        "error",
+        "Customer registered, but customer ID was not returned by backend."
+      );
+      return;
     }
 
-    formData.append("phoneNumber", qrPhoneNumber);
-    formData.append("customerPhoto", customerPhoto);
+    const normalizedCustomer = {
+      ...data,
+      id: customerId,
+      customerId: customerId,
+    };
 
-    /*
-      ✅ Important:
-      If html5-qrcode already decoded QR, send decoded text to backend.
-      Backend can parse text directly and does not need to decode image again.
-    */
-    if (qrText && qrText.trim()) {
-  console.log("SENDING QR TEXT TO BACKEND:", qrText.substring(0, 80));
-  formData.append("qrText", qrText.trim());
-}
+    setCustomer(normalizedCustomer);
 
-    const res = await fetch(`${API_BASE}/customers/verify/aadhaar-qr`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      body: formData,
-    });
+    localStorage.setItem("ps_customer_id", String(customerId));
+    localStorage.setItem(
+      "ps_selected_customer",
+      JSON.stringify(normalizedCustomer)
+    );
 
-    setQrStep("verifying");
+    setGoToGirviAfterSuccess(true);
 
-    if (res.status === 401 || res.status === 403) {
-      setQrStep("error");
+    showPopup(
+      "success",
+      `Customer registered successfully: ${
+        normalizedCustomer.fullName ||
+        normalizedCustomer.name ||
+        normalizedCustomer.customerName ||
+        "Customer"
+      }`
+    );
+
+    autoNavigateTimerRef.current = setTimeout(() => {
+      setPopup(null);
+      setGoToGirviAfterSuccess(false);
+      autoNavigateTimerRef.current = null;
+      navigate("/dealer/details");
+    }, 1200);
+
+    setQrPhoneNumber("");
+    setAadhaar("");
+    setCustomerPhoto(null);
+
+    if (customerPhotoPreview) {
+      URL.revokeObjectURL(customerPhotoPreview);
+    }
+    setCustomerPhotoPreview("");
+  }
+
+  async function verifyAadhaarQRWithBackend(
+    file?: File | null,
+    qrText?: string
+  ) {
+    const token = getToken();
+    if (!token) {
       handleUnauthorized();
       return;
     }
 
-    if (!res.ok) {
-      setQrStep("error");
-
-      let message = "QR verification failed";
-
-      try {
-        const data = await res.json();
-        message = data.message || message;
-      } catch {
-        message = await res.text();
-      }
-
-      showPopup("error", message || "QR verification failed");
+    if (!qrPhoneNumber || !/^[6-9]\d{9}$/.test(qrPhoneNumber)) {
+      showPopup(
+        "error",
+        "Please enter a valid 10-digit phone number before uploading Aadhaar QR"
+      );
       return;
     }
 
-const data = await res.json();
+    if (!customerPhoto) {
+      showPopup(
+        "error",
+        "Please upload customer photo before uploading Aadhaar QR"
+      );
+      return;
+    }
 
-setQrStep("success");
+    if (!file && !qrText) {
+      showPopup("error", "QR image or QR data is required");
+      return;
+    }
 
-/*
-  ✅ QR verified / customer created by backend.
-  ✅ Do NOT go to Girvi immediately.
-  ✅ Show customer preview first.
-*/
-setQrPreviewData({
-  ...data,
-  phoneNumber: qrPhoneNumber,
-  customerPhotoPreview,
-});
+    setUploadingQR(true);
+    setQrStep("uploading");
+    setScannerError("");
 
-showPopup(
-  "success",
-  "Aadhaar QR verified successfully. Please confirm customer details."
-);
-  } catch {
-    setQrStep("error");
-    showPopup("error", "Server error while verifying Aadhaar QR");
-  } finally {
-    setUploadingQR(false);
+    try {
+      const formData = new FormData();
+      if (file) {
+        formData.append("file", file);
+      }
 
-    setTimeout(() => {
-      setQrStep("idle");
-    }, 2000);
+      formData.append("phoneNumber", qrPhoneNumber);
+      formData.append("customerPhoto", customerPhoto);
 
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+      if (qrText && qrText.trim()) {
+        console.log("SENDING QR TEXT TO BACKEND:", qrText.substring(0, 80));
+        formData.append("qrText", qrText.trim());
+      }
+
+      const res = await fetch(`${API_BASE}/customers/verify/aadhaar-qr`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      setQrStep("verifying");
+
+      if (res.status === 401 || res.status === 403) {
+        setQrStep("error");
+        handleUnauthorized();
+        return;
+      }
+
+      if (!res.ok) {
+        setQrStep("error");
+        let message = "QR verification failed";
+        try {
+          const data = await res.json();
+          message = data.message || message;
+        } catch {
+          message = await res.text();
+        }
+        showPopup("error", message);
+        return;
+      }
+
+      const data = await res.json();
+      setQrStep("success");
+
+      setQrPreviewData({
+        ...data,
+        phoneNumber: qrPhoneNumber,
+        customerPhotoPreview,
+      });
+
+      showPopup(
+        "success",
+        "Aadhaar QR verified successfully. Please confirm customer details."
+      );
+    } catch {
+      setQrStep("error");
+      showPopup("error", "Server error while verifying Aadhaar QR");
+    } finally {
+      setUploadingQR(false);
+      setTimeout(() => {
+        setQrStep("idle");
+      }, 2000);
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
   }
-}
 
-async function handleQRFileUpload(file: File) {
-  await verifyAadhaarQRWithBackend(file);
-}
+  async function handleQRFileUpload(file: File) {
+    await verifyAadhaarQRWithBackend(file);
+  }
 
-  // ✅ Capture current camera frame as image file for Scan QR flow
   async function captureScannerFrameAsFile(): Promise<File | null> {
     const video = document.querySelector(
       "#aadhaar-qr-reader video"
@@ -682,10 +636,7 @@ async function handleQRFileUpload(file: File) {
     canvas.height = video.videoHeight;
 
     const ctx = canvas.getContext("2d");
-
-    if (!ctx) {
-      return null;
-    }
+    if (!ctx) return null;
 
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
@@ -696,11 +647,9 @@ async function handleQRFileUpload(file: File) {
             resolve(null);
             return;
           }
-
           const file = new File([blob], "scanned-aadhaar-qr.png", {
             type: "image/png",
           });
-
           resolve(file);
         },
         "image/png",
@@ -709,364 +658,236 @@ async function handleQRFileUpload(file: File) {
     });
   }
 
-  // ✅ Manual capture fallback when browser decoder cannot read dense Aadhaar QR
-async function captureAndVerifyFromCamera() {
-  if (uploadingQR) return;
+  async function captureAndVerifyFromCamera() {
+    if (uploadingQR) return;
 
-  const scannedQrImageFile = await captureScannerFrameAsFile();
-
-  if (!scannedQrImageFile) {
-    showPopup(
-      "error",
-      "Could not capture QR image from camera. Please try again or upload Aadhaar QR image."
-    );
-    return;
-  }
-
-  setShowScanner(false);
-  setScannerError("");
-
-  /*
-    Manual capture does not have decodedText.
-    Backend will decode image.
-  */
-  await verifyAadhaarQRWithBackend(scannedQrImageFile);
-}
-
-
-  // ✅ Back camera scanner
- // ✅ Android optimized back camera scanner
-useEffect(() => {
-  if (!showScanner) return;
-
-  let scanner: Html5Qrcode | null = null;
-  let isScannerRunning = false;
-  let hasScanned = false;
-  let isUnmounted = false;
-
-  const scanConfig = {
-    fps: 15,
-
-    qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-      const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-
-      // ✅ Bigger scan box helps dense Aadhaar QR scan faster
-      const size = Math.floor(minEdge * 0.9);
-
-      return {
-        width: size,
-        height: size,
-      };
-    },
-
-    // ✅ Do NOT force 1920x1080 on Android
-    aspectRatio: 1.0,
-
-    // ✅ Back camera does not need flip
-    disableFlip: true,
-  };
-
-  async function stopScanner() {
-    try {
-      if (scanner && isScannerRunning) {
-        await scanner.stop();
-        scanner.clear();
-        isScannerRunning = false;
-      } else if (scanner) {
-        scanner.clear();
-      }
-    } catch {
-      // ignore stop/clear error
+    const scannedQrImageFile = await captureScannerFrameAsFile();
+    if (!scannedQrImageFile) {
+      showPopup(
+        "error",
+        "Could not capture QR image from camera. Please try again or upload Aadhaar QR image."
+      );
+      return;
     }
+
+    setShowScanner(false);
+    setScannerError("");
+    await verifyAadhaarQRWithBackend(scannedQrImageFile);
   }
 
-async function onScanSuccess(decodedText: string) {
-  if (hasScanned) return;
+  useEffect(() => {
+    if (!showScanner) return;
 
-  if (!decodedText) {
-    setScannerError("QR scanned, but data was not readable. Please try again.");
-    return;
-  }
+    let scanner: Html5Qrcode | null = null;
+    let isScannerRunning = false;
+    let hasScanned = false;
+    let isUnmounted = false;
 
-  hasScanned = true;
-  setScannerError("");
+    const scanConfig = {
+      fps: 15,
+      qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+        const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+        const size = Math.floor(minEdge * 0.9);
+        return { width: size, height: size };
+      },
+      aspectRatio: 1.0,
+      disableFlip: true,
+    };
 
-  console.log("QR DECODED TEXT:", decodedText.substring(0, 80));
-
-  await stopScanner();
-
-  setShowScanner(false);
-
-  /*
-    ✅ IMPORTANT:
-    html5-qrcode already decoded QR successfully.
-    So send only qrText to backend.
-    Do NOT send captured camera image again.
-  */
-  await verifyAadhaarQRWithBackend(null, decodedText);
-}
-  async function startAndroidBackCamera() {
-    try {
-      // ✅ Wait for scanner modal div to render
-      await new Promise((resolve) => setTimeout(resolve, 300));
-
-      if (isUnmounted) return;
-
-      scanner = new Html5Qrcode("aadhaar-qr-reader", {
-        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
-        verbose: false,
-      });
-
-      const cameras = await Html5Qrcode.getCameras();
-
-      if (!cameras || cameras.length === 0) {
-        throw new Error("No camera found on this device");
-      }
-
-      console.log("Available cameras:", cameras);
-
-      // ✅ Prefer back/rear/environment camera
-      const backCamera =
-        cameras.find((camera) =>
-          /back|rear|environment|facing back/i.test(camera.label || "")
-        ) || cameras[cameras.length - 1];
-
-      // ✅ 1st attempt: exact deviceId — best for Android
+    async function stopScanner() {
       try {
-        await scanner.start(
-          backCamera.id,
-          scanConfig,
-          onScanSuccess,
-          () => {
-            // ignore frame decode errors
-          }
-        );
-
-        isScannerRunning = true;
-        setScannerError("");
-        return;
-      } catch (deviceIdError) {
-        console.warn("Back camera by deviceId failed:", deviceIdError);
-      }
-
-      // ✅ 2nd attempt: environment without resolution constraints
-      try {
-        await scanner.start(
-          { facingMode: "environment" },
-          scanConfig,
-          onScanSuccess,
-          () => {
-            // ignore frame decode errors
-          }
-        );
-
-        isScannerRunning = true;
-        setScannerError("");
-        return;
-      } catch (environmentError) {
-        console.warn("Environment camera failed:", environmentError);
-      }
-
-      // ✅ 3rd attempt: last camera
-      try {
-        await scanner.start(
-          cameras[cameras.length - 1].id,
-          scanConfig,
-          onScanSuccess,
-          () => {
-            // ignore frame decode errors
-          }
-        );
-
-        isScannerRunning = true;
-        setScannerError("");
-        return;
-      } catch (lastCameraError) {
-        console.warn("Last camera failed:", lastCameraError);
-      }
-
-      // ✅ Final fallback: first camera
-      await scanner.start(
-        cameras[0].id,
-        scanConfig,
-        onScanSuccess,
-        () => {
-          // ignore frame decode errors
+        if (scanner && isScannerRunning) {
+          await scanner.stop();
+          scanner.clear();
+          isScannerRunning = false;
+        } else if (scanner) {
+          scanner.clear();
         }
-      );
-
-      isScannerRunning = true;
-      setScannerError("");
-    } catch (err: any) {
-      console.error("Camera start failed:", err);
-
-      const message =
-        err?.message ||
-        err?.name ||
-        "Camera permission denied or camera not available";
-
-      setScannerError(
-        `Camera start failed: ${message}. Please allow camera permission and try again.`
-      );
-    }
-  }
-
-  startAndroidBackCamera();
-
-  return () => {
-    isUnmounted = true;
-
-    if (scanner && isScannerRunning) {
-      scanner
-        .stop()
-        .then(() => {
-          try {
-            scanner?.clear();
-          } catch {
-            // ignore clear error
-          }
-        })
-        .catch(() => {
-          // ignore stop error
-        });
-    } else if (scanner) {
-      try {
-        scanner.clear();
       } catch {
-        // ignore clear error
+        // ignore errors
       }
     }
-  };
-}, [showScanner]);
 
-function QrCustomerPreviewCard() {
-  if (!qrPreviewData) return null;
+    async function onScanSuccess(decodedText: string) {
+      if (hasScanned) return;
+      if (!decodedText) {
+        setScannerError("QR scanned, but data was not readable. Please try again.");
+        return;
+      }
 
-  const customerName =
-    qrPreviewData.fullName ||
-    qrPreviewData.name ||
-    qrPreviewData.customerName ||
-    "Not available";
+      hasScanned = true;
+      setScannerError("");
+      console.log("QR DECODED TEXT:", decodedText.substring(0, 80));
 
-  const customerId =
-    qrPreviewData.id ||
-    qrPreviewData.customerId ||
-    qrPreviewData.customer_id ||
-    qrPreviewData.customer?.id ||
-    qrPreviewData.customer?.customerId ||
-    "";
+      await stopScanner();
+      setShowScanner(false);
+      await verifyAadhaarQRWithBackend(null, decodedText);
+    }
 
-  const masked =
-    qrPreviewData.maskedAadhaar ||
-    qrPreviewData.masked_aadhaar ||
-    "Not shared via QR";
+    async function startAndroidBackCamera() {
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        if (isUnmounted) return;
 
-  const address =
-    qrPreviewData.address ||
-    qrPreviewData.fullAddress ||
-    [
-      qrPreviewData.house,
-      qrPreviewData.street,
-      qrPreviewData.loc,
-      qrPreviewData.vtc,
-      qrPreviewData.dist,
-      qrPreviewData.state,
-      qrPreviewData.pc,
-    ]
-      .filter(Boolean)
-      .join(", ") ||
-    "Not available";
+        scanner = new Html5Qrcode("aadhaar-qr-reader", {
+          formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+          verbose: false,
+        });
 
-  return (
-    <div className="mt-6 border border-purple-200 bg-purple-50 rounded-3xl p-5">
-      <h3 className="text-lg font-bold text-purple-800 mb-4">
-        Confirm Customer Details
-      </h3>
+        const cameras = await Html5Qrcode.getCameras();
+        if (!cameras || cameras.length === 0) {
+          throw new Error("No camera found on this device");
+        }
 
-      <div className="flex gap-4">
-        {customerPhotoPreview ? (
-          <img
-            src={customerPhotoPreview}
-            alt="Customer"
-            className="w-24 h-24 rounded-2xl object-cover border bg-white shrink-0"
-          />
-        ) : (
-          <div className="w-24 h-24 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold shrink-0">
-            {customerName.charAt(0).toUpperCase()}
+        const backCamera =
+          cameras.find((camera) =>
+            /back|rear|environment|facing back/i.test(camera.label || "")
+          ) || cameras[cameras.length - 1];
+
+        try {
+          await scanner.start(backCamera.id, scanConfig, onScanSuccess, () => {});
+          isScannerRunning = true;
+          setScannerError("");
+          return;
+        } catch (deviceIdError) {
+          console.warn("Back camera by deviceId failed:", deviceIdError);
+        }
+
+        try {
+          await scanner.start({ facingMode: "environment" }, scanConfig, onScanSuccess, () => {});
+          isScannerRunning = true;
+          setScannerError("");
+          return;
+        } catch (environmentError) {
+          console.warn("Environment camera failed:", environmentError);
+        }
+
+        await scanner.start(cameras[0].id, scanConfig, onScanSuccess, () => {});
+        isScannerRunning = true;
+        setScannerError("");
+      } catch (err: any) {
+        console.error("Camera start failed:", err);
+        const message = err?.message || err?.name || "Camera permission denied";
+        setScannerError(`Camera start failed: ${message}.`);
+      }
+    }
+
+    startAndroidBackCamera();
+
+    return () => {
+      isUnmounted = true;
+      if (scanner && isScannerRunning) {
+        scanner.stop().then(() => {
+          try { scanner?.clear(); } catch {}
+        }).catch(() => {});
+      } else if (scanner) {
+        try { scanner.clear(); } catch {}
+      }
+    };
+  }, [showScanner]);
+
+  function QrCustomerPreviewCard() {
+    if (!qrPreviewData) return null;
+
+    const customerName =
+      qrPreviewData.fullName ||
+      qrPreviewData.name ||
+      qrPreviewData.customerName ||
+      "Not available";
+
+    const customerId =
+      qrPreviewData.id ||
+      qrPreviewData.customerId ||
+      qrPreviewData.customer_id ||
+      qrPreviewData.customer?.id ||
+      qrPreviewData.customer?.customerId ||
+      "";
+
+    const masked =
+      qrPreviewData.maskedAadhaar ||
+      qrPreviewData.masked_aadhaar ||
+      "Not shared via QR";
+
+    const address =
+      qrPreviewData.address ||
+      qrPreviewData.fullAddress ||
+      [
+        qrPreviewData.house,
+        qrPreviewData.street,
+        qrPreviewData.loc,
+        qrPreviewData.vtc,
+        qrPreviewData.dist,
+        qrPreviewData.state,
+        qrPreviewData.pc,
+      ]
+        .filter(Boolean)
+        .join(", ") ||
+      "Not available";
+
+    return (
+      <div className="mt-6 border border-purple-200 bg-purple-50 rounded-3xl p-4 sm:p-5">
+        <h3 className="text-lg font-bold text-purple-800 mb-4">
+          Confirm Customer Details
+        </h3>
+
+        <div className="flex flex-col sm:flex-row gap-4">
+          {customerPhotoPreview ? (
+            <img
+              src={customerPhotoPreview}
+              alt="Customer"
+              className="w-24 h-24 rounded-2xl object-cover border bg-white shrink-0 mx-auto sm:mx-0"
+            />
+          ) : (
+            <div className="w-24 h-24 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold shrink-0 mx-auto sm:mx-0">
+              {customerName.charAt(0).toUpperCase()}
+            </div>
+          )}
+
+          <div className="flex-1 text-sm space-y-1 min-w-0 text-left">
+            <p><span className="font-semibold text-gray-700">Customer ID:</span> {customerId || "Not returned"}</p>
+            <p><span className="font-semibold text-gray-700">Name:</span> {customerName}</p>
+            <p><span className="font-semibold text-gray-700">Aadhaar:</span> {masked}</p>
+            <p>
+              <span className="font-semibold text-gray-700">DOB:</span>{" "}
+              {qrPreviewData.dob || qrPreviewData.dateOfBirth || qrPreviewData.birthDate || "Not available"}
+            </p>
+            <p>
+              <span className="font-semibold text-gray-700">Gender:</span>{" "}
+              {qrPreviewData.gender || qrPreviewData.sex || "Not available"}
+            </p>
+            <p><span className="font-semibold text-gray-700">Phone:</span> {qrPreviewData.phoneNumber || qrPhoneNumber}</p>
+            <p className="text-xs text-gray-600 mt-2 break-words">
+              <span className="font-semibold">Address:</span> {address}
+            </p>
           </div>
-        )}
+        </div>
 
-        <div className="flex-1 text-sm space-y-1 min-w-0">
-          <p>
-            <span className="font-semibold text-gray-700">Customer ID:</span>{" "}
-            {customerId || "Not returned"}
-          </p>
-
-          <p>
-            <span className="font-semibold text-gray-700">Name:</span>{" "}
-            {customerName}
-          </p>
-
-          <p>
-            <span className="font-semibold text-gray-700">Aadhaar:</span>{" "}
-            {masked}
-          </p>
-
-          <p>
-            <span className="font-semibold text-gray-700">DOB:</span>{" "}
-            {qrPreviewData.dob ||
-              qrPreviewData.dateOfBirth ||
-              qrPreviewData.birthDate ||
-              "Not available"}
-          </p>
-
-          <p>
-            <span className="font-semibold text-gray-700">Gender:</span>{" "}
-            {qrPreviewData.gender || qrPreviewData.sex || "Not available"}
-          </p>
-
-          <p>
-            <span className="font-semibold text-gray-700">Phone:</span>{" "}
-            {qrPreviewData.phoneNumber || qrPhoneNumber}
-          </p>
-
-          <p className="text-xs text-gray-600 mt-2 break-words">
-            <span className="font-semibold">Address:</span> {address}
-          </p>
+        <div className="flex flex-col sm:flex-row gap-3 mt-5">
+          <button
+            type="button"
+            className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl font-bold text-sm"
+            onClick={async () => {
+              await handleCustomerRegisteredSuccess(qrPreviewData);
+              setQrPreviewData(null);
+            }}
+          >
+            Confirm & Continue
+          </button>
+          <button
+            type="button"
+            className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-bold text-sm"
+            onClick={() => {
+              setQrPreviewData(null);
+              setQrStep("idle");
+            }}
+          >
+            Cancel
+          </button>
         </div>
       </div>
+    );
+  }
 
-      <div className="flex gap-3 mt-5">
-        <button
-          type="button"
-          className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl font-bold"
-          onClick={async () => {
-            /*
-              ✅ Dealer confirmed.
-              ✅ Now set customer in Girvi context.
-              ✅ Then go to Add Girvi page.
-            */
-            await handleCustomerRegisteredSuccess(qrPreviewData);
-            setQrPreviewData(null);
-          }}
-        >
-          Confirm & Continue
-        </button>
-
-        <button
-          type="button"
-          className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-bold"
-          onClick={() => {
-            setQrPreviewData(null);
-            setQrStep("idle");
-          }}
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
-  );
-}
   function CustomerPhotoUploadCard() {
     return (
       <div>
@@ -1080,15 +901,10 @@ function QrCustomerPreviewCard() {
               <div className="w-12 h-12 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center mb-3">
                 <FaUpload />
               </div>
-
-              <p className="text-sm font-bold text-gray-800">
-                Upload Customer Photo
-              </p>
-
+              <p className="text-sm font-bold text-gray-800">Upload Customer Photo</p>
               <p className="text-xs text-gray-500 mt-1">
                 Required for QR registration. JPG, PNG or WEBP. Max 5MB.
               </p>
-
               <input
                 type="file"
                 accept="image/*"
@@ -1100,23 +916,18 @@ function QrCustomerPreviewCard() {
               />
             </label>
           ) : (
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
               <img
                 src={customerPhotoPreview}
                 alt="Customer preview"
                 className="w-24 h-24 rounded-2xl object-cover border border-purple-200 bg-white"
               />
-
               <div className="flex-1">
-                <p className="text-sm font-bold text-gray-800">
-                  Customer photo selected
-                </p>
-
+                <p className="text-sm font-bold text-gray-800">Customer photo selected</p>
                 <p className="text-xs text-gray-500 mt-1">
                   This photo will be saved with QR registration.
                 </p>
-
-                <div className="flex gap-2 mt-3">
+                <div className="flex justify-center sm:justify-start gap-2 mt-3">
                   <label className="cursor-pointer px-3 py-2 rounded-xl bg-purple-600 text-white text-xs font-bold">
                     Change
                     <input
@@ -1129,7 +940,6 @@ function QrCustomerPreviewCard() {
                       }}
                     />
                   </label>
-
                   <button
                     type="button"
                     onClick={() => handleCustomerPhotoChange(null)}
@@ -1150,24 +960,14 @@ function QrCustomerPreviewCard() {
     if (qrStep === "idle") return null;
 
     return (
-      <div className="mt-3 text-sm space-y-1">
+      <div className="mt-3 text-sm space-y-1 text-left">
         <QrStatus done={!!customerPhoto} text="Customer photo added" />
-
-        <QrStatus
-          done={/^[6-9]\d{9}$/.test(qrPhoneNumber)}
-          text="Phone number added"
-        />
-
+        <QrStatus done={/^[6-9]\d{9}$/.test(qrPhoneNumber)} text="Phone number added" />
         <QrStatus
           active={qrStep === "uploading"}
-          done={
-            qrStep === "verifying" ||
-            qrStep === "success" ||
-            qrStep === "error"
-          }
+          done={qrStep === "verifying" || qrStep === "success" || qrStep === "error"}
           text="Uploading Aadhaar QR"
         />
-
         <QrStatus
           active={qrStep === "verifying"}
           done={qrStep === "success"}
@@ -1187,10 +987,7 @@ function QrCustomerPreviewCard() {
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
-
-          if (file) {
-            handleQRFileUpload(file);
-          }
+          if (file) handleQRFileUpload(file);
         }}
       />
 
@@ -1205,7 +1002,6 @@ function QrCustomerPreviewCard() {
                 className="w-10 h-10 bg-white rounded-lg p-1"
               />
             </div>
-
             <div>
               <h1 className="text-xl font-bold text-purple-700">PawnSecure</h1>
               <p className="text-xs text-gray-500">Dealer Portal</p>
@@ -1213,92 +1009,32 @@ function QrCustomerPreviewCard() {
           </div>
 
           <nav className="space-y-2">
-            <button
-              onClick={() => navigate("/dealer/dashboard")}
-              className="w-full text-gray-600 px-4 py-3 rounded-xl flex items-center gap-3 hover:bg-gray-100"
-            >
-              <FaHome />
-              Dashboard
-            </button>
-
-            <button
-              onClick={() => navigate("/dealer/customer-register")}
-              className="w-full bg-purple-600 text-white px-4 py-3 rounded-xl flex items-center gap-3 font-semibold"
-            >
-              <FaUserFriends />
-              Customers
-            </button>
-
-            <button
-              onClick={() => navigate("/dealer/customer")}
-              className="w-full text-gray-600 px-4 py-3 rounded-xl flex items-center gap-3 hover:bg-gray-100"
-            >
-              <FaRupeeSign />
-              Girvi
-            </button>
-
-            <button
-              onClick={() => navigate("/dealer/collections")}
-              className="w-full text-gray-600 px-4 py-3 rounded-xl flex items-center gap-3 hover:bg-gray-100"
-            >
-              <FaCoins />
-              Collections
-            </button>
-
-            <button
-              onClick={() => navigate("/dealer/reports")}
-              className="w-full text-gray-600 px-4 py-3 rounded-xl flex items-center gap-3 hover:bg-gray-100"
-            >
-              <FaChartBar />
-              Reports
-            </button>
-
-            <button
-              onClick={handleLogout}
-              className="w-full text-red-600 px-4 py-3 rounded-xl flex items-center gap-3 hover:bg-red-50 font-semibold mt-8"
-            >
-              <FaSignOutAlt />
-              Logout
-            </button>
+            <button onClick={() => navigate("/dealer/dashboard")} className="w-full text-gray-600 px-4 py-3 rounded-xl flex items-center gap-3 hover:bg-gray-100"><FaHome />Dashboard</button>
+            <button onClick={() => navigate("/dealer/customer-register")} className="w-full bg-purple-600 text-white px-4 py-3 rounded-xl flex items-center gap-3 font-semibold"><FaUserFriends />Customers</button>
+            <button onClick={() => navigate("/dealer/customer")} className="w-full text-gray-600 px-4 py-3 rounded-xl flex items-center gap-3 hover:bg-gray-100"><FaRupeeSign />Girvi</button>
+            <button onClick={() => navigate("/dealer/collections")} className="w-full text-gray-600 px-4 py-3 rounded-xl flex items-center gap-3 hover:bg-gray-100"><FaCoins />Collections</button>
+            <button onClick={() => navigate("/dealer/reports")} className="w-full text-gray-600 px-4 py-3 rounded-xl flex items-center gap-3 hover:bg-gray-100"><FaChartBar />Reports</button>
+            <button onClick={handleLogout} className="w-full text-red-600 px-4 py-3 rounded-xl flex items-center gap-3 hover:bg-red-50 font-semibold mt-8"><FaSignOutAlt />Logout</button>
           </nav>
         </aside>
 
         <main className="ml-64 flex-1">
           <div className="h-16 bg-white border-b border-gray-200 px-8 flex items-center justify-between sticky top-0 z-30">
             <div>
-              <h2 className="text-lg font-bold text-gray-900">
-                Customer Register
-              </h2>
-
-              <p className="text-xs text-gray-500">
-                Register customer using Aadhaar QR scan, QR upload, or manual
-                Aadhaar entry
-              </p>
+              <h2 className="text-lg font-bold text-gray-900">Customer Register</h2>
+              <p className="text-xs text-gray-500">Register customer using Aadhaar QR scan, QR upload, or manual Aadhaar entry</p>
             </div>
-
             <div className="relative">
-              <button
-                onClick={() => setShowProfileMenu(!showProfileMenu)}
-                className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold"
-              >
+              <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold">
                 {getInitials(dealerName)}
               </button>
-
               {showProfileMenu && (
                 <div className="absolute right-0 mt-2 w-44 bg-white rounded-xl shadow-lg border z-50 overflow-hidden">
                   <div className="px-4 py-3 border-b">
-                    <p className="text-sm font-bold text-gray-800">
-                      {dealerName}
-                    </p>
+                    <p className="text-sm font-bold text-gray-800">{dealerName}</p>
                     <p className="text-xs text-gray-500">Dealer</p>
                   </div>
-
-                  <button
-                    onClick={handleLogout}
-                    className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 font-semibold"
-                  >
-                    Logout
-                  </button>
+                  <button onClick={handleLogout} className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 font-semibold">Logout</button>
                 </div>
               )}
             </div>
@@ -1308,27 +1044,19 @@ function QrCustomerPreviewCard() {
             <div className="grid grid-cols-12 gap-6 mb-8">
               <div className="col-span-8 bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-3xl p-8">
                 <p className="text-sm opacity-90">Dealer Portal</p>
-
-                <h1 className="text-3xl font-bold mt-2">
-                  Customer Register
-                </h1>
-
+                <h1 className="text-3xl font-bold mt-2">Customer Register</h1>
                 <p className="text-sm opacity-80 mt-3 max-w-2xl">
-                  Register customer securely by scanning Aadhaar QR, uploading
-                  Aadhaar QR image, or entering Aadhaar manually.
+                  Register customer securely by scanning Aadhaar QR, uploading Aadhaar QR image, or entering Aadhaar manually.
                 </p>
-
                 <div className="grid grid-cols-3 gap-4 mt-8">
                   <div className="bg-white/10 rounded-2xl p-4">
                     <p className="text-xs opacity-80">Method 1</p>
                     <h3 className="font-bold mt-1">Scan QR</h3>
                   </div>
-
                   <div className="bg-white/10 rounded-2xl p-4">
                     <p className="text-xs opacity-80">Method 2</p>
                     <h3 className="font-bold mt-1">Upload QR</h3>
                   </div>
-
                   <div className="bg-white/10 rounded-2xl p-4">
                     <p className="text-xs opacity-80">Method 3</p>
                     <h3 className="font-bold mt-1">Manual Entry</h3>
@@ -1337,27 +1065,12 @@ function QrCustomerPreviewCard() {
               </div>
 
               <div className="col-span-4 bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
-                <h2 className="text-xl font-bold text-gray-900">
-                  Customer Register Options
-                </h2>
-
-                <p className="text-sm text-gray-500 mt-2">
-                  Register a customer using Aadhaar QR scan, QR image upload,
-                  or manual Aadhaar entry.
-                </p>
-
+                <h2 className="text-xl font-bold text-gray-900">Customer Register Options</h2>
+                <p className="text-sm text-gray-500 mt-2">Register a customer using Aadhaar QR scan, QR image upload, or manual Aadhaar entry.</p>
                 <div className="mt-6 space-y-3">
-                  <div className="bg-purple-50 text-purple-700 px-4 py-3 rounded-2xl text-sm font-semibold">
-                    1. Scan Aadhaar QR
-                  </div>
-
-                  <div className="bg-blue-50 text-blue-700 px-4 py-3 rounded-2xl text-sm font-semibold">
-                    2. Upload QR from gallery
-                  </div>
-
-                  <div className="bg-green-50 text-green-700 px-4 py-3 rounded-2xl text-sm font-semibold">
-                    3. Manual register if needed
-                  </div>
+                  <div className="bg-purple-50 text-purple-700 px-4 py-3 rounded-2xl text-sm font-semibold">1. Scan Aadhaar QR</div>
+                  <div className="bg-blue-50 text-blue-700 px-4 py-3 rounded-2xl text-sm font-semibold">2. Upload QR from gallery</div>
+                  <div className="bg-green-50 text-green-700 px-4 py-3 rounded-2xl text-sm font-semibold">3. Manual register if needed</div>
                 </div>
               </div>
             </div>
@@ -1366,37 +1079,21 @@ function QrCustomerPreviewCard() {
               <div className="col-span-8 bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
                 <div className="flex justify-between items-start mb-6">
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900">
-                      Customer Register
-                    </h2>
-
-                    <p className="text-sm text-gray-500 mt-1">
-                      Scan Aadhaar QR, upload Aadhaar QR image, or enter Aadhaar
-                      manually to register customer.
-                    </p>
+                    <h2 className="text-xl font-bold text-gray-900">Customer Register</h2>
+                    <p className="text-sm text-gray-500 mt-1">Scan Aadhaar QR, upload Aadhaar QR image, or enter Aadhaar manually to register customer.</p>
                   </div>
-
-                  <a
-                    href="https://myaadhaar.uidai.gov.in/"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-purple-700 text-sm font-semibold hover:underline"
-                  >
-                    Verify Portal ↗
-                  </a>
+                  <a href="https://myaadhaar.uidai.gov.in/" target="_blank" rel="noreferrer" className="text-purple-700 text-sm font-semibold hover:underline">Verify Portal ↗</a>
                 </div>
 
                 <CustomerStepIndicator />
 
-                <div className="grid grid-cols-12 gap-4 mt-4">
-                  <div className="col-span-7 flex items-center border border-gray-200 rounded-2xl px-4 py-4 bg-gray-50 focus-within:ring-2 focus-within:ring-purple-500">
+                {/* Main functional interaction layout wrapped cleanly inside responsiveness parameters */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mt-4">
+                  <div className="col-span-1 md:col-span-7 flex items-center border border-gray-200 rounded-2xl px-4 py-4 bg-gray-50 focus-within:ring-2 focus-within:ring-purple-500">
                     <FaSearch className="text-gray-400 mr-3" />
-
                     <input
                       value={maskAadhaar(aadhaar)}
-                      onChange={(e) =>
-                        setAadhaar(e.target.value.replace(/\D/g, ""))
-                      }
+                      onChange={(e) => setAadhaar(e.target.value.replace(/\D/g, ""))}
                       maxLength={14}
                       className="w-full outline-none text-sm bg-transparent"
                       placeholder="Enter Aadhaar number"
@@ -1407,12 +1104,11 @@ function QrCustomerPreviewCard() {
                     type="button"
                     onClick={() => {
                       if (!validateQrScanBeforeOpen()) return;
-
                       setScannerError("");
                       setShowScanner(true);
                     }}
                     disabled={uploadingQR}
-                    className="col-span-3 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-2xl font-bold flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="col-span-1 md:col-span-3 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-2xl font-bold flex items-center justify-center gap-2 py-4 md:py-0 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <FaQrcode />
                     Scan QR
@@ -1422,73 +1118,51 @@ function QrCustomerPreviewCard() {
                     type="button"
                     onClick={handleQrUploadClick}
                     disabled={uploadingQR}
-                    className="col-span-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl font-bold flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="col-span-1 md:col-span-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl font-bold flex items-center justify-center gap-2 py-4 md:py-0 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <FaUpload />
                     {uploadingQR ? "Saving..." : "Upload QR"}
                   </button>
 
-                  <div className="col-span-12">
+                  <div className="col-span-1 md:col-span-12">
                     <QrUploadProgress />
                   </div>
 
-                  <div className="col-span-12 flex items-center border border-gray-200 rounded-2xl px-4 py-4 bg-gray-50 focus-within:ring-2 focus-within:ring-purple-500">
+                  <div className="col-span-1 md:col-span-12 flex items-center border border-gray-200 rounded-2xl px-4 py-4 bg-gray-50 focus-within:ring-2 focus-within:ring-purple-500">
                     <FaPhoneAlt className="text-gray-400 mr-3" />
-
                     <input
                       value={qrPhoneNumber}
-                      onChange={(e) =>
-                        setQrPhoneNumber(
-                          e.target.value.replace(/\D/g, "").slice(0, 10)
-                        )
-                      }
+                      onChange={(e) => setQrPhoneNumber(e.target.value.replace(/\D/g, "").slice(0, 10))}
                       maxLength={10}
                       className="w-full outline-none text-sm bg-transparent"
                       placeholder="Phone number for QR registration"
                     />
                   </div>
 
-                  <div className="col-span-12">
+                  <div className="col-span-1 md:col-span-12">
                     <CustomerPhotoUploadCard />
                   </div>
-                  <div className="col-span-12">
-                      <QrCustomerPreviewCard />
+                  <div className="col-span-1 md:col-span-12">
+                    <QrCustomerPreviewCard />
                   </div>
                 </div>
 
                 <button
-  type="button"
-  onClick={handleManualRegister}
-  disabled={loading || !!qrPreviewData}
-  className="mt-5 w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-2xl font-bold disabled:bg-gray-400"
->
-  {loading ? "Checking..." : "Continue Customer Register"}
-</button>
+                  type="button"
+                  onClick={handleManualRegister}
+                  disabled={loading || !!qrPreviewData}
+                  className="mt-5 w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-2xl font-bold disabled:bg-gray-400"
+                >
+                  {loading ? "Checking..." : "Continue Customer Register"}
+                </button>
               </div>
 
               <div className="col-span-4 bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
-                <h2 className="text-xl font-bold text-gray-900">
-                  Customer Register Methods
-                </h2>
-
+                <h2 className="text-xl font-bold text-gray-900">Customer Register Methods</h2>
                 <div className="mt-5 space-y-4">
-                  <GuideBox
-                    color="green"
-                    title="Scan Aadhaar QR"
-                    text="Use camera to scan Aadhaar QR and fill registration details."
-                  />
-
-                  <GuideBox
-                    color="yellow"
-                    title="Upload Aadhaar QR"
-                    text="Upload Aadhaar QR image from phone/gallery and create customer securely."
-                  />
-
-                  <GuideBox
-                    color="red"
-                    title="Manual Register"
-                    text="Enter Aadhaar manually when QR scan or upload is not available."
-                  />
+                  <GuideBox color="green" title="Scan Aadhaar QR" text="Use camera to scan Aadhaar QR and fill registration details." />
+                  <GuideBox color="yellow" title="Upload Aadhaar QR" text="Upload Aadhaar QR image from phone/gallery and create customer securely." />
+                  <GuideBox color="red" title="Manual Register" text="Enter Aadhaar manually when QR scan or upload is not available." />
                 </div>
               </div>
             </div>
@@ -1501,70 +1175,40 @@ function QrCustomerPreviewCard() {
         <div className="max-w-md mx-auto bg-[#f4f5f7] min-h-screen">
           <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-b-[32px] px-5 py-6">
             <div className="flex justify-between items-center mb-6">
-              <button type="button" onClick={() => navigate("/dealer/dashboard")}>
-                <FaArrowLeft className="text-xl" />
-              </button>
-
+              <button type="button" onClick={() => navigate("/dealer/dashboard")}><FaArrowLeft className="text-xl" /></button>
               <div className="text-center">
                 <h1 className="font-bold text-lg">Customer Register</h1>
                 <p className="text-xs opacity-80">PawnSecure</p>
               </div>
-
               <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowProfileMenu(!showProfileMenu)}
-                  className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center font-bold"
-                >
+                <button type="button" onClick={() => setShowProfileMenu(!showProfileMenu)} className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center font-bold">
                   {getInitials(dealerName)}
                 </button>
-
                 {showProfileMenu && (
                   <div className="absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-lg border z-50 overflow-hidden text-left">
-                    <button
-                      type="button"
-                      onClick={handleLogout}
-                      className="w-full px-4 py-3 text-sm text-red-600 hover:bg-red-50 font-semibold flex items-center gap-2"
-                    >
-                      <FaSignOutAlt />
-                      Logout
-                    </button>
+                    <button type="button" onClick={handleLogout} className="w-full px-4 py-3 text-sm text-red-600 hover:bg-red-50 font-semibold flex items-center gap-2"><FaSignOutAlt />Logout</button>
                   </div>
                 )}
               </div>
             </div>
-
             <h2 className="text-2xl font-bold">Customer Register</h2>
-            <p className="text-sm opacity-80 mt-1">
-              Scan QR, upload QR, or enter Aadhaar manually
-            </p>
+            <p className="text-sm opacity-80 mt-1">Scan QR, upload QR, or enter Aadhaar manually</p>
           </div>
 
           <div className="px-4 -mt-5 relative z-10">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="font-bold text-sm">Customer Register</h2>
-
-                <a
-                  href="https://myaadhaar.uidai.gov.in/"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-purple-700 text-xs font-semibold"
-                >
-                  Verify ↗
-                </a>
+                <a href="https://myaadhaar.uidai.gov.in/" target="_blank" rel="noreferrer" className="text-purple-700 text-xs font-semibold">Verify ↗</a>
               </div>
 
               <CustomerStepIndicator />
 
               <div className="flex items-center border rounded-xl px-4 py-3 bg-gray-50 mt-4">
                 <FaSearch className="text-gray-400 mr-3" />
-
                 <input
                   value={maskAadhaar(aadhaar)}
-                  onChange={(e) =>
-                    setAadhaar(e.target.value.replace(/\D/g, ""))
-                  }
+                  onChange={(e) => setAadhaar(e.target.value.replace(/\D/g, ""))}
                   maxLength={14}
                   className="w-full outline-none text-sm bg-transparent"
                   placeholder="Enter Aadhaar"
@@ -1573,14 +1217,9 @@ function QrCustomerPreviewCard() {
 
               <div className="flex items-center border rounded-xl px-4 py-3 bg-gray-50 mt-3">
                 <FaPhoneAlt className="text-gray-400 mr-3" />
-
                 <input
                   value={qrPhoneNumber}
-                  onChange={(e) =>
-                    setQrPhoneNumber(
-                      e.target.value.replace(/\D/g, "").slice(0, 10)
-                    )
-                  }
+                  onChange={(e) => setQrPhoneNumber(e.target.value.replace(/\D/g, "").slice(0, 10))}
                   maxLength={10}
                   className="w-full outline-none text-sm bg-transparent"
                   placeholder="Phone number for QR registration"
@@ -1596,7 +1235,6 @@ function QrCustomerPreviewCard() {
                   type="button"
                   onClick={() => {
                     if (!validateQrScanBeforeOpen()) return;
-
                     setScannerError("");
                     setShowScanner(true);
                   }}
@@ -1606,7 +1244,6 @@ function QrCustomerPreviewCard() {
                   <FaQrcode />
                   Scan QR
                 </button>
-
                 <button
                   type="button"
                   onClick={handleQrUploadClick}
@@ -1617,102 +1254,49 @@ function QrCustomerPreviewCard() {
                   {uploadingQR ? "Saving..." : "Upload QR"}
                 </button>
               </div>
+
               <QrUploadProgress />
               <QrCustomerPreviewCard />
+
               <button
-  type="button"
-  onClick={handleManualRegister}
-  disabled={loading || !!qrPreviewData}
-  className="mt-3 w-full bg-purple-600 text-white py-3 rounded-xl font-bold disabled:bg-gray-400"
->
-  {loading ? "Checking..." : "Manual Customer Register"}
-</button>
+                type="button"
+                onClick={handleManualRegister}
+                disabled={loading || !!qrPreviewData}
+                className="mt-3 w-full bg-purple-600 text-white py-3 rounded-xl font-bold disabled:bg-gray-400"
+              >
+                {loading ? "Checking..." : "Manual Customer Register"}
+              </button>
             </div>
           </div>
 
           <div className="px-4 mt-6">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-              <h2 className="text-lg font-bold text-gray-900">
-                Customer Register Methods
-              </h2>
-
+              <h2 className="text-lg font-bold text-gray-900">Customer Register Methods</h2>
               <div className="mt-5 space-y-4">
-                <GuideBox
-                  color="green"
-                  title="Scan Aadhaar QR"
-                  text="Use camera to scan Aadhaar QR."
-                />
-
-                <GuideBox
-                  color="yellow"
-                  title="Upload Aadhaar QR"
-                  text="Upload QR image from phone/gallery."
-                />
-
-                <GuideBox
-                  color="red"
-                  title="Manual Customer Register"
-                  text="Enter Aadhaar manually when QR is unavailable."
-                />
+                <GuideBox color="green" title="Scan Aadhaar QR" text="Use camera to scan Aadhaar QR." />
+                <GuideBox color="yellow" title="Upload Aadhaar QR" text="Upload QR image from phone/gallery." />
+                <GuideBox color="red" title="Manual Customer Register" text="Enter Aadhaar manually when QR is unavailable." />
               </div>
             </div>
           </div>
         </div>
 
+        {/* Desktop or Mobile App Bottom Fixed Menu */}
         <div className="fixed bottom-0 left-0 w-full bg-white border-t flex justify-around py-3 z-50">
-          <button
-            type="button"
-            onClick={() => navigate("/dealer/dashboard")}
-            className="text-gray-500 flex flex-col items-center text-xs"
-          >
-            <FaHome className="text-xl mb-1" />
-            Dashboard
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate("/dealer/customer-register")}
-            className="text-purple-700 flex flex-col items-center text-xs font-semibold"
-          >
-            <FaUserFriends className="text-xl mb-1" />
-            Customers
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate("/dealer/customer")}
-            className="text-gray-500 flex flex-col items-center text-xs"
-          >
-            <FaRupeeSign className="text-xl mb-1" />
-            Girvi
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate("/dealer/collections")}
-            className="text-gray-500 flex flex-col items-center text-xs"
-          >
-            <FaCoins className="text-xl mb-1" />
-            Collections
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate("/dealer/more")}
-            className="text-gray-500 flex flex-col items-center text-xs"
-          >
-            <FaEllipsisH className="text-xl mb-1" />
-            More
-          </button>
+          <button type="button" onClick={() => navigate("/dealer/dashboard")} className="text-gray-500 flex flex-col items-center text-xs"><FaHome className="text-xl mb-1" />Dashboard</button>
+          <button type="button" onClick={() => navigate("/dealer/customer-register")} className="text-purple-700 flex flex-col items-center text-xs font-semibold"><FaUserFriends className="text-xl mb-1" />Customers</button>
+          <button type="button" onClick={() => navigate("/dealer/customer")} className="text-gray-500 flex flex-col items-center text-xs"><FaRupeeSign className="text-xl mb-1" />Girvi</button>
+          <button type="button" onClick={() => navigate("/dealer/collections")} className="text-gray-500 flex flex-col items-center text-xs"><FaCoins className="text-xl mb-1" />Collections</button>
+          <button type="button" onClick={() => navigate("/dealer/more")} className="text-gray-500 flex flex-col items-center text-xs"><FaEllipsisH className="text-xl mb-1" />More</button>
         </div>
       </div>
 
+      {/* ================= SCANNER MODAL CONTAINER ================= */}
       {showScanner && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[999] p-4">
           <div className="bg-white rounded-2xl p-4 w-full max-w-[420px] shadow-2xl">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-bold">Scan Aadhaar QR</h2>
-
               <button
                 type="button"
                 onClick={() => {
@@ -1725,18 +1309,12 @@ function QrCustomerPreviewCard() {
               </button>
             </div>
 
-            <div
-  id="aadhaar-qr-reader"
-  className="w-full min-h-[420px] overflow-hidden rounded-xl border bg-black"
-/>
+            <div id="aadhaar-qr-reader" className="w-full min-h-[320px] sm:min-h-[420px] overflow-hidden rounded-xl border bg-black" />
 
-            {scannerError && (
-              <p className="text-sm text-red-600 mt-3">{scannerError}</p>
-            )}
+            {scannerError && <p className="text-sm text-red-600 mt-3">{scannerError}</p>}
 
             <p className="text-xs text-gray-500 mt-3">
-              Back camera only. If Aadhaar QR does not scan automatically, tap
-              Capture & Verify QR.
+              Back camera only. If Aadhaar QR does not scan automatically, tap Capture & Verify QR.
             </p>
 
             <button
@@ -1751,31 +1329,19 @@ function QrCustomerPreviewCard() {
         </div>
       )}
 
+      {/* ================= POPUP ALERTS ================= */}
       {popup && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[999] p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center">
-            <div
-              className={`text-5xl mb-3 ${
-                popup.type === "success" ? "text-green-600" : "text-red-600"
-              }`}
-            >
+            <div className={`text-5xl mb-3 ${popup.type === "success" ? "text-green-600" : "text-red-600"}`}>
               {popup.type === "success" ? "✔" : "✖"}
             </div>
-
-            <h2 className="text-xl font-bold mb-2">
-              {popup.type === "success" ? "Success" : "Error"}
-            </h2>
-
+            <h2 className="text-xl font-bold mb-2">{popup.type === "success" ? "Success" : "Error"}</h2>
             <p className="text-gray-600 text-sm mb-5">{popup.message}</p>
-
             <button
               type="button"
               onClick={closePopup}
-              className={`px-5 py-2 rounded-lg text-white font-semibold ${
-                popup.type === "success"
-                  ? "bg-green-600 hover:bg-green-700"
-                  : "bg-red-600 hover:bg-red-700"
-              }`}
+              className={`px-5 py-2 rounded-lg text-white font-semibold ${popup.type === "success" ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}`}
             >
               OK
             </button>
@@ -1791,71 +1357,29 @@ function CustomerStepIndicator() {
     <div className="flex items-center justify-between text-sm font-semibold">
       <span className="text-purple-600">Customer</span>
       <div className="flex-1 h-[2px] bg-purple-600 mx-2" />
-
       <span className="text-gray-400">Girvi</span>
       <div className="flex-1 h-[2px] bg-gray-300 mx-2" />
-
       <span className="text-gray-400">Items</span>
       <div className="flex-1 h-[2px] bg-gray-300 mx-2" />
-
       <span className="text-gray-400">Review</span>
     </div>
   );
 }
 
-function QrStatus({
-  text,
-  done,
-  active,
-  error,
-}: {
-  text: string;
-  done?: boolean;
-  active?: boolean;
-  error?: boolean;
-}) {
+function QrStatus({ text, done, active, error }: { text: string; done?: boolean; active?: boolean; error?: boolean }) {
   return (
     <div className="flex items-center gap-2">
-      <span
-        className={`font-bold ${
-          done
-            ? "text-green-600"
-            : error
-            ? "text-red-600"
-            : active
-            ? "text-purple-600"
-            : "text-gray-400"
-        }`}
-      >
+      <span className={`font-bold ${done ? "text-green-600" : error ? "text-red-600" : active ? "text-purple-600" : "text-gray-400"}`}>
         {done ? "✓" : error ? "✕" : active ? "…" : "•"}
       </span>
-
-      <span
-        className={`${
-          done
-            ? "text-green-700"
-            : error
-            ? "text-red-700"
-            : active
-            ? "text-purple-700"
-            : "text-gray-600"
-        }`}
-      >
+      <span className={`${done ? "text-green-700" : error ? "text-red-700" : active ? "text-purple-700" : "text-gray-600"}`}>
         {text}
       </span>
     </div>
   );
 }
 
-function GuideBox({
-  color,
-  title,
-  text,
-}: {
-  color: "green" | "yellow" | "red";
-  title: string;
-  text: string;
-}) {
+function GuideBox({ color, title, text }: { color: "green" | "yellow" | "red"; title: string; text: string }) {
   const cls =
     color === "green"
       ? "bg-green-50 border-green-100 text-green-700"
@@ -1864,7 +1388,7 @@ function GuideBox({
       : "bg-red-50 border-red-100 text-red-700";
 
   return (
-    <div className={`${cls} border rounded-2xl p-4`}>
+    <div className={`${cls} border rounded-2xl p-4 text-left`}>
       <p className="font-bold">{title}</p>
       <p className="text-sm text-gray-500 mt-1">{text}</p>
     </div>
