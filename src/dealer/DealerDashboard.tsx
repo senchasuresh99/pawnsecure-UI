@@ -172,9 +172,9 @@ export default function DealerDashboard() {
   const getGreeting = () => {
     const hour = currentDate.getHours();
 
-    if (hour >= 0 && hour < 12) return "Good Morning";
-    if (hour >= 12 && hour < 18) return "Good Afternoon";
-    if (hour >= 18 && hour < 21) return "Good Evening";
+    if (hour >= 0 && hour < 12) return "Welcome back";
+    if (hour >= 12 && hour < 18) return "Welcome back";
+    if (hour >= 18 && hour < 21) return "Welcome back";
 
     return "Good Night";
   };
@@ -285,7 +285,7 @@ export default function DealerDashboard() {
               }`}
             >
               <FaUserFriends />
-              Customers Reivew
+              Customers
             </button>
 
             <button
@@ -336,7 +336,8 @@ export default function DealerDashboard() {
           </nav>
         </aside>
 
-        <main className="ml-64 flex-1">
+        {/* ✅ overflow-x-hidden added */}
+        <main className="ml-64 flex-1 overflow-x-hidden">
           <div className="h-16 bg-white border-b border-gray-200 px-8 flex items-center justify-between sticky top-0 z-30">
             <div>
               <h2 className="text-lg font-bold text-gray-900">
@@ -351,7 +352,6 @@ export default function DealerDashboard() {
 
             <div className="flex items-center gap-5">
               <div className="text-right">
-                <p className="text-xs text-gray-500">Today</p>
                 <p className="text-sm font-semibold text-gray-800">
                   {todayDate}
                 </p>
@@ -388,7 +388,13 @@ export default function DealerDashboard() {
             </div>
           </div>
 
-          <div className="p-8">
+          {/* 
+            ✅ Desktop content scale wrapper:
+            This makes content appear like browser 67–72% zoom while browser stays 100%.
+            0.72 scale needs 138.89% width to fill available space.
+            2xl resets to normal size for large monitors.
+          */}
+          <div className="origin-top-left scale-[0.72] 2xl:scale-100 w-[138.89%] 2xl:w-full p-8">
             <div className="grid grid-cols-12 gap-6 mb-8">
               <div className="col-span-8 bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-3xl p-8">
                 <p className="text-sm opacity-90">{getGreeting()} 👋</p>
@@ -409,7 +415,6 @@ export default function DealerDashboard() {
 
                 <div className="grid grid-cols-2 gap-4 mt-8">
                   <div>
-                    <p className="text-sm opacity-80">Today</p>
                     <h3 className="text-xl font-bold">{todayDate}</h3>
                     <p className="text-sm opacity-80">{todayDay}</p>
                   </div>
@@ -470,93 +475,93 @@ export default function DealerDashboard() {
               ))}
             </div>
 
-            <div className="grid grid-cols-12 gap-6">
-              <div className="col-span-8 bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-bold text-gray-900">
-                    Today's Activity
-                  </h2>
+            {/* ✅ QUICK ACTIONS ONE LINE - DESKTOP */}
+            <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm mb-8">
+              <div className="flex justify-between items-center mb-5">
+                <h2 className="text-xl font-bold text-gray-900">
+                  Quick Actions
+                </h2>
 
-                  <button className="text-purple-700 font-semibold text-sm">
-                    View All
-                  </button>
-                </div>
-
-                <div className="space-y-5">
-                  {activities.map((item, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between border-b last:border-0 pb-5 last:pb-0"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div
-                          className={`${item.bg} ${item.color} w-12 h-12 rounded-full flex items-center justify-center`}
-                        >
-                          {item.icon}
-                        </div>
-
-                        <div>
-                          <p className="font-semibold text-gray-900">
-                            {item.title}
-                          </p>
-                          <p className="text-sm text-gray-500">{item.name}</p>
-                        </div>
-                      </div>
-
-                      <div className="text-right">
-                        <p className="text-green-600 font-bold text-lg">
-                          {item.amount}
-                        </p>
-                        <p className="text-sm text-gray-500">{item.time}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <button className="text-purple-700 text-sm border border-purple-200 px-3 py-1 rounded-full">
+                  Customize
+                </button>
               </div>
 
-              <div className="col-span-4 bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-bold text-gray-900">
-                    Quick Actions
-                  </h2>
-
-                  <button className="text-purple-700 text-sm border border-purple-200 px-3 py-1 rounded-full">
-                    Customize
-                  </button>
+              {isAdminView && (
+                <div className="mb-4 bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl text-sm">
+                  Quick actions are disabled in Admin View.
                 </div>
+              )}
 
-                {isAdminView && (
-                  <div className="mb-4 bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl text-sm">
-                    Quick actions are disabled in Admin View.
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-4">
-                  {actions.map((item, index) => (
-                    <button
-                      key={index}
-                      onClick={() =>
-                        handleActionNavigation(item.path, item.state)
-                      }
-                      disabled={isAdminView}
-                      className={`border border-gray-100 rounded-2xl p-4 transition text-center ${
-                        isAdminView
-                          ? "opacity-50 cursor-not-allowed"
-                          : "hover:border-purple-400 hover:bg-purple-50"
-                      }`}
+              <div className="grid grid-cols-8 gap-4">
+                {actions.map((item, index) => (
+                  <button
+                    key={index}
+                    onClick={() =>
+                      handleActionNavigation(item.path, item.state)
+                    }
+                    disabled={isAdminView}
+                    className={`border border-gray-100 rounded-2xl p-4 transition text-center min-h-[110px] flex flex-col items-center justify-center ${
+                      isAdminView
+                        ? "opacity-50 cursor-not-allowed"
+                        : "hover:border-purple-400 hover:bg-purple-50"
+                    }`}
+                  >
+                    <div
+                      className={`${item.bg} ${item.color} w-11 h-11 rounded-full mx-auto flex items-center justify-center text-lg mb-2`}
                     >
+                      {item.icon}
+                    </div>
+
+                    <p className="text-xs font-semibold text-gray-800 leading-tight">
+                      {item.label}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* ✅ TODAY'S ACTIVITY FULL WIDTH */}
+            <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-900">
+                  Today's Activity
+                </h2>
+
+                <button className="text-purple-700 font-semibold text-sm">
+                  View All
+                </button>
+              </div>
+
+              <div className="space-y-5">
+                {activities.map((item, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between border-b last:border-0 pb-5 last:pb-0"
+                  >
+                    <div className="flex items-center gap-4">
                       <div
-                        className={`${item.bg} ${item.color} w-11 h-11 rounded-full mx-auto flex items-center justify-center text-lg mb-2`}
+                        className={`${item.bg} ${item.color} w-12 h-12 rounded-full flex items-center justify-center`}
                       >
                         {item.icon}
                       </div>
 
-                      <p className="text-sm font-semibold text-gray-800">
-                        {item.label}
+                      <div>
+                        <p className="font-semibold text-gray-900">
+                          {item.title}
+                        </p>
+                        <p className="text-sm text-gray-500">{item.name}</p>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <p className="text-green-600 font-bold text-lg">
+                        {item.amount}
                       </p>
-                    </button>
-                  ))}
-                </div>
+                      <p className="text-sm text-gray-500">{item.time}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -648,7 +653,6 @@ export default function DealerDashboard() {
                   </div>
                 </div>
 
-                <p className="text-sm">Today</p>
                 <p className="text-lg font-bold">{todayDate}</p>
                 <p className="text-sm opacity-80">{todayDay}</p>
               </div>
