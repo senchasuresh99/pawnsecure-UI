@@ -171,11 +171,9 @@ export default function DealerDashboard() {
 
   const getGreeting = () => {
     const hour = currentDate.getHours();
-
-    if (hour >= 0 && hour < 12) return "Welcome back";
-    if (hour >= 12 && hour < 18) return "Welcome back";
-    if (hour >= 18 && hour < 21) return "Welcome back";
-
+    if (hour >= 0 && hour < 12) return "Good Morning";
+    if (hour >= 12 && hour < 18) return "Good Afternoon";
+    if (hour >= 18 && hour < 21) return "Good Evening";
     return "Good Night";
   };
 
@@ -189,7 +187,7 @@ export default function DealerDashboard() {
     weekday: "long",
   });
 
-  function getInitials(name: string) {
+  function getInitials(name) {
     return name
       .split(" ")
       .filter(Boolean)
@@ -199,7 +197,7 @@ export default function DealerDashboard() {
       .toUpperCase();
   }
 
-  function getDealerIdDisplay(id: string) {
+  function getDealerIdDisplay(id) {
     if (!id || id === "-") return "-";
     return id.startsWith("DP") ? id : `DP${id}`;
   }
@@ -214,15 +212,11 @@ export default function DealerDashboard() {
     localStorage.removeItem("ps_role");
     localStorage.removeItem("ps_dealer_id");
     localStorage.removeItem("ps_dealer_name");
-
     navigate("/", { replace: true });
   }
 
-  function handleActionNavigation(path: string, state?: any) {
-    if (isAdminView) {
-      return;
-    }
-
+  function handleActionNavigation(path, state) {
+    if (isAdminView) return;
     navigate(path, state ? { state } : undefined);
   }
 
@@ -232,20 +226,17 @@ export default function DealerDashboard() {
     <div className="min-h-screen bg-[#f4f5f7]">
       {/* ================= DESKTOP / LAPTOP VIEW ================= */}
       <div className="hidden lg:flex min-h-screen">
-        <aside className="w-64 bg-white border-r border-gray-200 px-5 py-6 fixed left-0 top-0 bottom-0">
+        <aside className="w-64 bg-white border-r border-gray-200 px-5 py-6 fixed left-0 top-0 bottom-0 z-40">
           <div className="flex items-center gap-3 mb-10">
-            <div className="w-12 h-12 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
+            <div className="w-12 h-12 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold shrink-0">
               <img
                 src="https://github.com/senchasuresh99/LearningScalare/blob/main/logo1.png?raw=true"
                 alt="PawnSecure"
                 className="w-10 h-10 bg-white rounded-lg p-1"
               />
             </div>
-
             <div>
-              <h1 className="text-xl font-bold text-purple-700">
-                PawnSecure
-              </h1>
+              <h1 className="text-xl font-bold text-purple-700">PawnSecure</h1>
               <p className="text-xs text-gray-500">
                 {isAdminView ? "Admin Preview" : "Dealer Portal"}
               </p>
@@ -260,73 +251,39 @@ export default function DealerDashboard() {
 
           <nav className="space-y-2">
             <button
-              onClick={() =>
-                isAdminView
-                  ? navigate("/admin/dashboard")
-                  : navigate("/dealer/dashboard")
-              }
+              onClick={() => isAdminView ? navigate("/admin/dashboard") : navigate("/dealer/dashboard")}
               className="w-full bg-purple-600 text-white px-4 py-3 rounded-xl flex items-center gap-3 font-semibold"
             >
-              <FaHome />
-              {isAdminView ? "Back to Admin" : "Dashboard"}
+              <FaHome /> {isAdminView ? "Back to Admin" : "Dashboard"}
             </button>
-
             <button
-              onClick={() =>
-                handleActionNavigation("/dealer/customer-search", {
-                  mode: "CUSTOMER_REVIEW",
-                })
-              }
+              onClick={() => handleActionNavigation("/dealer/customer-search", { mode: "CUSTOMER_REVIEW" })}
               disabled={isAdminView}
-              className={`w-full px-4 py-3 rounded-xl flex items-center gap-3 font-semibold ${
-                isAdminView
-                  ? "text-gray-300 cursor-not-allowed"
-                  : "text-gray-600 hover:bg-gray-100 cursor-pointer"
-              }`}
+              className={`w-full px-4 py-3 rounded-xl flex items-center gap-3 font-semibold ${isAdminView ? "text-gray-300 cursor-not-allowed" : "text-gray-600 hover:bg-gray-100 cursor-pointer"}`}
             >
-              <FaUserFriends />
-              Customers
+              <FaUserFriends /> Customers
             </button>
-
             <button
               onClick={() => handleActionNavigation("/dealer/customer")}
               disabled={isAdminView}
-              className={`w-full px-4 py-3 rounded-xl flex items-center gap-3 font-semibold ${
-                isAdminView
-                  ? "text-gray-300 cursor-not-allowed"
-                  : "text-gray-600 hover:bg-gray-100 cursor-pointer"
-              }`}
+              className={`w-full px-4 py-3 rounded-xl flex items-center gap-3 font-semibold ${isAdminView ? "text-gray-300 cursor-not-allowed" : "text-gray-600 hover:bg-gray-100 cursor-pointer"}`}
             >
-              <FaRupeeSign />
-              Girvi
+              <FaRupeeSign /> Girvi
             </button>
-
             <button
               onClick={() => handleActionNavigation("/dealer/collections")}
               disabled={isAdminView}
-              className={`w-full px-4 py-3 rounded-xl flex items-center gap-3 font-semibold ${
-                isAdminView
-                  ? "text-gray-300 cursor-not-allowed"
-                  : "text-gray-600 hover:bg-gray-100 cursor-pointer"
-              }`}
+              className={`w-full px-4 py-3 rounded-xl flex items-center gap-3 font-semibold ${isAdminView ? "text-gray-300 cursor-not-allowed" : "text-gray-600 hover:bg-gray-100 cursor-pointer"}`}
             >
-              <FaCoins />
-              Collections
+              <FaCoins /> Collections
             </button>
-
             <button
               onClick={() => handleActionNavigation("/dealer/reports")}
               disabled={isAdminView}
-              className={`w-full px-4 py-3 rounded-xl flex items-center gap-3 font-semibold ${
-                isAdminView
-                  ? "text-gray-300 cursor-not-allowed"
-                  : "text-gray-600 hover:bg-gray-100 cursor-pointer"
-              }`}
+              className={`w-full px-4 py-3 rounded-xl flex items-center gap-3 font-semibold ${isAdminView ? "text-gray-300 cursor-not-allowed" : "text-gray-600 hover:bg-gray-100 cursor-pointer"}`}
             >
-              <FaChartBar />
-              Reports
+              <FaChartBar /> Reports
             </button>
-
             <button
               onClick={handleLogout}
               className="w-full text-red-600 px-4 py-3 rounded-xl flex items-center gap-3 hover:bg-red-50 cursor-pointer font-semibold mt-8"
@@ -336,27 +293,20 @@ export default function DealerDashboard() {
           </nav>
         </aside>
 
-        {/* ✅ overflow-x-hidden added */}
-        <main className="ml-64 flex-1 overflow-x-hidden">
-          <div className="h-16 bg-white border-b border-gray-200 px-8 flex items-center justify-between sticky top-0 z-30">
+        <main className="ml-64 flex-1 flex flex-col">
+          <header className="h-16 bg-white border-b border-gray-200 px-8 flex items-center justify-between sticky top-0 z-30 shrink-0">
             <div>
               <h2 className="text-lg font-bold text-gray-900">
                 {isAdminView ? "Dealer Dashboard Preview" : "Dashboard"}
               </h2>
               <p className="text-xs text-gray-500">
-                {isAdminView
-                  ? "Admin is viewing this dealer dashboard"
-                  : "Welcome back to your dealer dashboard"}
+                {isAdminView ? "Admin is viewing this dealer dashboard" : "Welcome back to your dealer dashboard"}
               </p>
             </div>
-
             <div className="flex items-center gap-5">
               <div className="text-right">
-                <p className="text-sm font-semibold text-gray-800">
-                  {todayDate}
-                </p>
+                <p className="text-sm font-semibold text-gray-800">{todayDate}</p>
               </div>
-
               <div className="relative">
                 <button
                   onClick={() => setShowProfileMenu(!showProfileMenu)}
@@ -364,18 +314,12 @@ export default function DealerDashboard() {
                 >
                   {getInitials(dealerName)}
                 </button>
-
                 {showProfileMenu && (
                   <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-lg border border-gray-100 z-50 overflow-hidden">
                     <div className="px-4 py-3 border-b">
-                      <p className="text-sm font-bold text-gray-800">
-                        {dealerName}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Dealer ID: {dealerIdDisplay}
-                      </p>
+                      <p className="text-sm font-bold text-gray-800">{dealerName}</p>
+                      <p className="text-xs text-gray-500">Dealer ID: {dealerIdDisplay}</p>
                     </div>
-
                     <button
                       onClick={handleLogout}
                       className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 font-semibold"
@@ -386,39 +330,29 @@ export default function DealerDashboard() {
                 )}
               </div>
             </div>
-          </div>
+          </header>
 
-          {/* 
-            ✅ Desktop content scale wrapper:
-            This makes content appear like browser 67–72% zoom while browser stays 100%.
-            0.72 scale needs 138.89% width to fill available space.
-            2xl resets to normal size for large monitors.
-          */}
-          <div className="origin-top-left scale-[0.72] 2xl:scale-100 w-[138.89%] 2xl:w-full p-8">
-            <div className="grid grid-cols-12 gap-6 mb-8">
-              <div className="col-span-8 bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-3xl p-8">
+          {/* Clean, fluid layout without scale hack */}
+          <div className="p-6 xl:p-8 max-w-[1400px] w-full mx-auto flex-1">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
+              <div className="lg:col-span-8 bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-3xl p-8">
                 <p className="text-sm opacity-90">{getGreeting()} 👋</p>
-
                 <h1 className="text-3xl font-bold mt-2">{dealerName}</h1>
-
                 <div className="mt-4 flex flex-wrap items-center gap-3">
                   <p className="inline-block bg-white/20 px-3 py-1 rounded-md text-sm">
                     Dealer ID: {dealerIdDisplay}
                   </p>
-
                   {isAdminView && (
                     <span className="inline-block bg-yellow-400 text-yellow-900 px-3 py-1 rounded-md text-xs font-bold">
                       Admin View
                     </span>
                   )}
                 </div>
-
                 <div className="grid grid-cols-2 gap-4 mt-8">
                   <div>
                     <h3 className="text-xl font-bold">{todayDate}</h3>
                     <p className="text-sm opacity-80">{todayDay}</p>
                   </div>
-
                   <div>
                     <p className="text-sm opacity-80">Shop Status</p>
                     <h3 className="text-xl font-bold">Active</h3>
@@ -427,137 +361,83 @@ export default function DealerDashboard() {
                 </div>
               </div>
 
-              <div className="col-span-4 bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
-                <p className="text-sm text-gray-500">
-                  Total Active Loan Value
-                </p>
-
-                <h2 className="text-4xl font-bold text-gray-900 mt-3">
-                  ₹42.8L
-                </h2>
-
-                <p className="text-sm text-gray-500 mt-2">
-                  Across 128 active accounts
-                </p>
-
-                <div className="mt-6 bg-green-50 text-green-700 px-4 py-3 rounded-xl text-sm font-semibold">
+              <div className="lg:col-span-4 bg-white rounded-3xl p-8 border border-gray-100 shadow-sm flex flex-col justify-center">
+                <p className="text-sm text-gray-500">Total Active Loan Value</p>
+                <h2 className="text-4xl font-bold text-gray-900 mt-3">₹42.8L</h2>
+                <p className="text-sm text-gray-500 mt-2">Across 128 active accounts</p>
+                <div className="mt-6 bg-green-50 text-green-700 px-4 py-3 rounded-xl text-sm font-semibold inline-block">
                   +12.5% from last month
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               {stats.map((item, index) => (
-                <div
-                  key={index}
-                  className={`${item.cardBg} rounded-2xl p-5 shadow-sm border border-gray-100`}
-                >
+                <div key={index} className={`${item.cardBg} rounded-2xl p-5 shadow-sm border border-gray-100`}>
                   <div className="flex items-center justify-between">
-                    <div
-                      className={`${item.iconBg} text-white w-12 h-12 rounded-full flex items-center justify-center text-lg`}
-                    >
+                    <div className={`${item.iconBg} text-white w-12 h-12 rounded-full flex items-center justify-center text-lg`}>
                       {item.icon}
                     </div>
-
-                    <span className="text-xs text-gray-400">View</span>
+                    <span className="text-xs text-gray-400 hover:text-purple-600 cursor-pointer">View</span>
                   </div>
-
-                  <p className="text-sm font-semibold text-gray-600 mt-5">
-                    {item.title}
-                  </p>
-
+                  <p className="text-sm font-semibold text-gray-600 mt-5">{item.title}</p>
                   <h2 className="text-2xl font-bold mt-2">{item.value}</h2>
-
-                  <p className="text-xs text-gray-500 mt-1">
-                    {item.subtitle}
-                  </p>
+                  <p className="text-xs text-gray-500 mt-1">{item.subtitle}</p>
                 </div>
               ))}
             </div>
 
-            {/* ✅ QUICK ACTIONS ONE LINE - DESKTOP */}
+            {/* Quick Actions properly responsive (4 cols on smaller laptops, 8 on ultra-wides) */}
             <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm mb-8">
               <div className="flex justify-between items-center mb-5">
-                <h2 className="text-xl font-bold text-gray-900">
-                  Quick Actions
-                </h2>
-
-                <button className="text-purple-700 text-sm border border-purple-200 px-3 py-1 rounded-full">
+                <h2 className="text-xl font-bold text-gray-900">Quick Actions</h2>
+                <button className="text-purple-700 text-sm border border-purple-200 px-3 py-1 rounded-full hover:bg-purple-50 transition">
                   Customize
                 </button>
               </div>
-
               {isAdminView && (
                 <div className="mb-4 bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl text-sm">
                   Quick actions are disabled in Admin View.
                 </div>
               )}
-
-              <div className="grid grid-cols-8 gap-4">
+              <div className="grid grid-cols-4 xl:grid-cols-8 gap-4">
                 {actions.map((item, index) => (
                   <button
                     key={index}
-                    onClick={() =>
-                      handleActionNavigation(item.path, item.state)
-                    }
+                    onClick={() => handleActionNavigation(item.path, item.state)}
                     disabled={isAdminView}
                     className={`border border-gray-100 rounded-2xl p-4 transition text-center min-h-[110px] flex flex-col items-center justify-center ${
-                      isAdminView
-                        ? "opacity-50 cursor-not-allowed"
-                        : "hover:border-purple-400 hover:bg-purple-50"
+                      isAdminView ? "opacity-50 cursor-not-allowed" : "hover:border-purple-400 hover:bg-purple-50"
                     }`}
                   >
-                    <div
-                      className={`${item.bg} ${item.color} w-11 h-11 rounded-full mx-auto flex items-center justify-center text-lg mb-2`}
-                    >
+                    <div className={`${item.bg} ${item.color} w-11 h-11 rounded-full mx-auto flex items-center justify-center text-lg mb-2 shrink-0`}>
                       {item.icon}
                     </div>
-
-                    <p className="text-xs font-semibold text-gray-800 leading-tight">
-                      {item.label}
-                    </p>
+                    <p className="text-xs font-semibold text-gray-800 leading-tight">{item.label}</p>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* ✅ TODAY'S ACTIVITY FULL WIDTH */}
             <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-900">
-                  Today's Activity
-                </h2>
-
-                <button className="text-purple-700 font-semibold text-sm">
-                  View All
-                </button>
+                <h2 className="text-xl font-bold text-gray-900">Today's Activity</h2>
+                <button className="text-purple-700 font-semibold text-sm hover:underline">View All</button>
               </div>
-
               <div className="space-y-5">
                 {activities.map((item, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between border-b last:border-0 pb-5 last:pb-0"
-                  >
+                  <div key={index} className="flex items-center justify-between border-b last:border-0 pb-5 last:pb-0">
                     <div className="flex items-center gap-4">
-                      <div
-                        className={`${item.bg} ${item.color} w-12 h-12 rounded-full flex items-center justify-center`}
-                      >
+                      <div className={`${item.bg} ${item.color} w-12 h-12 rounded-full flex items-center justify-center shrink-0`}>
                         {item.icon}
                       </div>
-
                       <div>
-                        <p className="font-semibold text-gray-900">
-                          {item.title}
-                        </p>
+                        <p className="font-semibold text-gray-900">{item.title}</p>
                         <p className="text-sm text-gray-500">{item.name}</p>
                       </div>
                     </div>
-
                     <div className="text-right">
-                      <p className="text-green-600 font-bold text-lg">
-                        {item.amount}
-                      </p>
+                      <p className="text-green-600 font-bold text-lg">{item.amount}</p>
                       <p className="text-sm text-gray-500">{item.time}</p>
                     </div>
                   </div>
@@ -570,78 +450,60 @@ export default function DealerDashboard() {
 
       {/* ================= MOBILE VIEW ================= */}
       <div className="lg:hidden">
-        <div className="max-w-7xl mx-auto px-0 sm:px-4 pb-24">
-          <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-b-[32px] px-5 py-8 relative overflow-hidden">
+        <div className="max-w-md mx-auto px-0 pb-24">
+          <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-b-[32px] px-5 py-8 relative overflow-hidden shadow-md">
             <div className="flex justify-between items-start">
-              <div>
+              <div className="flex-1">
                 <div className="flex items-center gap-4 mb-6">
                   <button
-                    onClick={() =>
-                      isAdminView
-                        ? navigate("/admin/dashboard")
-                        : navigate("/dealer/dashboard")
-                    }
-                    className="text-2xl"
+                    onClick={() => isAdminView ? navigate("/admin/dashboard") : navigate("/dealer/dashboard")}
+                    className="text-2xl hover:bg-white/10 p-1 rounded-lg transition"
                   >
                     {isAdminView ? "←" : "☰"}
                   </button>
-
-                  <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center text-purple-700 font-bold">
+                  <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-purple-700 font-bold shrink-0">
                     <img
                       src="https://github.com/senchasuresh99/LearningScalare/blob/main/logo1.png?raw=true"
                       alt="PawnSecure"
-                      className="w-10 h-10 bg-white rounded-lg p-1"
+                      className="w-8 h-8 bg-white rounded-lg p-0.5"
                     />
                   </div>
-
                   <div>
-                    <h2 className="text-xl font-bold">PawnSecure</h2>
-                    <p className="text-xs opacity-80">
-                      {isAdminView
-                        ? "Admin Preview"
-                        : "Trusted Records • Secure Connections"}
+                    <h2 className="text-xl font-bold leading-tight">PawnSecure</h2>
+                    <p className="text-[10px] opacity-80 mt-0.5">
+                      {isAdminView ? "Admin Preview" : "Trusted Records"}
                     </p>
                   </div>
                 </div>
-
                 <p className="text-sm opacity-90">{getGreeting()} 👋</p>
-
-                <h1 className="text-2xl font-bold mt-1">{dealerName}</h1>
-
+                <h1 className="text-2xl font-bold mt-1 truncate pr-2">{dealerName}</h1>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <p className="inline-block bg-white/20 px-3 py-1 rounded-md text-sm">
-                    Dealer ID: {dealerIdDisplay}
+                  <p className="inline-block bg-white/20 px-3 py-1 rounded-md text-xs">
+                    ID: {dealerIdDisplay}
                   </p>
-
                   {isAdminView && (
                     <span className="inline-block bg-yellow-400 text-yellow-900 px-3 py-1 rounded-md text-xs font-bold">
-                      Admin View
+                      Admin
                     </span>
                   )}
                 </div>
               </div>
 
-              <div className="text-right">
+              <div className="text-right shrink-0">
                 <div className="flex justify-end gap-4 mb-5">
                   <div className="relative">
                     <button
                       onClick={() => setShowProfileMenu(!showProfileMenu)}
-                      className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center font-bold"
+                      className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center font-bold"
                     >
                       {getInitials(dealerName)}
                     </button>
-
                     {showProfileMenu && (
                       <div className="absolute right-0 mt-2 w-44 bg-white rounded-xl shadow-lg border border-gray-100 z-50 overflow-hidden text-left">
                         <div className="px-4 py-3 border-b">
-                          <p className="text-sm font-bold text-gray-800">
-                            {dealerName}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            Dealer ID: {dealerIdDisplay}
-                          </p>
+                          <p className="text-sm font-bold text-gray-800 truncate">{dealerName}</p>
+                          <p className="text-xs text-gray-500">ID: {dealerIdDisplay}</p>
                         </div>
-
                         <button
                           onClick={handleLogout}
                           className="w-full px-4 py-3 text-sm text-red-600 hover:bg-red-50 font-semibold"
@@ -652,74 +514,57 @@ export default function DealerDashboard() {
                     )}
                   </div>
                 </div>
-
-                <p className="text-lg font-bold">{todayDate}</p>
-                <p className="text-sm opacity-80">{todayDay}</p>
+                <p className="text-base font-bold">{todayDate.split(' ')[0]} {todayDate.split(' ')[1]}</p>
+                <p className="text-xs opacity-80">{todayDay}</p>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 -mt-6 relative z-10 px-2">
+          <div className="grid grid-cols-2 gap-3 -mt-6 relative z-10 px-4">
             {stats.map((item, index) => (
-              <div
-                key={index}
-                className={`${item.cardBg} rounded-2xl p-4 shadow-sm border border-gray-100 min-h-[130px]`}
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`${item.iconBg} text-white w-11 h-11 rounded-full flex items-center justify-center text-lg`}
-                  >
+              <div key={index} className={`${item.cardBg} rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[120px]`}>
+                <div className="flex items-center gap-2">
+                  <div className={`${item.iconBg} text-white w-9 h-9 rounded-full flex items-center justify-center text-sm shrink-0`}>
                     {item.icon}
                   </div>
-
-                  <p className="text-sm font-semibold text-gray-700">
-                    {item.title}
-                  </p>
+                  <p className="text-[11px] font-semibold text-gray-700 leading-tight">{item.title}</p>
                 </div>
-
-                <h2 className="text-xl font-bold mt-4">{item.value}</h2>
-
-                <p className="text-xs text-gray-500 mt-1">
-                  {item.subtitle}
-                </p>
+                <div>
+                  <h2 className="text-lg font-bold mt-3">{item.value}</h2>
+                  <p className="text-[10px] text-gray-500 mt-0.5">{item.subtitle}</p>
+                </div>
               </div>
             ))}
           </div>
 
-          <div className="mt-7 px-2">
+          <div className="mt-6 px-4">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold">Quick Actions</h2>
-
-              <button className="text-purple-700 text-sm border border-purple-300 px-3 py-1 rounded-lg">
+              <h2 className="text-lg font-bold text-gray-900">Quick Actions</h2>
+              <button className="text-purple-700 text-xs border border-purple-200 px-3 py-1 rounded-full font-medium">
                 Customize
               </button>
             </div>
-
             {isAdminView && (
-              <div className="mb-4 bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl text-sm">
-                Quick actions are disabled in Admin View.
+              <div className="mb-4 bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl text-xs">
+                Disabled in Admin View.
               </div>
             )}
-
-            <div className="grid grid-cols-4 gap-3">
+            
+            {/* Fixed Mobile Grid: Tighter gap and smaller text prevents wrapping issues */}
+            <div className="grid grid-cols-4 gap-2">
               {actions.map((item, index) => (
                 <button
                   key={index}
-                  onClick={() =>
-                    handleActionNavigation(item.path, item.state)
-                  }
+                  onClick={() => handleActionNavigation(item.path, item.state)}
                   disabled={isAdminView}
-                  className={`bg-white rounded-xl min-h-[95px] p-3 border border-gray-100 shadow-sm flex flex-col items-center justify-center text-center ${
-                    isAdminView ? "opacity-50 cursor-not-allowed" : ""
+                  className={`bg-white rounded-xl min-h-[85px] p-2 border border-gray-100 shadow-sm flex flex-col items-center justify-start text-center pt-3 ${
+                    isAdminView ? "opacity-50 cursor-not-allowed" : "active:bg-gray-50"
                   }`}
                 >
-                  <div
-                    className={`${item.bg} ${item.color} w-11 h-11 rounded-full flex items-center justify-center text-lg mb-2`}
-                  >
+                  <div className={`${item.bg} ${item.color} w-10 h-10 rounded-full flex items-center justify-center text-base mb-2 shrink-0`}>
                     {item.icon}
                   </div>
-
-                  <p className="text-xs font-semibold text-gray-800">
+                  <p className="text-[10px] sm:text-xs font-semibold text-gray-800 leading-tight">
                     {item.label}
                   </p>
                 </button>
@@ -727,39 +572,26 @@ export default function DealerDashboard() {
             </div>
           </div>
 
-          <div className="mx-2 mt-7 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+          <div className="mx-4 mt-6 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold">Today's Activity</h2>
-
-              <button className="text-purple-700 font-semibold text-sm">
-                View All
-              </button>
+              <h2 className="text-lg font-bold text-gray-900">Today's Activity</h2>
+              <button className="text-purple-700 font-medium text-xs">View All</button>
             </div>
-
             <div className="space-y-4">
               {activities.map((item, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between border-b last:border-0 pb-4 last:pb-0"
-                >
+                <div key={index} className="flex items-center justify-between border-b border-gray-50 last:border-0 pb-4 last:pb-0">
                   <div className="flex items-center gap-3">
-                    <div
-                      className={`${item.bg} ${item.color} w-11 h-11 rounded-full flex items-center justify-center`}
-                    >
+                    <div className={`${item.bg} ${item.color} w-10 h-10 rounded-full flex items-center justify-center text-sm shrink-0`}>
                       {item.icon}
                     </div>
-
                     <div>
-                      <p className="font-semibold text-sm">{item.title}</p>
-                      <p className="text-xs text-gray-500">{item.name}</p>
+                      <p className="font-semibold text-sm text-gray-900">{item.title}</p>
+                      <p className="text-[11px] text-gray-500">{item.name}</p>
                     </div>
                   </div>
-
                   <div className="text-right">
-                    <p className="text-green-600 font-bold text-sm">
-                      {item.amount}
-                    </p>
-                    <p className="text-xs text-gray-500">{item.time}</p>
+                    <p className="text-green-600 font-bold text-sm">{item.amount}</p>
+                    <p className="text-[11px] text-gray-500">{item.time}</p>
                   </div>
                 </div>
               ))}
@@ -768,47 +600,24 @@ export default function DealerDashboard() {
         </div>
 
         {!isAdminView && (
-          <div className="fixed bottom-0 left-0 w-full bg-white border-t flex justify-around py-3 z-50">
-            <button
-              onClick={() => navigate("/dealer/dashboard")}
-              className="text-purple-700 flex flex-col items-center text-xs font-semibold"
-            >
+          <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 flex justify-around py-2 px-1 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-50">
+            <button onClick={() => navigate("/dealer/dashboard")} className="text-purple-700 flex flex-col items-center text-[10px] font-semibold w-16">
               <FaHome className="text-xl mb-1" />
-              Dashboard
+              Home
             </button>
-
-            <button
-              onClick={() =>
-                navigate("/dealer/customer-search", {
-                  state: { mode: "CUSTOMER_REVIEW" },
-                })
-              }
-              className="text-gray-500 flex flex-col items-center text-xs"
-            >
+            <button onClick={() => navigate("/dealer/customer-search", { state: { mode: "CUSTOMER_REVIEW" } })} className="text-gray-500 hover:text-gray-900 flex flex-col items-center text-[10px] font-medium w-16 text-center">
               <FaUserFriends className="text-xl mb-1" />
-              Customers Review
+              Customers
             </button>
-
-            <button
-              onClick={() => navigate("/dealer/new-girvi")}
-              className="text-gray-500 flex flex-col items-center text-xs"
-            >
+            <button onClick={() => navigate("/dealer/new-girvi")} className="text-gray-500 hover:text-gray-900 flex flex-col items-center text-[10px] font-medium w-16">
               <FaRupeeSign className="text-xl mb-1" />
               Girvi
             </button>
-
-            <button
-              onClick={() => navigate("/dealer/collections")}
-              className="text-gray-500 flex flex-col items-center text-xs"
-            >
+            <button onClick={() => navigate("/dealer/collections")} className="text-gray-500 hover:text-gray-900 flex flex-col items-center text-[10px] font-medium w-16">
               <FaCoins className="text-xl mb-1" />
-              Collections
+              Collect
             </button>
-
-            <button
-              onClick={() => navigate("/dealer/more")}
-              className="text-gray-500 flex flex-col items-center text-xs"
-            >
+            <button onClick={() => navigate("/dealer/more")} className="text-gray-500 hover:text-gray-900 flex flex-col items-center text-[10px] font-medium w-16">
               <FaEllipsisH className="text-xl mb-1" />
               More
             </button>
@@ -816,10 +625,10 @@ export default function DealerDashboard() {
         )}
 
         {isAdminView && (
-          <div className="fixed bottom-0 left-0 w-full bg-white border-t p-3 z-50">
+          <div className="fixed bottom-0 left-0 w-full bg-white border-t p-3 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-50">
             <button
               onClick={() => navigate("/admin/dashboard", { replace: true })}
-              className="w-full bg-purple-600 text-white py-3 rounded-xl font-bold"
+              className="w-full bg-purple-600 active:bg-purple-700 text-white py-3 rounded-xl font-bold transition"
             >
               Back to Admin Dashboard
             </button>
