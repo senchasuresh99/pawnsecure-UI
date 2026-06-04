@@ -14,6 +14,10 @@ import {
   FaEllipsisH,
   FaHome,
   FaCoins,
+  FaSyncAlt,
+  FaArrowUp,
+  FaArrowDown,
+  FaGem,
 } from "react-icons/fa";
 
 const stats = [
@@ -48,6 +52,39 @@ const stats = [
     icon: <FaClock />,
     iconBg: "bg-red-500",
     cardBg: "bg-red-50",
+  },
+];
+
+const metalRates = [
+  {
+    title: "GOLD 24K (999)",
+    value: "₹ 9,875",
+    unit: "/gram",
+    change: "+45 (0.46%) Today",
+    isUp: true,
+    cardBg: "bg-[#fffbeb] border-[#fde68a]", // Amber tint
+    iconBg: "bg-[#fef3c7] text-[#b45309]",
+    icon: <FaCoins />,
+  },
+  {
+    title: "GOLD 22K (916)",
+    value: "₹ 9,050",
+    unit: "/gram",
+    change: "+40 (0.44%) Today",
+    isUp: true,
+    cardBg: "bg-[#fffdf5] border-[#fef08a]", // Light gold tint
+    iconBg: "bg-[#fef9c3] text-[#a16207]",
+    icon: <FaGem />,
+  },
+  {
+    title: "SILVER",
+    value: "₹ 112",
+    unit: "/gram",
+    change: "-1 (0.88%) Today",
+    isUp: false,
+    cardBg: "bg-[#f8fafc] border-[#e2e8f0]", // Slate grey tint
+    iconBg: "bg-[#f1f5f9] text-[#475569]",
+    icon: <FaCoins />,
   },
 ];
 
@@ -171,9 +208,9 @@ export default function DealerDashboard() {
 
   const getGreeting = () => {
     const hour = currentDate.getHours();
-    if (hour >= 0 && hour < 12) return "Welcome Back";
-    if (hour >= 12 && hour < 18) return "Welcome Back";
-    if (hour >= 18 && hour < 21) return "Welcome Back";
+    if (hour >= 0 && hour < 12) return "Good Morning";
+    if (hour >= 12 && hour < 18) return "Good Afternoon";
+    if (hour >= 18 && hour < 21) return "Good Evening";
     return "Good Night";
   };
 
@@ -187,18 +224,16 @@ export default function DealerDashboard() {
     weekday: "long",
   });
 
-  // ✅ Fixed TypeScript parameter type
   function getInitials(name: string) {
     return name
       .split(" ")
       .filter(Boolean)
-      .map((word: string) => word[0]) // ✅ Fixed implicitly any
+      .map((word: string) => word[0])
       .join("")
       .slice(0, 2)
       .toUpperCase();
   }
 
-  // ✅ Fixed TypeScript parameter type
   function getDealerIdDisplay(id: string | null) {
     if (!id || id === "-") return "-";
     return id.startsWith("DP") ? id : `DP${id}`;
@@ -217,7 +252,6 @@ export default function DealerDashboard() {
     navigate("/", { replace: true });
   }
 
-  // ✅ Added ? to make state optional, preventing the "Expected 2 arguments" error
   function handleActionNavigation(path: string, state?: any) {
     if (isAdminView) return;
     navigate(path, state ? { state } : undefined);
@@ -336,6 +370,7 @@ export default function DealerDashboard() {
           </header>
 
           <div className="p-6 xl:p-8 max-w-[1400px] w-full mx-auto flex-1">
+            {/* Banner Section */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
               <div className="lg:col-span-8 bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-3xl p-8">
                 <p className="text-sm opacity-90">{getGreeting()} 👋</p>
@@ -373,6 +408,54 @@ export default function DealerDashboard() {
               </div>
             </div>
 
+            {/* ✅ Added LIVE METAL RATES Segment */}
+            <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    Live Metal Rates
+                  </h3>
+                  <span className="flex items-center gap-1 bg-green-50 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-green-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500捷 animate-pulse bg-green-600"></span>{" "}
+                    Live
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer hover:text-purple-600 transition">
+                  <FaSyncAlt className="text-[10px] animate-spin-slow" />
+                  <span>Updated: 10:35 AM</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {metalRates.map((rate, i) => (
+                  <div
+                    key={i}
+                    className={`border rounded-2xl p-4 flex items-center justify-between shadow-xs transition hover:shadow-md ${rate.cardBg}`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl shrink-0 ${rate.iconBg}`}>
+                        {rate.icon}
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-bold text-gray-400 tracking-wide uppercase">
+                          {rate.title}
+                        </p>
+                        <div className="flex items-baseline gap-1 mt-0.5">
+                          <span className="text-2xl font-black text-gray-900">{rate.value}</span>
+                          <span className="text-xs text-gray-500 font-medium">{rate.unit}</span>
+                        </div>
+                        <p className={`text-xs font-semibold flex items-center gap-1 mt-1 ${rate.isUp ? "text-green-600" : "text-red-500"}`}>
+                          {rate.isUp ? <FaArrowUp className="text-[10px]" /> : <FaArrowDown className="text-[10px]" />}
+                          {rate.change}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* General System Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               {stats.map((item, index) => (
                 <div key={index} className={`${item.cardBg} rounded-2xl p-5 shadow-sm border border-gray-100`}>
@@ -389,6 +472,7 @@ export default function DealerDashboard() {
               ))}
             </div>
 
+            {/* Quick Actions Grid */}
             <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm mb-8">
               <div className="flex justify-between items-center mb-5">
                 <h2 className="text-xl font-bold text-gray-900">Quick Actions</h2>
@@ -420,6 +504,7 @@ export default function DealerDashboard() {
               </div>
             </div>
 
+            {/* Activities Table */}
             <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-bold text-gray-900">Today's Activity</h2>
@@ -538,7 +623,49 @@ export default function DealerDashboard() {
             ))}
           </div>
 
+          {/* ✅ Added LIVE METAL RATES Segment for Mobile Layout */}
           <div className="mt-6 px-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-1.5">
+                <h2 className="text-base font-bold text-gray-900">Live Rates</h2>
+                <span className="flex items-center gap-0.5 bg-green-50 text-green-700 text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-green-200">
+                  <span className="w-1 h-1 rounded-full bg-green-500 animate-pulse"></span> Live
+                </span>
+              </div>
+              <span className="text-[10px] text-gray-400">10:35 AM</span>
+            </div>
+
+            {/* Horizontal scroll track for smooth mobile navigation without crowding */}
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none snap-x">
+              {metalRates.map((rate, i) => (
+                <div
+                  key={i}
+                  className={`snap-center shrink-0 w-[240px] border rounded-xl p-3 flex items-center justify-between shadow-xs ${rate.cardBg}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-base shrink-0 ${rate.iconBg}`}>
+                      {rate.icon}
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-bold text-gray-400 tracking-wide uppercase">
+                        {rate.title}
+                      </p>
+                      <div className="flex items-baseline gap-0.5 mt-0.5">
+                        <span className="text-lg font-black text-gray-900">{rate.value}</span>
+                        <span className="text-[10px] text-gray-500">{rate.unit}</span>
+                      </div>
+                      <p className={`text-[10px] font-semibold flex items-center gap-0.5 ${rate.isUp ? "text-green-600" : "text-red-500"}`}>
+                        {rate.isUp ? "▲" : "▼"} {rate.change.split(" ")[0]}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Quick Actions Segment */}
+          <div className="mt-4 px-4">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-bold text-gray-900">Quick Actions</h2>
               <button className="text-purple-700 text-xs border border-purple-200 px-3 py-1 rounded-full font-medium">
@@ -572,6 +699,7 @@ export default function DealerDashboard() {
             </div>
           </div>
 
+          {/* Activities Segment */}
           <div className="mx-4 mt-6 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-bold text-gray-900">Today's Activity</h2>
@@ -599,6 +727,7 @@ export default function DealerDashboard() {
           </div>
         </div>
 
+        {/* Global Floating Controls */}
         {!isAdminView && (
           <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 flex justify-around py-2 px-1 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-50">
             <button onClick={() => navigate("/dealer/dashboard")} className="text-purple-700 flex flex-col items-center text-[10px] font-semibold w-16">
