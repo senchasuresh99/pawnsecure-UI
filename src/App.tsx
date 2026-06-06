@@ -21,6 +21,7 @@ import AddCustomer from "./girvi/AddCustomer";
 import { GirviProvider } from "./girvi/GirviContext";
 import CustomerRegister from "./views/CustomerRegister";
 import GirviList from "./girvi/GirviList";
+import CustomerList from "./views/CustomerList";
 
 export default function App() {
   return (
@@ -47,6 +48,7 @@ export default function App() {
         <Route path="/dealer/success" element={<GirviSuccess />} />
         <Route path="/dealer/add-customer" element={<AddCustomer />} />
         <Route path="/dealer/customer-register" element={<CustomerRegister />} />
+        <Route path="/dealer/customers" element={<CustomerList />} />
       </Routes>
     </GirviProvider>
   );
