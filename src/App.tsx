@@ -10,7 +10,6 @@ import DealerDashboard from "./dealer/DealerDashboard";
 import CustomerReviews from "./views/CustomerReviews";
 
 /* ✅ GIRVI FLOW IMPORTS */
-import CustomerSearch from "./girvi/CustomerSearch";
 import CustomerDetails from "./girvi/CustomerDetails";
 import GirviDetails from "./girvi/GirviDetails";
 import ItemDetails from "./girvi/ItemDetails";
@@ -21,6 +20,7 @@ import AddCustomer from "./girvi/AddCustomer";
 /* ✅ IMPORTANT */
 import { GirviProvider } from "./girvi/GirviContext";
 import CustomerRegister from "./views/CustomerRegister";
+import GirviList from "./girvi/GirviList";
 
 export default function App() {
   return (
@@ -39,7 +39,7 @@ export default function App() {
         <Route path="/dealer/customer-search" element={<CustomerReviews />} />
 
         {/* ✅ ✅ GIRVI FLOW */}
-        <Route path="/dealer/customer" element={<CustomerSearch />} />
+        <Route path="/dealer/customer" element={<GirviList />} />
         <Route path="/dealer/customer-details" element={<CustomerDetails />} />
         <Route path="/dealer/details" element={<GirviDetails />} />
         <Route path="/dealer/items" element={<ItemDetails />} />
@@ -47,6 +47,7 @@ export default function App() {
         <Route path="/dealer/success" element={<GirviSuccess />} />
         <Route path="/dealer/add-customer" element={<AddCustomer />} />
         <Route path="/dealer/customer-register" element={<CustomerRegister />} />
+        <Route path="/dealer/add-girvi" element={<GirviDetails />} />
       </Routes>
     </GirviProvider>
   );
