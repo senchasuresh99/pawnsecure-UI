@@ -47,7 +47,6 @@ export default function App() {
         <Route path="/dealer/success" element={<GirviSuccess />} />
         <Route path="/dealer/add-customer" element={<AddCustomer />} />
         <Route path="/dealer/customer-register" element={<CustomerRegister />} />
-        <Route path="/dealer/add-girvi" element={<GirviDetails />} />
       </Routes>
     </GirviProvider>
   );
