@@ -867,7 +867,7 @@ function MobileRecordsPanel({
                   </div>
 
                   <p className="text-xs text-gray-500 mt-1">
-                    {item.itemType || "-"} • {item.itemWeightGram || 0} g
+                    {item.itemType || "-"} • {item.itemWeightGram || 0} gm
                   </p>
 
                   <p className="text-sm font-semibold text-gray-800 mt-2">
