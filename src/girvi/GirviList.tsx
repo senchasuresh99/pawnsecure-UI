@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FaArrowLeft,
@@ -34,6 +34,18 @@ type GirviResponseDTO = {
   itemPhotoContentType?: string;
 };
 
+type GirviPageResponse = {
+  content: GirviResponseDTO[];
+  totalPages: number;
+  totalElements: number;
+  number: number;
+  size: number;
+  first: boolean;
+  last: boolean;
+  numberOfElements: number;
+  empty: boolean;
+};
+
 type GirviUpdateForm = {
   itemName: string;
   itemWeightGram: string;
@@ -52,6 +64,14 @@ export default function GirviList() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState(10);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+
+  const [photoMap, setPhotoMap] = useState<Record<number, string>>({});
+  const photoMapRef = useRef<Record<number, string>>({});
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [updating, setUpdating] = useState(false);
@@ -75,7 +95,7 @@ export default function GirviList() {
 
   useEffect(() => {
     fetchGirviList();
-  }, []);
+  }, [page, size]);
 
   useEffect(() => {
     const q = search.toLowerCase().trim();
@@ -99,6 +119,20 @@ export default function GirviList() {
     setFilteredList(result);
   }, [search, girviList]);
 
+  useEffect(() => {
+    girviList.forEach((item) => {
+      if (item.id) fetchGirviPhoto(item.id);
+    });
+  }, [girviList]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(photoMapRef.current).forEach((url) => {
+        URL.revokeObjectURL(url);
+      });
+    };
+  }, []);
+
   async function fetchGirviList() {
     const dealerId = localStorage.getItem("ps_dealer_id");
     const token = localStorage.getItem("ps_token");
@@ -117,7 +151,7 @@ export default function GirviList() {
     setError("");
 
     try {
-      const res = await fetch(`${API_BASE}/girvi`, {
+      const res = await fetch(`${API_BASE}/girvi?page=${page}&size=${size}`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -127,22 +161,74 @@ export default function GirviList() {
 
       if (!res.ok) {
         const message = await res.text();
-
         setError(
           message || `Failed to fetch Girvi records. Status code: ${res.status}`
         );
         return;
       }
 
-      const data: GirviResponseDTO[] = await res.json();
+      const data: GirviPageResponse | GirviResponseDTO[] = await res.json();
 
-      setGirviList(data);
-      setFilteredList(data);
+      if (Array.isArray(data)) {
+        setGirviList(data);
+        setFilteredList(data);
+        setTotalPages(1);
+        setTotalElements(data.length);
+      } else {
+        setGirviList(data.content || []);
+        setFilteredList(data.content || []);
+        setTotalPages(data.totalPages || 0);
+        setTotalElements(data.totalElements || 0);
+      }
     } catch (err) {
       console.error("GET Girvi failed:", err);
       setError("Server unavailable. Please try again later.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function fetchGirviPhoto(girviId?: number) {
+    if (!girviId) return;
+    if (photoMapRef.current[girviId]) return;
+
+    const dealerId = localStorage.getItem("ps_dealer_id");
+    const token = localStorage.getItem("ps_token");
+
+    if (!dealerId || !token) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/girvi/${girviId}/photo`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-DEALER-ID": dealerId,
+        },
+      });
+
+      if (!res.ok) return;
+
+      const blob = await res.blob();
+      if (!blob || blob.size === 0) return;
+
+      const imageUrl = URL.createObjectURL(blob);
+
+      setPhotoMap((prev) => {
+        if (prev[girviId]) {
+          URL.revokeObjectURL(imageUrl);
+          return prev;
+        }
+
+        const next = {
+          ...prev,
+          [girviId]: imageUrl,
+        };
+
+        photoMapRef.current = next;
+        return next;
+      });
+    } catch (err) {
+      console.error("Girvi photo load failed:", err);
     }
   }
 
@@ -204,7 +290,7 @@ export default function GirviList() {
       return;
     }
 
-    if (!editForm.interestRate || Number(editForm.interestRate) < 0) {
+    if (editForm.interestRate === "" || Number(editForm.interestRate) < 0) {
       alert("Valid interest rate is required");
       return;
     }
@@ -225,12 +311,12 @@ export default function GirviList() {
           "X-DEALER-ID": dealerId,
         },
         body: JSON.stringify({
-          itemName: editForm.itemName,
+          itemName: editForm.itemName.trim(),
           itemWeightGram: Number(editForm.itemWeightGram),
           ratePerGram: Number(editForm.ratePerGram),
           interestRate: Number(editForm.interestRate),
           maturityDate: editForm.maturityDate,
-          remarks: editForm.remarks,
+          remarks: editForm.remarks.trim(),
         }),
       });
 
@@ -263,6 +349,10 @@ export default function GirviList() {
   }
 
   function getImageSrc(item: GirviResponseDTO) {
+    if (item.id && photoMap[item.id]) {
+      return photoMap[item.id];
+    }
+
     if (!item.itemPhotoBase64) {
       return "";
     }
@@ -274,7 +364,6 @@ export default function GirviList() {
 
   function formatCurrency(value: number | string | undefined) {
     if (value === undefined || value === null || value === "") return "₹0";
-
     return `₹${Number(value).toLocaleString("en-IN")}`;
   }
 
@@ -295,17 +384,9 @@ export default function GirviList() {
   function getStatusClass(status?: string) {
     const s = status?.toLowerCase();
 
-    if (s === "active") {
-      return "bg-green-50 text-green-700 border-green-200";
-    }
-
-    if (s === "closed") {
-      return "bg-gray-50 text-gray-700 border-gray-200";
-    }
-
-    if (s === "overdue") {
-      return "bg-red-50 text-red-700 border-red-200";
-    }
+    if (s === "active") return "bg-green-50 text-green-700 border-green-200";
+    if (s === "closed") return "bg-gray-50 text-gray-700 border-gray-200";
+    if (s === "overdue") return "bg-red-50 text-red-700 border-red-200";
 
     return "bg-purple-50 text-purple-700 border-purple-200";
   }
@@ -377,7 +458,6 @@ export default function GirviList() {
                 View all Girvi records created by this dealer
               </p>
             </div>
-
             <div />
           </div>
 
@@ -391,172 +471,25 @@ export default function GirviList() {
               </p>
             </div>
 
-            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
-              <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 mb-6">
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">
-                    All Girvi
-                  </h2>
-                  <p className="text-sm text-gray-500">
-                    Total Records: {filteredList.length}
-                  </p>
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full xl:w-auto">
-                  <button
-                    type="button"
-                    onClick={goToAddGirvi}
-                    className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-3 rounded-xl font-bold text-sm whitespace-nowrap flex items-center justify-center gap-2"
-                  >
-                    <FaPlus />
-                    New Girvi
-                  </button>
-
-                  <div className="w-full sm:w-80 flex items-center border rounded-xl px-4 py-3 bg-gray-50">
-                    <FaSearch className="text-gray-400 mr-3 shrink-0" />
-                    <input
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      className="w-full outline-none bg-transparent text-sm"
-                      placeholder="Search by customer, item, status..."
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {loading && (
-                <div className="text-center py-10 text-gray-500 font-semibold">
-                  Loading Girvi records...
-                </div>
-              )}
-
-              {error && (
-                <div className="bg-red-50 text-red-600 border border-red-100 rounded-xl px-4 py-3 mb-5 text-sm font-semibold">
-                  {error}
-                </div>
-              )}
-
-              {!loading && !error && filteredList.length === 0 && (
-                <div className="text-center py-12">
-                  <div className="w-16 h-16 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center mx-auto text-2xl mb-3">
-                    <FaBox />
-                  </div>
-                  <h3 className="font-bold text-gray-800">
-                    No Girvi Records Found
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Create a new Girvi to see records here.
-                  </p>
-                </div>
-              )}
-
-              {!loading && !error && filteredList.length > 0 && (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm min-w-[980px]">
-                    <thead>
-                      <tr className="text-left text-gray-500 border-b">
-                        <th className="py-3 px-3">Photo</th>
-                        <th className="py-3 px-3">Customer</th>
-                        <th className="py-3 px-3">Item Name</th>
-                        <th className="py-3 px-3">Item Type</th>
-                        <th className="py-3 px-3">Weight</th>
-                        <th className="py-3 px-3">Loan Amount</th>
-                        <th className="py-3 px-3">Interest</th>
-                        <th className="py-3 px-3">Girvi Date</th>
-                        <th className="py-3 px-3">Maturity Date</th>
-                        <th className="py-3 px-3">Status</th>
-                        <th className="py-3 px-3">Action</th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      {filteredList.map((item, index) => {
-                        const imageSrc = getImageSrc(item);
-
-                        return (
-                          <tr
-                            key={item.id || `${item.customerId}-${index}`}
-                            className="border-b last:border-0 hover:bg-purple-50/40"
-                          >
-                            <td className="py-4 px-3">
-                              {imageSrc ? (
-                                <img
-                                  src={imageSrc}
-                                  alt={item.itemName || "Item photo"}
-                                  className="w-16 h-16 rounded-xl object-cover border bg-white"
-                                />
-                              ) : (
-                                <div className="w-16 h-16 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
-                                  <FaBox />
-                                </div>
-                              )}
-                            </td>
-
-                            <td className="py-4 px-3">
-                              <p className="font-semibold text-gray-900">
-                                {item.customerName || "-"}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                Customer ID: {item.customerId || "-"}
-                              </p>
-                            </td>
-
-                            <td className="py-4 px-3 font-semibold text-gray-900">
-                              {item.itemName || "-"}
-                            </td>
-
-                            <td className="py-4 px-3">
-                              {item.itemType || "-"}
-                            </td>
-
-                            <td className="py-4 px-3">
-                              {item.itemWeightGram || 0} gm
-                            </td>
-
-                            <td className="py-4 px-3 font-bold text-green-600">
-                              {formatCurrency(item.loanAmount)}
-                            </td>
-
-                            <td className="py-4 px-3">
-                              {item.interestRate || 0}%
-                            </td>
-
-                            <td className="py-4 px-3">
-                              {formatDate(item.girviDate)}
-                            </td>
-
-                            <td className="py-4 px-3">
-                              {formatDate(item.maturityDate)}
-                            </td>
-
-                            <td className="py-4 px-3">
-                              <span
-                                className={`px-3 py-1 rounded-full border text-xs font-bold ${getStatusClass(
-                                  item.status
-                                )}`}
-                              >
-                                {item.status || "ACTIVE"}
-                              </span>
-                            </td>
-
-                            <td className="py-4 px-3">
-                              <button
-                                type="button"
-                                onClick={() => openEditModal(item)}
-                                className="bg-purple-50 hover:bg-purple-100 text-purple-700 px-3 py-2 rounded-xl font-bold text-xs flex items-center gap-2"
-                              >
-                                <FaEdit />
-                                Edit
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+            <RecordsPanel
+              loading={loading}
+              error={error}
+              filteredList={filteredList}
+              totalElements={totalElements}
+              search={search}
+              setSearch={setSearch}
+              goToAddGirvi={goToAddGirvi}
+              getImageSrc={getImageSrc}
+              formatCurrency={formatCurrency}
+              formatDate={formatDate}
+              getStatusClass={getStatusClass}
+              openEditModal={openEditModal}
+              page={page}
+              size={size}
+              totalPages={totalPages}
+              setPage={setPage}
+              setSize={setSize}
+            />
           </div>
         </main>
       </div>
@@ -585,132 +518,29 @@ export default function GirviList() {
 
           <h2 className="text-2xl font-bold">All Girvi</h2>
           <p className="text-sm opacity-80 mt-1">
-            Total Records: {filteredList.length}
+            Total Records: {totalElements}
           </p>
         </div>
 
         <div className="px-4 -mt-5 relative z-10">
-          <div className="bg-white rounded-2xl border shadow-sm p-4">
-            <div className="flex items-center border rounded-xl px-4 py-3 bg-gray-50 mb-4">
-              <FaSearch className="text-gray-400 mr-3" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full outline-none bg-transparent text-sm"
-                placeholder="Search Girvi..."
-              />
-            </div>
-
-            {loading && (
-              <p className="text-center py-8 text-gray-500 font-semibold">
-                Loading...
-              </p>
-            )}
-
-            {error && (
-              <div className="bg-red-50 text-red-600 border border-red-100 rounded-xl px-4 py-3 text-sm font-semibold">
-                {error}
-              </div>
-            )}
-
-            {!loading && !error && filteredList.length === 0 && (
-              <div className="text-center py-10">
-                <div className="w-14 h-14 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center mx-auto text-xl mb-3">
-                  <FaBox />
-                </div>
-                <p className="font-bold text-gray-800">No Girvi Records</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Create a new Girvi to see records.
-                </p>
-              </div>
-            )}
-
-            {!loading &&
-              !error &&
-              filteredList.map((item, index) => {
-                const imageSrc = getImageSrc(item);
-
-                return (
-                  <div
-                    key={item.id || `${item.customerId}-${index}`}
-                    className="border border-gray-100 rounded-2xl p-4 mb-4 bg-white shadow-sm"
-                  >
-                    <div className="flex gap-4">
-                      {imageSrc ? (
-                        <img
-                          src={imageSrc}
-                          alt={item.itemName || "Item photo"}
-                          className="w-24 h-24 rounded-2xl object-cover border bg-white shrink-0"
-                        />
-                      ) : (
-                        <div className="w-24 h-24 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-                          <FaBox />
-                        </div>
-                      )}
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between gap-2">
-                          <h3 className="font-bold text-gray-900 truncate">
-                            {item.itemName || "-"}
-                          </h3>
-
-                          <span
-                            className={`px-2 py-1 rounded-full border text-[10px] font-bold ${getStatusClass(
-                              item.status
-                            )}`}
-                          >
-                            {item.status || "ACTIVE"}
-                          </span>
-                        </div>
-
-                        <p className="text-xs text-gray-500 mt-1">
-                          {item.itemType || "-"} • {item.itemWeightGram || 0} g
-                        </p>
-
-                        <p className="text-sm font-semibold text-gray-800 mt-2">
-                          {item.customerName || "-"}
-                        </p>
-
-                        <p className="text-xs text-gray-500">
-                          Customer ID: {item.customerId || "-"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 mt-4 text-sm">
-                      <InfoBox
-                        label="Loan Amount"
-                        value={formatCurrency(item.loanAmount)}
-                      />
-
-                      <InfoBox
-                        label="Interest"
-                        value={`${item.interestRate || 0}%`}
-                      />
-
-                      <InfoBox
-                        label="Girvi Date"
-                        value={formatDate(item.girviDate)}
-                      />
-
-                      <InfoBox
-                        label="Maturity"
-                        value={formatDate(item.maturityDate)}
-                      />
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => openEditModal(item)}
-                      className="mt-4 w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2"
-                    >
-                      <FaEdit />
-                      Edit Girvi
-                    </button>
-                  </div>
-                );
-              })}
-          </div>
+          <MobileRecordsPanel
+            loading={loading}
+            error={error}
+            filteredList={filteredList}
+            totalElements={totalElements}
+            search={search}
+            setSearch={setSearch}
+            getImageSrc={getImageSrc}
+            formatCurrency={formatCurrency}
+            formatDate={formatDate}
+            getStatusClass={getStatusClass}
+            openEditModal={openEditModal}
+            page={page}
+            size={size}
+            totalPages={totalPages}
+            setPage={setPage}
+            setSize={setSize}
+          />
         </div>
 
         <div className="fixed bottom-0 left-0 w-full bg-white border-t flex justify-around py-3 z-50">
@@ -750,168 +580,531 @@ export default function GirviList() {
 
       {/* ================= EDIT MODAL ================= */}
       {showEditModal && selectedGirvi && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[92vh] overflow-y-auto">
-            <div className="bg-gradient-to-r from-purple-700 to-indigo-600 text-white px-5 py-4 flex items-center justify-between sticky top-0 z-10">
-              <div>
-                <h2 className="text-lg font-bold">Update Girvi Record</h2>
-                <p className="text-xs opacity-80">
-                  Customer: {selectedGirvi.customerName}
-                </p>
+        <EditModal
+          selectedGirvi={selectedGirvi}
+          editForm={editForm}
+          setEditForm={setEditForm}
+          updating={updating}
+          submitUpdateGirvi={submitUpdateGirvi}
+          close={() => {
+            setShowEditModal(false);
+            setSelectedGirvi(null);
+          }}
+          formatCurrency={formatCurrency}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ================= DESKTOP PANEL ================= */
+
+function RecordsPanel({
+  loading,
+  error,
+  filteredList,
+  totalElements,
+  search,
+  setSearch,
+  goToAddGirvi,
+  getImageSrc,
+  formatCurrency,
+  formatDate,
+  getStatusClass,
+  openEditModal,
+  page,
+  size,
+  totalPages,
+  setPage,
+  setSize,
+}: any) {
+  return (
+    <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+      <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 mb-6">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">All Girvi</h2>
+          <p className="text-sm text-gray-500">
+            Total Records: {totalElements}
+          </p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full xl:w-auto">
+          <button
+            type="button"
+            onClick={goToAddGirvi}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-3 rounded-xl font-bold text-sm whitespace-nowrap flex items-center justify-center gap-2"
+          >
+            <FaPlus />
+            New Girvi
+          </button>
+
+          <div className="w-full sm:w-80 flex items-center border rounded-xl px-4 py-3 bg-gray-50">
+            <FaSearch className="text-gray-400 mr-3 shrink-0" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full outline-none bg-transparent text-sm"
+              placeholder="Search current page..."
+            />
+          </div>
+        </div>
+      </div>
+
+      {loading && (
+        <div className="text-center py-10 text-gray-500 font-semibold">
+          Loading Girvi records...
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-red-50 text-red-600 border border-red-100 rounded-xl px-4 py-3 mb-5 text-sm font-semibold">
+          {error}
+        </div>
+      )}
+
+      {!loading && !error && filteredList.length === 0 && <EmptyState />}
+
+      {!loading && !error && filteredList.length > 0 && (
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[980px]">
+              <thead>
+                <tr className="text-left text-gray-500 border-b">
+                  <th className="py-3 px-3">Photo</th>
+                  <th className="py-3 px-3">Customer</th>
+                  <th className="py-3 px-3">Item Name</th>
+                  <th className="py-3 px-3">Item Type</th>
+                  <th className="py-3 px-3">Weight</th>
+                  <th className="py-3 px-3">Loan Amount</th>
+                  <th className="py-3 px-3">Interest</th>
+                  <th className="py-3 px-3">Girvi Date</th>
+                  <th className="py-3 px-3">Maturity Date</th>
+                  <th className="py-3 px-3">Status</th>
+                  <th className="py-3 px-3">Action</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {filteredList.map((item: GirviResponseDTO, index: number) => {
+                  const imageSrc = getImageSrc(item);
+
+                  return (
+                    <tr
+                      key={item.id || `${item.customerId}-${index}`}
+                      className="border-b last:border-0 hover:bg-purple-50/40"
+                    >
+                      <td className="py-4 px-3">
+                        {imageSrc ? (
+                          <img
+                            src={imageSrc}
+                            alt={item.itemName || "Item photo"}
+                            className="w-16 h-16 rounded-xl object-cover border bg-white"
+                          />
+                        ) : (
+                          <PhotoPlaceholder size="sm" />
+                        )}
+                      </td>
+
+                      <td className="py-4 px-3">
+                        <p className="font-semibold text-gray-900">
+                          {item.customerName || "-"}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Customer ID: {item.customerId || "-"}
+                        </p>
+                      </td>
+
+                      <td className="py-4 px-3 font-semibold text-gray-900">
+                        {item.itemName || "-"}
+                      </td>
+
+                      <td className="py-4 px-3">{item.itemType || "-"}</td>
+
+                      <td className="py-4 px-3">
+                        {item.itemWeightGram || 0} gm
+                      </td>
+
+                      <td className="py-4 px-3 font-bold text-green-600">
+                        {formatCurrency(item.loanAmount)}
+                      </td>
+
+                      <td className="py-4 px-3">
+                        {item.interestRate || 0}%
+                      </td>
+
+                      <td className="py-4 px-3">
+                        {formatDate(item.girviDate)}
+                      </td>
+
+                      <td className="py-4 px-3">
+                        {formatDate(item.maturityDate)}
+                      </td>
+
+                      <td className="py-4 px-3">
+                        <span
+                          className={`px-3 py-1 rounded-full border text-xs font-bold ${getStatusClass(
+                            item.status
+                          )}`}
+                        >
+                          {item.status || "ACTIVE"}
+                        </span>
+                      </td>
+
+                      <td className="py-4 px-3">
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(item)}
+                          className="bg-purple-50 hover:bg-purple-100 text-purple-700 px-3 py-2 rounded-xl font-bold text-xs flex items-center gap-2"
+                        >
+                          <FaEdit />
+                          Edit
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <Pagination
+            page={page}
+            size={size}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            onPageChange={setPage}
+            onSizeChange={(newSize) => {
+              setSize(newSize);
+              setPage(0);
+            }}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ================= MOBILE PANEL ================= */
+
+function MobileRecordsPanel({
+  loading,
+  error,
+  filteredList,
+  totalElements,
+  search,
+  setSearch,
+  getImageSrc,
+  formatCurrency,
+  formatDate,
+  getStatusClass,
+  openEditModal,
+  page,
+  size,
+  totalPages,
+  setPage,
+  setSize,
+}: any) {
+  return (
+    <div className="bg-white rounded-2xl border shadow-sm p-4">
+      <div className="flex items-center border rounded-xl px-4 py-3 bg-gray-50 mb-4">
+        <FaSearch className="text-gray-400 mr-3" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full outline-none bg-transparent text-sm"
+          placeholder="Search current page..."
+        />
+      </div>
+
+      {loading && (
+        <p className="text-center py-8 text-gray-500 font-semibold">
+          Loading...
+        </p>
+      )}
+
+      {error && (
+        <div className="bg-red-50 text-red-600 border border-red-100 rounded-xl px-4 py-3 text-sm font-semibold">
+          {error}
+        </div>
+      )}
+
+      {!loading && !error && filteredList.length === 0 && <EmptyState />}
+
+      {!loading &&
+        !error &&
+        filteredList.map((item: GirviResponseDTO, index: number) => {
+          const imageSrc = getImageSrc(item);
+
+          return (
+            <div
+              key={item.id || `${item.customerId}-${index}`}
+              className="border border-gray-100 rounded-2xl p-4 mb-4 bg-white shadow-sm"
+            >
+              <div className="flex gap-4">
+                {imageSrc ? (
+                  <img
+                    src={imageSrc}
+                    alt={item.itemName || "Item photo"}
+                    className="w-24 h-24 rounded-2xl object-cover border bg-white shrink-0"
+                  />
+                ) : (
+                  <PhotoPlaceholder size="lg" />
+                )}
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between gap-2">
+                    <h3 className="font-bold text-gray-900 truncate">
+                      {item.itemName || "-"}
+                    </h3>
+
+                    <span
+                      className={`px-2 py-1 rounded-full border text-[10px] font-bold ${getStatusClass(
+                        item.status
+                      )}`}
+                    >
+                      {item.status || "ACTIVE"}
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-gray-500 mt-1">
+                    {item.itemType || "-"} • {item.itemWeightGram || 0} g
+                  </p>
+
+                  <p className="text-sm font-semibold text-gray-800 mt-2">
+                    {item.customerName || "-"}
+                  </p>
+
+                  <p className="text-xs text-gray-500">
+                    Customer ID: {item.customerId || "-"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mt-4 text-sm">
+                <InfoBox
+                  label="Loan Amount"
+                  value={formatCurrency(item.loanAmount)}
+                />
+                <InfoBox
+                  label="Interest"
+                  value={`${item.interestRate || 0}%`}
+                />
+                <InfoBox label="Girvi Date" value={formatDate(item.girviDate)} />
+                <InfoBox label="Maturity" value={formatDate(item.maturityDate)} />
               </div>
 
               <button
                 type="button"
-                onClick={() => {
-                  setShowEditModal(false);
-                  setSelectedGirvi(null);
-                }}
-                className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center"
+                onClick={() => openEditModal(item)}
+                className="mt-4 w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2"
               >
-                <FaTimes />
+                <FaEdit />
+                Edit Girvi
               </button>
             </div>
+          );
+        })}
 
-            <div className="p-5 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">
-                  Item Name
-                </label>
-                <input
-                  value={editForm.itemName}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, itemName: e.target.value })
-                  }
-                  className="w-full border rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-                  placeholder="Item name"
-                />
-              </div>
+      {!loading && !error && totalElements > 0 && (
+        <Pagination
+          page={page}
+          size={size}
+          totalPages={totalPages}
+          totalElements={totalElements}
+          onPageChange={setPage}
+          onSizeChange={(newSize) => {
+            setSize(newSize);
+            setPage(0);
+          }}
+        />
+      )}
+    </div>
+  );
+}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">
-                    Weight Gram
-                  </label>
-                  <input
-                    type="number"
-                    value={editForm.itemWeightGram}
-                    onChange={(e) =>
-                      setEditForm({
-                        ...editForm,
-                        itemWeightGram: e.target.value,
-                      })
-                    }
-                    className="w-full border rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-                    placeholder="Weight"
-                  />
-                </div>
+/* ================= EDIT MODAL ================= */
 
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">
-                    Rate Per Gram
-                  </label>
-                  <input
-                    type="number"
-                    value={editForm.ratePerGram}
-                    onChange={(e) =>
-                      setEditForm({
-                        ...editForm,
-                        ratePerGram: e.target.value,
-                      })
-                    }
-                    className="w-full border rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-                    placeholder="Rate"
-                  />
-                </div>
-              </div>
+function EditModal({
+  selectedGirvi,
+  editForm,
+  setEditForm,
+  updating,
+  submitUpdateGirvi,
+  close,
+  formatCurrency,
+}: any) {
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[92vh] overflow-y-auto">
+        <div className="bg-gradient-to-r from-purple-700 to-indigo-600 text-white px-5 py-4 flex items-center justify-between sticky top-0 z-10">
+          <div>
+            <h2 className="text-lg font-bold">Update Girvi Record</h2>
+            <p className="text-xs opacity-80">
+              Customer: {selectedGirvi.customerName}
+            </p>
+          </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">
-                    Interest Rate %
-                  </label>
-                  <input
-                    type="number"
-                    value={editForm.interestRate}
-                    onChange={(e) =>
-                      setEditForm({
-                        ...editForm,
-                        interestRate: e.target.value,
-                      })
-                    }
-                    className="w-full border rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-                    placeholder="Interest"
-                  />
-                </div>
+          <button
+            type="button"
+            onClick={close}
+            className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center"
+          >
+            <FaTimes />
+          </button>
+        </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">
-                    Maturity Date
-                  </label>
-                  <input
-                    type="date"
-                    value={editForm.maturityDate}
-                    onChange={(e) =>
-                      setEditForm({
-                        ...editForm,
-                        maturityDate: e.target.value,
-                      })
-                    }
-                    className="w-full border rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-                  />
-                </div>
-              </div>
+        <div className="p-5 space-y-4">
+          <EditInput
+            label="Item Name"
+            value={editForm.itemName}
+            onChange={(value: string) =>
+              setEditForm({ ...editForm, itemName: value })
+            }
+          />
 
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">
-                  Remarks
-                </label>
-                <textarea
-                  value={editForm.remarks}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, remarks: e.target.value })
-                  }
-                  rows={3}
-                  className="w-full border rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500 text-sm resize-none"
-                  placeholder="Remarks"
-                />
-              </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <EditInput
+              label="Weight Gram"
+              type="number"
+              value={editForm.itemWeightGram}
+              onChange={(value: string) =>
+                setEditForm({ ...editForm, itemWeightGram: value })
+              }
+            />
 
-              <div className="bg-gray-50 rounded-xl p-4">
-                <p className="text-xs text-gray-500">Updated Loan Amount</p>
-                <p className="text-xl font-bold text-green-600 mt-1">
-                  {formatCurrency(
-                    Number(editForm.itemWeightGram || 0) *
-                      Number(editForm.ratePerGram || 0)
-                  )}
-                </p>
-              </div>
+            <EditInput
+              label="Rate Per Gram"
+              type="number"
+              value={editForm.ratePerGram}
+              onChange={(value: string) =>
+                setEditForm({ ...editForm, ratePerGram: value })
+              }
+            />
+          </div>
 
-              <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setSelectedGirvi(null);
-                  }}
-                  className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-bold"
-                >
-                  Cancel
-                </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <EditInput
+              label="Interest Rate %"
+              type="number"
+              value={editForm.interestRate}
+              onChange={(value: string) =>
+                setEditForm({ ...editForm, interestRate: value })
+              }
+            />
 
-                <button
-                  type="button"
-                  onClick={submitUpdateGirvi}
-                  disabled={updating}
-                  className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl font-bold disabled:bg-gray-400"
-                >
-                  {updating ? "Updating..." : "Update Girvi"}
-                </button>
-              </div>
-            </div>
+            <EditInput
+              label="Maturity Date"
+              type="date"
+              value={editForm.maturityDate}
+              onChange={(value: string) =>
+                setEditForm({ ...editForm, maturityDate: value })
+              }
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-500 mb-1">
+              Remarks
+            </label>
+            <textarea
+              value={editForm.remarks}
+              onChange={(e) =>
+                setEditForm({ ...editForm, remarks: e.target.value })
+              }
+              rows={3}
+              className="w-full border rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500 text-sm resize-none"
+              placeholder="Remarks"
+            />
+          </div>
+
+          <div className="bg-gray-50 rounded-xl p-4">
+            <p className="text-xs text-gray-500">Updated Loan Amount</p>
+            <p className="text-xl font-bold text-green-600 mt-1">
+              {formatCurrency(
+                Number(editForm.itemWeightGram || 0) *
+                  Number(editForm.ratePerGram || 0)
+              )}
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            <button
+              type="button"
+              onClick={close}
+              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-bold"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              onClick={submitUpdateGirvi}
+              disabled={updating}
+              className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl font-bold disabled:bg-gray-400"
+            >
+              {updating ? "Updating..." : "Update Girvi"}
+            </button>
           </div>
         </div>
-      )}
+      </div>
+    </div>
+  );
+}
+
+/* ================= SMALL COMPONENTS ================= */
+
+function EditInput({
+  label,
+  value,
+  onChange,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-bold text-gray-500 mb-1">
+        {label}
+      </label>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full border rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+        placeholder={label}
+      />
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="text-center py-12">
+      <div className="w-16 h-16 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center mx-auto text-2xl mb-3">
+        <FaBox />
+      </div>
+      <h3 className="font-bold text-gray-800">No Girvi Records Found</h3>
+      <p className="text-sm text-gray-500 mt-1">
+        Create a new Girvi to see records here.
+      </p>
+    </div>
+  );
+}
+
+function PhotoPlaceholder({ size }: { size: "sm" | "lg" }) {
+  const cls =
+    size === "sm"
+      ? "w-16 h-16 rounded-xl"
+      : "w-24 h-24 rounded-2xl shrink-0";
+
+  return (
+    <div
+      className={`${cls} bg-purple-100 text-purple-700 flex items-center justify-center`}
+    >
+      <FaBox />
     </div>
   );
 }
@@ -921,6 +1114,81 @@ function InfoBox({ label, value }: { label: string; value: string }) {
     <div className="bg-gray-50 rounded-xl p-3">
       <p className="text-xs text-gray-500">{label}</p>
       <p className="font-bold text-gray-900 mt-1">{value}</p>
+    </div>
+  );
+}
+
+function Pagination({
+  page,
+  size,
+  totalPages,
+  totalElements,
+  onPageChange,
+  onSizeChange,
+}: {
+  page: number;
+  size: number;
+  totalPages: number;
+  totalElements: number;
+  onPageChange: (page: number) => void;
+  onSizeChange: (size: number) => void;
+}) {
+  const currentPage = page + 1;
+
+  if (totalElements === 0) return null;
+
+  const startRecord = page * size + 1;
+  const endRecord = Math.min((page + 1) * size, totalElements);
+
+  return (
+    <div className="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-t pt-5">
+      <div className="text-sm text-gray-500 text-center sm:text-left">
+        Showing <span className="font-bold text-gray-800">{startRecord}</span>{" "}
+        to <span className="font-bold text-gray-800">{endRecord}</span> of{" "}
+        <span className="font-bold text-gray-800">{totalElements}</span>{" "}
+        records
+      </div>
+
+      <div className="flex flex-col sm:flex-row items-center gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500">Rows:</span>
+
+          <select
+            value={size}
+            onChange={(e) => onSizeChange(Number(e.target.value))}
+            className="border rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-purple-500"
+          >
+            <option value={5}>5</option>
+            <option value={10}>10</option>
+            <option value={20}>20</option>
+            <option value={50}>50</option>
+          </select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onPageChange(page - 1)}
+            disabled={page === 0}
+            className="px-4 py-2 rounded-lg border text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+          >
+            Prev
+          </button>
+
+          <span className="text-sm font-semibold text-gray-700 px-2">
+            Page {currentPage} of {totalPages || 1}
+          </span>
+
+          <button
+            type="button"
+            onClick={() => onPageChange(page + 1)}
+            disabled={page >= totalPages - 1}
+            className="px-4 py-2 rounded-lg border text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+          >
+            Next
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
