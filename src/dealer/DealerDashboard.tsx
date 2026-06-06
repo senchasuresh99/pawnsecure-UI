@@ -636,21 +636,40 @@ export default function DealerDashboard() {
           </div>
 
           <div className="grid grid-cols-2 gap-3 -mt-6 relative z-10 px-4">
-            {stats.map((item, index) => (
-              <div key={index} className={`${item.cardBg} rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[120px]`}>
-                <div className="flex items-center gap-2">
-                  <div className={`${item.iconBg} text-white w-9 h-9 rounded-full flex items-center justify-center text-sm shrink-0`}>
-                    {item.icon}
-                  </div>
-                  <p className="text-[11px] font-semibold text-gray-700 leading-tight">{item.title}</p>
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold mt-3">{item.value}</h2>
-                  <p className="text-[10px] text-gray-500 mt-0.5">{item.subtitle}</p>
-                </div>
-              </div>
-            ))}
+  {stats.map((item, index) => {
+    // Check if the item has a path and we are not in admin view
+    const isClickable = !!item.path && !isAdminView;
+
+    return (
+      <div 
+        key={index} 
+        onClick={() => isClickable ? navigate(item.path!) : undefined}
+        className={`${item.cardBg} rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[120px] transition ${
+          isClickable ? "active:bg-gray-50 cursor-pointer border-active" : "cursor-default"
+        }`}
+      >
+        <div className="flex items-center gap-2">
+          <div className={`${item.iconBg} text-white w-9 h-9 rounded-full flex items-center justify-center text-sm shrink-0`}>
+            {item.icon}
           </div>
+          <p className="text-[11px] font-semibold text-gray-700 leading-tight">{item.title}</p>
+        </div>
+        <div>
+          <h2 className="text-lg font-bold mt-3">{item.value}</h2>
+          <div className="flex justify-between items-center mt-0.5">
+            <p className="text-[10px] text-gray-500">{item.subtitle}</p>
+            {isClickable && (
+              <span className="text-[9px] text-purple-600 font-bold bg-purple-50 px-1.5 py-0.5 rounded">
+                View
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  })}
+</div>
+
 
           {/* LIVE METAL RATES Segment for Mobile Layout */}
           <div className="mt-6 px-4">
