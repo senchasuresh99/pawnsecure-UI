@@ -14,6 +14,44 @@ const waText = encodeURIComponent(
   "Hello, I have registered and am awaiting approval."
 );
 const waChatLink = `https://wa.me/${waNumber}?text=${waText}`;
+const indianStates = [
+  "Andhra Pradesh",
+  "Arunachal Pradesh",
+  "Assam",
+  "Bihar",
+  "Chhattisgarh",
+  "Goa",
+  "Gujarat",
+  "Haryana",
+  "Himachal Pradesh",
+  "Jharkhand",
+  "Karnataka",
+  "Kerala",
+  "Madhya Pradesh",
+  "Maharashtra",
+  "Manipur",
+  "Meghalaya",
+  "Mizoram",
+  "Nagaland",
+  "Odisha",
+  "Punjab",
+  "Rajasthan",
+  "Sikkim",
+  "Tamil Nadu",
+  "Telangana",
+  "Tripura",
+  "Uttar Pradesh",
+  "Uttarakhand",
+  "West Bengal",
+  "Andaman and Nicobar Islands",
+  "Chandigarh",
+  "Dadra and Nagar Haveli and Daman and Diu",
+  "Delhi",
+  "Jammu and Kashmir",
+  "Ladakh",
+  "Lakshadweep",
+  "Puducherry",
+];
 
 type Errors = {
   name?: string;
@@ -22,6 +60,7 @@ type Errors = {
   phone?: string;
   gst?: string;
   shopName?: string;
+  city?: string;
   shopAddress?: string;
   agree?: string;
 };
@@ -34,6 +73,7 @@ export default function Register() {
     phone: "",
     gst: "",
     shopName: "",
+    city: "",
     shopAddress: "",
     agree: false,
   });
@@ -76,6 +116,7 @@ export default function Register() {
 
     if (!form.gst) e.gst = "GST number is required";
     if (!form.shopName) e.shopName = "Shop name is required";
+    if (!form.city) e.city = "Please select your state";
     if (!form.shopAddress) e.shopAddress = "Shop address is required";
     if (!form.agree) e.agree = "Please accept the terms & conditions";
 
@@ -100,6 +141,7 @@ export default function Register() {
           phoneNumber: form.phone,
           gstNumber: form.gst,
           shopName: form.shopName,
+          city: form.city,
           shopAddress: form.shopAddress,
         }),
       });
@@ -128,6 +170,7 @@ export default function Register() {
         phone: "",
         gst: "",
         shopName: "",
+        city: "",
         shopAddress: "",
         agree: false,
       });
@@ -222,6 +265,14 @@ return (
           error={errors.shopAddress}
           onChange={(v: any) => update("shopAddress", v)}
         />
+        <Select
+  icon="🌍"
+  placeholder="Select State"
+  value={form.city}
+  error={errors.city}
+  options={indianStates}
+  onChange={(v: any) => update("city", v)}
+/>
 
         {/* TERMS */}
         <label className="flex items-start gap-2 text-sm text-gray-600 mt-4">
@@ -289,6 +340,43 @@ return (
 );
 }
 
+
+function Select({
+  icon,
+  placeholder,
+  value,
+  error,
+  options,
+  onChange,
+}: any) {
+  return (
+    <div className="mt-3">
+      <div
+        className={`flex items-center gap-3 border rounded-lg px-3 py-3 bg-gray-50 ${
+          error ? "border-red-500" : "border-gray-300"
+        }`}
+      >
+        <span className="text-indigo-500">{icon}</span>
+
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="bg-transparent outline-none w-full text-sm text-gray-700"
+        >
+          <option value="">{placeholder}</option>
+
+          {options.map((item: string) => (
+            <option key={item} value={item}>
+              {item}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
+    </div>
+  );
+}
 /* ---------- SUCCESS MODAL ---------- */
 
 function RegistrationSuccessModal({ onClose }: { onClose: () => void }) {
