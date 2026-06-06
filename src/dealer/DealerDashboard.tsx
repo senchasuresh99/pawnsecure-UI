@@ -30,12 +30,13 @@ const stats = [
     cardBg: "bg-white",
   },
   {
-    title: "Active Accounts",
+    title: "Active Customers",
     value: "128",
     subtitle: "View all",
     icon: <FaUserFriends />,
     iconBg: "bg-blue-500",
     cardBg: "bg-white",
+    path: "/dealer/customers", // ✅ ADD THIS
   },
   {
     title: "Due Today",
@@ -401,7 +402,7 @@ export default function DealerDashboard() {
               <div className="lg:col-span-4 bg-white rounded-3xl p-8 border border-gray-100 shadow-sm flex flex-col justify-center">
                 <p className="text-sm text-gray-500">Total Active Loan Value</p>
                 <h2 className="text-4xl font-bold text-gray-900 mt-3">₹42.8L</h2>
-                <p className="text-sm text-gray-500 mt-2">Across 128 active accounts</p>
+                <p className="text-sm text-gray-500 mt-2">Across 128 active Customers</p>
                 <div className="mt-6 bg-green-50 text-green-700 px-4 py-3 rounded-xl text-sm font-semibold inline-block">
                   +12.5% from last month
                 </div>
@@ -457,19 +458,47 @@ export default function DealerDashboard() {
 
             {/* General System Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              {stats.map((item, index) => (
-                <div key={index} className={`${item.cardBg} rounded-2xl p-5 shadow-sm border border-gray-100`}>
-                  <div className="flex items-center justify-between">
-                    <div className={`${item.iconBg} text-white w-12 h-12 rounded-full flex items-center justify-center text-lg`}>
-                      {item.icon}
-                    </div>
-                    <span className="text-xs text-gray-400 hover:text-purple-600 cursor-pointer">View</span>
-                  </div>
-                  <p className="text-sm font-semibold text-gray-600 mt-5">{item.title}</p>
-                  <h2 className="text-2xl font-bold mt-2">{item.value}</h2>
-                  <p className="text-xs text-gray-500 mt-1">{item.subtitle}</p>
-                </div>
-              ))}
+              {stats.map((item, index) => {
+  const isClickable = !!item.path && !isAdminView;
+
+  return (
+    <div
+      key={index}
+      onClick={() =>
+        isClickable ? navigate(item.path!) : undefined
+      }
+      className={`${item.cardBg} rounded-2xl p-5 shadow-sm border border-gray-100 transition ${
+        isClickable
+          ? "cursor-pointer hover:shadow-md hover:border-purple-400"
+          : "cursor-default"
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <div
+          className={`${item.iconBg} text-white w-12 h-12 rounded-full flex items-center justify-center text-lg`}
+        >
+          {item.icon}
+        </div>
+
+        {isClickable && (
+          <span className="text-xs text-purple-600 font-semibold">
+            View
+          </span>
+        )}
+      </div>
+
+      <p className="text-sm font-semibold text-gray-600 mt-5">
+        {item.title}
+      </p>
+      <h2 className="text-2xl font-bold mt-2">
+        {item.value}
+      </h2>
+      <p className="text-xs text-gray-500 mt-1">
+        {item.subtitle}
+      </p>
+    </div>
+  );
+})}
             </div>
 
             {/* Quick Actions Grid */}
