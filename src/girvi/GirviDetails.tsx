@@ -11,7 +11,7 @@ import {
 import DealerBottomNav from "../dealer/DealerBottomNav";
 import { useGirvi } from "./GirviContext";
 
-const API_BASE = "http://localhost:8080/api";
+const API_BASE = "https://pawnsecure-1.onrender.com/api";
 
 export default function AddGirvi() {
   const nav = useNavigate();
