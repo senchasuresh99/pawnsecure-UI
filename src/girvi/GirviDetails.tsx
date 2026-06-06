@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   FaArrowLeft,
   FaSave,
@@ -11,10 +11,14 @@ import {
 import DealerBottomNav from "../dealer/DealerBottomNav";
 import { useGirvi } from "./GirviContext";
 
-const API_BASE = "https://pawnsecure-1.onrender.com/api";
+const API_BASE = "http://localhost:8080/api";
 
 export default function AddGirvi() {
   const nav = useNavigate();
+  const location = useLocation();
+
+  const returnTo =
+    (location.state as any)?.returnTo || "/dealer/coustomer";
 
   const { customer, loanDetails, setLoanDetails } = useGirvi();
 
@@ -211,7 +215,9 @@ export default function AddGirvi() {
       }
 
       alert("Girvi added successfully");
-      nav("/dealer/girvi");
+
+      // ✅ Return back to GirviList page
+      nav(returnTo, { replace: true });
     } catch (err: any) {
       alert(err.message || "Something went wrong");
     } finally {
@@ -227,7 +233,7 @@ export default function AddGirvi() {
           <div className="flex items-center justify-between mb-6">
             <button
               type="button"
-              onClick={() => nav(-1)}
+              onClick={() => nav(returnTo)}
               className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center hover:bg-white/25"
             >
               <FaArrowLeft className="text-xl" />
@@ -262,8 +268,18 @@ export default function AddGirvi() {
             </div>
 
             <div className="hidden xl:grid grid-cols-3 gap-4 mt-6 min-w-[420px]">
-              <HeaderStat icon={<FaUserFriends />} label="Customer" value="Selected" />
-              <HeaderStat icon={<FaCoins />} label="Item Type" value={form.itemType} />
+              <HeaderStat
+                icon={<FaUserFriends />}
+                label="Customer"
+                value="Selected"
+              />
+
+              <HeaderStat
+                icon={<FaCoins />}
+                label="Item Type"
+                value={form.itemType}
+              />
+
               <HeaderStat
                 icon={<FaRupeeSign />}
                 label="Value"
@@ -283,7 +299,11 @@ export default function AddGirvi() {
               {/* CUSTOMER */}
               <Section title="Customer Information">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Info label="Customer ID" value={resolvedCustomerId || "Not selected"} />
+                  <Info
+                    label="Customer ID"
+                    value={resolvedCustomerId || "Not selected"}
+                  />
+
                   <Info label="Customer Name" value={customerName} />
                 </div>
               </Section>
@@ -362,6 +382,7 @@ export default function AddGirvi() {
                     <p className="text-xs font-semibold opacity-70">
                       Calculated Item Value
                     </p>
+
                     <p className="text-2xl font-bold">
                       ₹ {totalValue.toFixed(2)}
                     </p>
@@ -392,6 +413,7 @@ export default function AddGirvi() {
                     <p className="text-sm font-bold text-gray-800">
                       {photo ? photo.name : "Choose Item Image"}
                     </p>
+
                     <p className="text-xs text-gray-500 mt-1">
                       Optional. Upload JPG, PNG or WEBP. Max 5MB.
                     </p>
@@ -401,7 +423,9 @@ export default function AddGirvi() {
                     type="file"
                     accept="image/*"
                     hidden
-                    onChange={(e) => handlePhotoChange(e.target.files?.[0] || null)}
+                    onChange={(e) =>
+                      handlePhotoChange(e.target.files?.[0] || null)
+                    }
                   />
                 </label>
               </Section>
@@ -439,22 +463,35 @@ export default function AddGirvi() {
                 </h3>
 
                 <div className="space-y-3">
-                  <SummaryRow label="Customer ID" value={resolvedCustomerId || "—"} />
+                  <SummaryRow
+                    label="Customer ID"
+                    value={resolvedCustomerId || "—"}
+                  />
+
                   <SummaryRow label="Customer" value={customerName} />
+
                   <SummaryRow label="Item" value={form.itemName || "—"} />
+
                   <SummaryRow label="Type" value={form.itemType} />
+
                   <SummaryRow
                     label="Weight"
-                    value={form.itemWeightGram ? `${form.itemWeightGram} gm` : "—"}
+                    value={
+                      form.itemWeightGram ? `${form.itemWeightGram} gm` : "—"
+                    }
                   />
+
                   <SummaryRow
                     label="Rate"
-                    value={form.ratePerGram ? `₹${form.ratePerGram}/gm` : "—"}
+                    value={
+                      form.ratePerGram ? `₹${form.ratePerGram}/gm` : "—"
+                    }
                   />
                 </div>
 
                 <div className="mt-5 bg-purple-600 text-white rounded-2xl p-5">
                   <p className="text-xs opacity-80">Total Value</p>
+
                   <p className="text-3xl font-bold mt-1">
                     ₹ {totalValue.toFixed(2)}
                   </p>
@@ -500,6 +537,7 @@ function HeaderStat({ icon, label, value }: any) {
         {icon}
         <span>{label}</span>
       </div>
+
       <p className="font-bold mt-2 text-white truncate">{value}</p>
     </div>
   );
@@ -543,6 +581,7 @@ function SummaryRow({ label, value }: any) {
   return (
     <div className="flex items-center justify-between gap-3 text-sm border-b border-gray-100 pb-2">
       <span className="text-gray-500">{label}</span>
+
       <span className="font-semibold text-gray-800 text-right truncate">
         {value}
       </span>
