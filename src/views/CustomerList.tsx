@@ -42,7 +42,6 @@ export default function CustomerList() {
   const navigate = useNavigate();
 
   const [customers, setCustomers] = useState<CustomerResponseDTO[]>([]);
-  const [filtered, setFiltered] = useState<CustomerResponseDTO[]>([]);
   const [search, setSearch] = useState("");
 
   const [loading, setLoading] = useState(false);
@@ -53,6 +52,7 @@ export default function CustomerList() {
   const [size, setSize] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [totalElements, setTotalElements] = useState(0);
+  
   const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerResponseDTO | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -60,26 +60,11 @@ export default function CustomerList() {
   /* ✅ Avatar photos */
   const [photoMap, setPhotoMap] = useState<Record<number, string>>({});
 
+  // Trigger fetch when page, size, or search parameters alter
   useEffect(() => {
+    // Implementing a debounce here is recommended if querying a high-traffic database on every keystroke
     fetchCustomers();
-  }, [page, size]);
-
-  useEffect(() => {
-    const q = search.toLowerCase().trim();
-    if (!q) {
-      setFiltered(customers);
-      return;
-    }
-
-    setFiltered(
-      customers.filter(
-        (c) =>
-          c.fullName?.toLowerCase().includes(q) ||
-          c.phoneNumber?.includes(q) ||
-          c.aadhaarLastFour?.includes(q)
-      )
-    );
-  }, [search, customers]);
+  }, [page, size, search]);
 
   /* ================= API ================= */
 
@@ -96,8 +81,9 @@ export default function CustomerList() {
     setError("");
 
     try {
+      // ✅ RECOMMENDED: Pass search directly to your backend API to filter the entire database
       const res = await fetch(
-        `${API_BASE}/customers/allCustomer?page=${page}&size=${size}`,
+        `${API_BASE}/customers/allCustomer?page=${page}&size=${size}&search=${encodeURIComponent(search.trim())}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -114,16 +100,13 @@ export default function CustomerList() {
 
       const data = await res.json();
 
-      // ✅ SAFETY: handle Page OR List
       if (Array.isArray(data)) {
         setCustomers(data);
-        setFiltered(data);
         setTotalElements(data.length);
         setTotalPages(1);
       } else {
         const pageData = data as CustomerPageResponse;
         setCustomers(pageData.content || []);
-        setFiltered(pageData.content || []);
         setTotalElements(pageData.totalElements || 0);
         setTotalPages(pageData.totalPages || 1);
       }
@@ -135,32 +118,32 @@ export default function CustomerList() {
   }
 
   async function fetchCustomerById(customerId: number) {
-  const dealerId = localStorage.getItem("ps_dealer_id");
-  const token = localStorage.getItem("ps_token");
-  if (!dealerId || !token) return;
+    const dealerId = localStorage.getItem("ps_dealer_id");
+    const token = localStorage.getItem("ps_token");
+    if (!dealerId || !token) return;
 
-  setDetailLoading(true);
+    setDetailLoading(true);
+    try {
+      const res = await fetch(
+        `${API_BASE}/customers/${customerId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "X-DEALER-ID": dealerId,
+          },
+        }
+      );
 
-  try {
-    const res = await fetch(
-      `${API_BASE}/customers/${customerId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "X-DEALER-ID": dealerId,
-        },
-      }
-    );
+      if (!res.ok) return;
 
-    if (!res.ok) return;
-
-    const data = await res.json();
-    setSelectedCustomer(data);
-  } finally {
-    setDetailLoading(false);
+      const data = await res.json();
+      setSelectedCustomer(data);
+    } catch (err) {
+      console.error("Error loading profile metrics", err);
+    } finally {
+      setDetailLoading(false);
+    }
   }
-}
-
 
   /* ✅ Load avatar photo */
   async function loadCustomerPhoto(customerId: number) {
@@ -223,7 +206,10 @@ export default function CustomerList() {
               <FaSearch className="text-gray-400 mr-3" />
               <input
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(0); // Reset to page 0 when modifying filter options
+                }}
                 className="w-full outline-none bg-transparent text-sm"
                 placeholder="Search customer..."
               />
@@ -242,9 +228,9 @@ export default function CustomerList() {
             </div>
           )}
 
-          {!loading && !error && filtered.length === 0 && <EmptyState />}
+          {!loading && !error && customers.length === 0 && <EmptyState />}
 
-          {!loading && !error && filtered.length > 0 && (
+          {!loading && !error && customers.length > 0 && (
             <>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm min-w-[900px]">
@@ -252,7 +238,7 @@ export default function CustomerList() {
                     <tr className="text-left text-gray-500 border-b">
                       <th className="py-3 px-3">Customer</th>
                       <th className="py-3 px-3">Contact</th>
-                      <th className="py-3 px-3">Aadhaar</th>
+                      <th className="py-3 px-3">Identity Card</th>
                       <th className="py-3 px-3">KYC</th>
                       <th className="py-3 px-3">Fraud</th>
                       <th className="py-3 px-3">Reviews</th>
@@ -260,13 +246,13 @@ export default function CustomerList() {
                   </thead>
 
                   <tbody>
-                    {filtered.map((c) => (
+                    {customers.map((c) => (
                       <tr
                         key={c.id}
                         onClick={() => {
-  setSelectedCustomerId(c.id);
-  fetchCustomerById(c.id);
-}}
+                          setSelectedCustomerId(c.id);
+                          fetchCustomerById(c.id);
+                        }}
                         className="border-b hover:bg-purple-50/40 cursor-pointer transition"
                       >
                         <td className="py-4 px-3">
@@ -275,6 +261,7 @@ export default function CustomerList() {
                               <img
                                 src={photoMap[c.id]}
                                 className="w-12 h-12 rounded-xl object-cover"
+                                alt=""
                               />
                             ) : (
                               <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
@@ -338,44 +325,53 @@ export default function CustomerList() {
           )}
         </div>
       </div>
-{selectedCustomer && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-    <div className="bg-white w-full max-w-xl rounded-2xl p-6 shadow-xl relative">
 
-      {/* Close */}
-      <button
-        onClick={() => {
-          setSelectedCustomer(null);
-          setSelectedCustomerId(null);
-        }}
-        className="absolute top-4 right-4 text-gray-500 hover:text-black"
-      >
-        ✕
-      </button>
+      {/* ✅ FIXED MODAL CHECK: Triggers backdrop window instantly on row selection */}
+      {selectedCustomerId !== null && (
+        <div className="fixed inset-0 Brab-50 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="bg-white w-full max-w-xl rounded-2xl p-6 shadow-xl relative">
+            
+            <button
+              onClick={() => {
+                setSelectedCustomer(null);
+                setSelectedCustomerId(null);
+              }}
+              className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-black hover:bg-gray-100 transition"
+            >
+              ✕
+            </button>
 
-      {detailLoading && (
-        <p className="text-center text-gray-500">
-          Loading customer details...
-        </p>
-      )}
+            {detailLoading || !selectedCustomer ? (
+              <div className="py-12 text-center">
+                <div className="w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-sm text-gray-500 font-medium">
+                  Loading customer details...
+                </p>
+              </div>
+            ) : (
+              <>
+                <h2 className="text-xl font-bold mb-4 border-b pb-2">
+                  {selectedCustomer.fullName}
+                </h2>
 
-      {!detailLoading && (
-        <>
-          <h2 className="text-xl font-bold mb-4">
-            {selectedCustomer.fullName}
-          </h2>
-
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <Info label="Phone" value={selectedCustomer.phoneNumber || "-"} />
-            <Info label="Aadhaar" value={selectedCustomer.maskedAadhaar || "-"} />
-            <Info label="KYC" value={selectedCustomer.kycStatus || "PENDING"} />
-            <Info label="Fraud" value={selectedCustomer.fraudStatus || "NA"} />
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <Info label="Phone" value={selectedCustomer.phoneNumber || "-"} />
+                  <Info label="Identification Card" value={selectedCustomer.maskedAadhaar || "-"} />
+                  <Info label="KYC Status" value={selectedCustomer.kycStatus || "PENDING"} />
+                  <Info label="Fraud Metric" value={selectedCustomer.fraudStatus || "NA"} />
+                </div>
+                
+                {selectedCustomer.customerAddress && (
+                  <div className="mt-4">
+                    <Info label="Registered Address" value={selectedCustomer.customerAddress} />
+                  </div>
+                )}
+              </>
+            )}
           </div>
-        </>
+        </div>
       )}
-    </div>
-  </div>
-)}
+
       {/* ================= MOBILE ================= */}
       <div className="lg:hidden pb-28">
         <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-b-[32px] px-5 py-6">
@@ -392,45 +388,56 @@ export default function CustomerList() {
           </div>
         </div>
 
-        <div className="px-4 -mt-5 relative z-30 pointer-events-auto">
+        <div className="px-4 -mt-5 relative z-30">
           <div className="bg-white rounded-2xl border shadow-sm p-4">
             <div className="flex items-center border rounded-xl px-4 py-3 bg-gray-50 mb-4">
               <FaSearch className="text-gray-400 mr-3" />
               <input
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(0);
+                }}
                 className="w-full outline-none bg-transparent text-sm"
                 placeholder="Search customer..."
               />
             </div>
 
-            {filtered.map((c) => (
+            {loading && (
+              <p className="text-center py-6 text-gray-500 font-semibold text-sm">
+                Loading customers...
+              </p>
+            )}
+
+            {!loading && customers.length === 0 && <EmptyState />}
+
+            {!loading && customers.map((c) => (
               <div
                 key={c.id}
                 role="button"
                 tabIndex={0}
                 onClick={() => {
-  setSelectedCustomerId(c.id);
-  fetchCustomerById(c.id);
-}}
-                onTouchStart={() => {}}
-                className="relative z-40 pointer-events-auto bg-white border border-gray-100 rounded-2xl p-4 mb-4 shadow-sm active:bg-purple-50 transition"
+                  setSelectedCustomerId(c.id);
+                  fetchCustomerById(c.id);
+                }}
+                className="bg-white border border-gray-100 rounded-2xl p-4 mb-4 shadow-sm active:bg-purple-50 transition text-left"
               >
                 <div className="flex gap-4">
                   {photoMap[c.id] ? (
                     <img
                       src={photoMap[c.id]}
                       className="w-16 h-16 rounded-2xl object-cover"
+                      alt=""
                     />
                   ) : (
-                    <div className="w-16 h-16 rounded-2xl bg-purple-100 flex items-center justify-center">
+                    <div className="w-16 h-16 rounded-2xl bg-purple-100 flex items-center justify-center shrink-0">
                       <FaUser className="text-purple-700 text-xl" />
                     </div>
                   )}
 
-                  <div className="flex-1">
-                    <p className="font-bold">{c.fullName}</p>
-                    <p className="text-xs text-gray-500 mt-1">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold truncate">{c.fullName}</p>
+                    <p className="text-xs text-gray-500 mt-1 truncate">
                       {c.customerAddress || "-"}
                     </p>
                   </div>
@@ -438,7 +445,7 @@ export default function CustomerList() {
 
                 <div className="grid grid-cols-2 gap-3 mt-4 text-sm">
                   <Info label="Phone" value={c.phoneNumber || "-"} />
-                  <Info label="Aadhaar" value={c.maskedAadhaar || "-"} />
+                  <Info label="Identification Card" value={c.maskedAadhaar || "-"} />
                   <Info label="KYC" value={c.kycStatus || "PENDING"} />
                   <Info
                     label="Reviews"
@@ -470,9 +477,9 @@ export default function CustomerList() {
 
 function Info({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-gray-50 rounded-xl p-3">
-      <p className="text-xs text-gray-500">{label}</p>
-      <p className="font-bold text-gray-900 mt-1">{value}</p>
+    <div className="bg-gray-50 rounded-xl p-3 w-full">
+      <p className="text-xs text-gray-500 font-medium">{label}</p>
+      <p className="font-bold text-gray-900 mt-1 break-all">{value}</p>
     </div>
   );
 }
@@ -508,44 +515,43 @@ function Pagination({
   onPageChange: (p: number) => void;
   onSizeChange: (s: number) => void;
 }) {
-  const start = page * size + 1;
+  const start = totalElements === 0 ? 0 : page * size + 1;
   const end = Math.min((page + 1) * size, totalElements);
 
   return (
     <div className="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-t pt-5">
       <div className="text-sm text-gray-500">
-        Showing <b>{start}</b> to <b>{end}</b> of <b>{totalElements}</b>{" "}
-        records
+        Showing <b>{start}</b> to <b>{end}</b> of <b>{totalElements}</b> records
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center justify-end gap-2 core-layout">
         <select
           value={size}
           onChange={(e) => onSizeChange(Number(e.target.value))}
-          className="border rounded-lg px-3 py-2 text-sm"
+          className="border rounded-lg px-2 py-2 text-sm bg-white"
         >
-          <option value={5}>5</option>
-          <option value={10}>10</option>
-          <option value={20}>20</option>
-          <option value={50}>50</option>
+          <option value={5}>5 / page</option>
+          <option value={10}>10 / page</option>
+          <option value={20}>20 / page</option>
+          <option value={50}>50 / page</option>
         </select>
 
         <button
           onClick={() => onPageChange(page - 1)}
           disabled={page === 0}
-          className="px-4 py-2 border rounded-lg text-sm font-bold disabled:opacity-50"
+          className="px-3 py-2 border rounded-lg text-sm font-bold bg-white disabled:opacity-40 select-none"
         >
           Prev
         </button>
 
-        <span className="text-sm font-semibold">
-          Page {page + 1} of {totalPages}
+        <span className="text-xs font-semibold px-1 min-w-[75px] text-center">
+          {page + 1} / {totalPages}
         </span>
 
         <button
           onClick={() => onPageChange(page + 1)}
           disabled={page >= totalPages - 1}
-          className="px-4 py-2 border rounded-lg text-sm font-bold disabled:opacity-50"
+          className="px-3 py-2 border rounded-lg text-sm font-bold bg-white disabled:opacity-40 select-none"
         >
           Next
         </button>
