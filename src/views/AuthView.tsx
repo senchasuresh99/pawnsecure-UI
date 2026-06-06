@@ -5,6 +5,14 @@ import Footer from "../components/Footer";
 
 const API_BASE = "https://pawnsecure-1.onrender.com/api";
 
+// ✅ 1. Added TypeScript Interface to replace 'any'
+interface LoginResponse {
+  token: string;
+  role: string;
+  id?: string | number;
+  name?: string;
+}
+
 export default function AuthView() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -55,10 +63,11 @@ export default function AuthView() {
         return;
       }
 
-      let data: any;
+      // ✅ 2. Applied the TypeScript Interface here
+      let data: LoginResponse;
 
       try {
-        data = JSON.parse(responseText);
+        data = JSON.parse(responseText) as LoginResponse;
       } catch {
         setPopupError("Invalid login response. Please check backend login API.");
         return;
@@ -108,7 +117,8 @@ export default function AuthView() {
             <img
               src="https://github.com/senchasuresh99/LearningScalare/blob/main/logo3.png?raw=true"
               alt="PawnSecure"
-              className="mx-auto h-50 object-contain"
+              {/* ✅ 3. Fixed Tailwind height class from h-50 to h-48 */}
+              className="mx-auto h-48 object-contain"
             />
           </div>
 
@@ -117,7 +127,7 @@ export default function AuthView() {
             Email Address
           </label>
 
-          <div className="mt-1 mb-4 flex items-center gap-3 border bg-gray-50 rounded-lg px-3 py-3">
+          <div className="mt-1 mb-4 flex items-center gap-3 border bg-gray-50 rounded-lg px-3 py-3 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500 transition-all">
             <span className="text-indigo-500">📧</span>
             <input
               type="email"
@@ -133,7 +143,7 @@ export default function AuthView() {
             Password
           </label>
 
-          <div className="mt-1 mb-3 flex items-center gap-3 border bg-gray-50 rounded-lg px-3 py-3">
+          <div className="mt-1 mb-3 flex items-center gap-3 border bg-gray-50 rounded-lg px-3 py-3 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500 transition-all">
             <span className="text-indigo-500">🔒</span>
             <input
               type="password"
@@ -145,8 +155,8 @@ export default function AuthView() {
           </div>
 
           <div className="flex justify-between text-sm mb-5">
-            <label className="flex items-center gap-2">
-              <input type="checkbox" />
+            <label className="flex items-center gap-2 cursor-pointer text-gray-600">
+              <input type="checkbox" className="accent-indigo-600" />
               Remember me
             </label>
 
@@ -166,7 +176,7 @@ export default function AuthView() {
             className={`w-full py-3 rounded-xl font-bold transition ${
               loading
                 ? "bg-gray-400 cursor-not-allowed"
-                : "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white"
+                : "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-md hover:shadow-lg"
             }`}
           >
             {loading ? "Signing In..." : "🔒 Sign In"}
@@ -223,17 +233,18 @@ function ErrorModal({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 bg-black/50 z-[120] flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 text-center">
-        <div className="text-purple-600 text-5xl mb-3">✖</div>
+    <div className="fixed inset-0 bg-black/50 z-[120] flex items-center justify-center p-4 backdrop-blur-sm">
+      <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 text-center animate-in zoom-in-95 duration-200">
+        {/* ✅ 4. Changed icon color from purple to red to match the red button */}
+        <div className="text-red-500 text-5xl mb-3">✖</div>
 
-        <h2 className="text-xl font-bold mb-2">Error</h2>
+        <h2 className="text-xl font-bold mb-2 text-gray-800">Error</h2>
 
         <p className="text-gray-600 mb-5">{message}</p>
 
         <button
           onClick={onClose}
-          className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-semibold"
+          className="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg font-semibold w-full transition-colors"
         >
           OK
         </button>
@@ -252,17 +263,17 @@ function SuccessModal({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 bg-black/50 z-[120] flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 text-center">
-        <div className="text-green-600 text-5xl mb-3">✔</div>
+    <div className="fixed inset-0 bg-black/50 z-[120] flex items-center justify-center p-4 backdrop-blur-sm">
+      <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 text-center animate-in zoom-in-95 duration-200">
+        <div className="text-green-500 text-5xl mb-3">✔</div>
 
-        <h2 className="text-xl font-bold mb-2">Success</h2>
+        <h2 className="text-xl font-bold mb-2 text-gray-800">Success</h2>
 
         <p className="text-gray-600 mb-5">{message}</p>
 
         <button
           onClick={onClose}
-          className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold"
+          className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg font-semibold w-full transition-colors"
         >
           OK
         </button>
@@ -315,9 +326,9 @@ function ForgotPasswordModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[120] flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-[360px] p-6">
-        <h2 className="text-xl font-bold mb-2">Forgot Password</h2>
+    <div className="fixed inset-0 bg-black/50 z-[120] flex items-center justify-center p-4 backdrop-blur-sm">
+      <div className="bg-white rounded-xl shadow-2xl w-[360px] p-6 animate-in zoom-in-95 duration-200">
+        <h2 className="text-xl font-bold mb-2 text-gray-800">Forgot Password</h2>
 
         <p className="text-sm text-gray-600 mb-4">
           Enter your registered email to receive reset instructions
@@ -326,17 +337,17 @@ function ForgotPasswordModal({
         <input
           type="email"
           placeholder="Enter email"
-          className="w-full border p-3 rounded-lg mb-3"
+          className="w-full border p-3 rounded-lg mb-3 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
 
-        {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
+        {error && <p className="text-sm text-red-500 mb-3">{error}</p>}
 
-        <div className="flex justify-end gap-3">
+        <div className="flex justify-end gap-3 mt-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300"
+            className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium transition-colors"
           >
             Cancel
           </button>
@@ -344,10 +355,10 @@ function ForgotPasswordModal({
           <button
             onClick={sendReset}
             disabled={loading}
-            className={`px-4 py-2 rounded-lg text-white ${
+            className={`px-4 py-2 rounded-lg text-white font-medium transition-colors ${
               loading
                 ? "bg-gray-400 cursor-not-allowed"
-                : "bg-indigo-600 hover:bg-indigo-700"
+                : "bg-indigo-600 hover:bg-indigo-700 shadow-md"
             }`}
           >
             {loading ? "Sending..." : "Send Link"}
