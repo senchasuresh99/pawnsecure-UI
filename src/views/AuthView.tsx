@@ -69,19 +69,16 @@ export default function AuthView() {
         return;
       }
 
-      // ✅ Save login details from login endpoint
       localStorage.setItem("ps_token", data.token);
       localStorage.setItem("ps_role", data.role);
       localStorage.setItem("ps_dealer_id", String(data.id || ""));
       localStorage.setItem("ps_dealer_name", data.name || "Dealer");
 
-      // ✅ ADMIN LOGIN
       if (data.role === "ADMIN" || data.role === "ROLE_ADMIN") {
         navigate("/admin/dashboard", { replace: true });
         return;
       }
 
-      // ✅ DEALER LOGIN
       if (data.role === "DEALER" || data.role === "ROLE_DEALER") {
         navigate("/dealer/dashboard", { replace: true });
         return;
@@ -96,29 +93,33 @@ export default function AuthView() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-100">
+    /* ✅ FIX 1: Replaced min-h-screen with fixed screen heights (h-screen / h-[100dvh]) and added overflow-hidden to block browser scrolling */
+    <div className="h-screen h-[100dvh] w-full flex flex-col bg-gray-100 overflow-hidden">
       {/* ✅ NAVBAR */}
       <Navbar />
 
-      {/* ✅ LOGIN CONTENT */}
-      <main className="flex-1 flex items-center justify-center py-16">
-        <div className="w-full max-w-[420px] bg-white rounded-2xl shadow-xl p-8">
+      {/* ✅ FIX 2: Reduced vertical padding from py-16 to py-2 so the form takes up less vertical space on mobile */}
+      <main className="flex-1 flex items-center justify-center px-4 py-2">
+        {/* ✅ FIX 3: Reduced internal padding from p-8 to p-5, reduced max-w to 380px, and reduced bottom margins on items */}
+        <div className="w-full max-w-[380px] bg-white rounded-2xl shadow-xl p-5 my-auto">
           {/* LOGO */}
-          <div className="text-center mb-6">
+          {/* ✅ FIX 4: Shrink logo height on mobile view to save room */}
+          <div className="text-center mb-3">
             <img
               src="https://github.com/senchasuresh99/LearningScalare/blob/main/logo3.png?raw=true"
               alt="PawnSecure"
-              className="mx-auto h-48 object-contain"
+              className="mx-auto h-28 object-contain"
             />
           </div>
 
           {/* EMAIL */}
-          <label className="text-sm font-semibold text-gray-600">
+          <label className="text-xs font-semibold text-gray-600">
             Email Address
           </label>
 
-          <div className="mt-1 mb-4 flex items-center gap-3 border bg-gray-50 rounded-lg px-3 py-3">
-            <span className="text-indigo-500">📧</span>
+          {/* ✅ FIX 5: Reduced internal row padding from py-3 to py-2 */}
+          <div className="mt-1 mb-3 flex items-center gap-3 border bg-gray-50 rounded-lg px-3 py-2">
+            <span className="text-sm">📧</span>
             <input
               type="email"
               placeholder="Enter your email address"
@@ -129,12 +130,12 @@ export default function AuthView() {
           </div>
 
           {/* PASSWORD */}
-          <label className="text-sm font-semibold text-gray-600">
+          <label className="text-xs font-semibold text-gray-600">
             Password
           </label>
 
-          <div className="mt-1 mb-3 flex items-center gap-3 border bg-gray-50 rounded-lg px-3 py-3">
-            <span className="text-indigo-500">🔒</span>
+          <div className="mt-1 mb-2 flex items-center gap-3 border bg-gray-50 rounded-lg px-3 py-2">
+            <span className="text-sm">🔒</span>
             <input
               type="password"
               placeholder="Enter your password"
@@ -144,9 +145,9 @@ export default function AuthView() {
             />
           </div>
 
-          <div className="flex justify-between text-sm mb-5">
+          <div className="flex justify-between text-xs mb-4">
             <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" className="rounded" />
+              <input type="checkbox" className="rounded text-indigo-600" />
               Remember me
             </label>
 
@@ -163,7 +164,7 @@ export default function AuthView() {
           <button
             onClick={handleLogin}
             disabled={loading}
-            className={`w-full py-3 rounded-xl font-bold transition ${
+            className={`w-full py-2.5 rounded-xl font-bold text-sm transition ${
               loading
                 ? "bg-gray-400 cursor-not-allowed"
                 : "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-md"
@@ -172,9 +173,9 @@ export default function AuthView() {
             {loading ? "Signing In..." : "🔒 Sign In"}
           </button>
 
-          <div className="border-t my-6"></div>
+          <div className="border-t my-4"></div>
 
-          <p className="text-center text-sm text-gray-600">
+          <p className="text-center text-xs text-gray-600">
             First time?{" "}
             <Link
               to="/register"
