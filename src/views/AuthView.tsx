@@ -69,16 +69,19 @@ export default function AuthView() {
         return;
       }
 
+      // ✅ Save login details from login endpoint
       localStorage.setItem("ps_token", data.token);
       localStorage.setItem("ps_role", data.role);
       localStorage.setItem("ps_dealer_id", String(data.id || ""));
       localStorage.setItem("ps_dealer_name", data.name || "Dealer");
 
+      // ✅ ADMIN LOGIN
       if (data.role === "ADMIN" || data.role === "ROLE_ADMIN") {
         navigate("/admin/dashboard", { replace: true });
         return;
       }
 
+      // ✅ DEALER LOGIN
       if (data.role === "DEALER" || data.role === "ROLE_DEALER") {
         navigate("/dealer/dashboard", { replace: true });
         return;
@@ -93,21 +96,19 @@ export default function AuthView() {
   }
 
   return (
-    <div className="h-screen h-[100dvh] w-full flex flex-col bg-gray-100 overflow-hidden">
+    <div className="min-h-screen flex flex-col bg-gray-100">
       {/* ✅ NAVBAR */}
       <Navbar />
 
-      {/* ✅ MAIN CONTENT: Adjusting layout to dynamically fit the screen */}
-      <main className="flex-1 flex items-center justify-center p-4">
-        {/* ✅ CARD: Increased max-width and internal padding (p-8) to utilize the space better */}
-        <div className="w-full max-w-[440px] bg-white rounded-2xl shadow-xl p-8 my-auto">
+      {/* ✅ LOGIN CONTENT */}
+      <main className="flex-1 flex items-center justify-center py-16">
+        <div className="w-full max-w-[420px] bg-white rounded-2xl shadow-xl p-8">
           {/* LOGO */}
           <div className="text-center mb-6">
-            {/* ✅ Increased logo height to take up natural vertical space */}
             <img
               src="https://github.com/senchasuresh99/LearningScalare/blob/main/logo3.png?raw=true"
               alt="PawnSecure"
-              className="mx-auto h-40 object-contain"
+              className="mx-auto h-50 object-contain"
             />
           </div>
 
@@ -116,13 +117,12 @@ export default function AuthView() {
             Email Address
           </label>
 
-          {/* ✅ Increased vertical padding (py-3) and margins to stretch inputs comfortably */}
-          <div className="mt-1 mb-5 flex items-center gap-3 border bg-gray-50 rounded-lg px-3 py-3">
-            <span className="text-base">📧</span>
+          <div className="mt-1 mb-4 flex items-center gap-3 border bg-gray-50 rounded-lg px-3 py-3">
+            <span className="text-indigo-500">📧</span>
             <input
               type="email"
               placeholder="Enter your email address"
-              className="bg-transparent outline-none w-full text-base"
+              className="bg-transparent outline-none w-full text-sm"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -133,20 +133,20 @@ export default function AuthView() {
             Password
           </label>
 
-          <div className="mt-1 mb-5 flex items-center gap-3 border bg-gray-50 rounded-lg px-3 py-3">
-            <span className="text-base">🔒</span>
+          <div className="mt-1 mb-3 flex items-center gap-3 border bg-gray-50 rounded-lg px-3 py-3">
+            <span className="text-indigo-500">🔒</span>
             <input
               type="password"
               placeholder="Enter your password"
-              className="bg-transparent outline-none w-full text-base"
+              className="bg-transparent outline-none w-full text-sm"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
 
-          <div className="flex justify-between text-sm mb-6">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" className="rounded text-indigo-600 w-4 h-4" />
+          <div className="flex justify-between text-sm mb-5">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" />
               Remember me
             </label>
 
@@ -159,15 +159,14 @@ export default function AuthView() {
             </button>
           </div>
 
-          {/* SIGN IN BUTTON */}
-          {/* ✅ Taller button to fill out the form footprint */}
+          {/* SIGN IN */}
           <button
             onClick={handleLogin}
             disabled={loading}
-            className={`w-full py-3.5 rounded-xl font-bold text-base transition ${
+            className={`w-full py-3 rounded-xl font-bold transition ${
               loading
                 ? "bg-gray-400 cursor-not-allowed"
-                : "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-md"
+                : "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white"
             }`}
           >
             {loading ? "Signing In..." : "🔒 Sign In"}
@@ -226,7 +225,7 @@ function ErrorModal({
   return (
     <div className="fixed inset-0 bg-black/50 z-[120] flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 text-center">
-        <div className="text-red-500 text-5xl mb-3">✖</div>
+        <div className="text-purple-600 text-5xl mb-3">✖</div>
 
         <h2 className="text-xl font-bold mb-2">Error</h2>
 
@@ -234,7 +233,7 @@ function ErrorModal({
 
         <button
           onClick={onClose}
-          className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-semibold w-full transition-colors"
+          className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-semibold"
         >
           OK
         </button>
@@ -263,7 +262,7 @@ function SuccessModal({
 
         <button
           onClick={onClose}
-          className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold w-full transition-colors"
+          className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold"
         >
           OK
         </button>
@@ -327,7 +326,7 @@ function ForgotPasswordModal({
         <input
           type="email"
           placeholder="Enter email"
-          className="w-full border p-3 rounded-lg mb-3 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+          className="w-full border p-3 rounded-lg mb-3"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
@@ -337,7 +336,7 @@ function ForgotPasswordModal({
         <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 transition-colors"
+            className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300"
           >
             Cancel
           </button>
@@ -345,7 +344,7 @@ function ForgotPasswordModal({
           <button
             onClick={sendReset}
             disabled={loading}
-            className={`px-4 py-2 rounded-lg text-white transition-colors ${
+            className={`px-4 py-2 rounded-lg text-white ${
               loading
                 ? "bg-gray-400 cursor-not-allowed"
                 : "bg-indigo-600 hover:bg-indigo-700"
