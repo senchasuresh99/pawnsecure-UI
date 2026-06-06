@@ -93,61 +93,60 @@ export default function AuthView() {
   }
 
   return (
-    /* ✅ FIX 1: Replaced min-h-screen with fixed screen heights (h-screen / h-[100dvh]) and added overflow-hidden to block browser scrolling */
     <div className="h-screen h-[100dvh] w-full flex flex-col bg-gray-100 overflow-hidden">
       {/* ✅ NAVBAR */}
       <Navbar />
 
-      {/* ✅ FIX 2: Reduced vertical padding from py-16 to py-2 so the form takes up less vertical space on mobile */}
-      <main className="flex-1 flex items-center justify-center px-4 py-2">
-        {/* ✅ FIX 3: Reduced internal padding from p-8 to p-5, reduced max-w to 380px, and reduced bottom margins on items */}
-        <div className="w-full max-w-[380px] bg-white rounded-2xl shadow-xl p-5 my-auto">
+      {/* ✅ MAIN CONTENT: Adjusting layout to dynamically fit the screen */}
+      <main className="flex-1 flex items-center justify-center p-4">
+        {/* ✅ CARD: Increased max-width and internal padding (p-8) to utilize the space better */}
+        <div className="w-full max-w-[440px] bg-white rounded-2xl shadow-xl p-8 my-auto">
           {/* LOGO */}
-          {/* ✅ FIX 4: Shrink logo height on mobile view to save room */}
-          <div className="text-center mb-3">
+          <div className="text-center mb-6">
+            {/* ✅ Increased logo height to take up natural vertical space */}
             <img
               src="https://github.com/senchasuresh99/LearningScalare/blob/main/logo3.png?raw=true"
               alt="PawnSecure"
-              className="mx-auto h-28 object-contain"
+              className="mx-auto h-40 object-contain"
             />
           </div>
 
           {/* EMAIL */}
-          <label className="text-xs font-semibold text-gray-600">
+          <label className="text-sm font-semibold text-gray-600">
             Email Address
           </label>
 
-          {/* ✅ FIX 5: Reduced internal row padding from py-3 to py-2 */}
-          <div className="mt-1 mb-3 flex items-center gap-3 border bg-gray-50 rounded-lg px-3 py-2">
-            <span className="text-sm">📧</span>
+          {/* ✅ Increased vertical padding (py-3) and margins to stretch inputs comfortably */}
+          <div className="mt-1 mb-5 flex items-center gap-3 border bg-gray-50 rounded-lg px-3 py-3">
+            <span className="text-base">📧</span>
             <input
               type="email"
               placeholder="Enter your email address"
-              className="bg-transparent outline-none w-full text-sm"
+              className="bg-transparent outline-none w-full text-base"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
 
           {/* PASSWORD */}
-          <label className="text-xs font-semibold text-gray-600">
+          <label className="text-sm font-semibold text-gray-600">
             Password
           </label>
 
-          <div className="mt-1 mb-2 flex items-center gap-3 border bg-gray-50 rounded-lg px-3 py-2">
-            <span className="text-sm">🔒</span>
+          <div className="mt-1 mb-5 flex items-center gap-3 border bg-gray-50 rounded-lg px-3 py-3">
+            <span className="text-base">🔒</span>
             <input
               type="password"
               placeholder="Enter your password"
-              className="bg-transparent outline-none w-full text-sm"
+              className="bg-transparent outline-none w-full text-base"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
 
-          <div className="flex justify-between text-xs mb-4">
+          <div className="flex justify-between text-sm mb-6">
             <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" className="rounded text-indigo-600" />
+              <input type="checkbox" className="rounded text-indigo-600 w-4 h-4" />
               Remember me
             </label>
 
@@ -160,11 +159,12 @@ export default function AuthView() {
             </button>
           </div>
 
-          {/* SIGN IN */}
+          {/* SIGN IN BUTTON */}
+          {/* ✅ Taller button to fill out the form footprint */}
           <button
             onClick={handleLogin}
             disabled={loading}
-            className={`w-full py-2.5 rounded-xl font-bold text-sm transition ${
+            className={`w-full py-3.5 rounded-xl font-bold text-base transition ${
               loading
                 ? "bg-gray-400 cursor-not-allowed"
                 : "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-md"
@@ -173,9 +173,9 @@ export default function AuthView() {
             {loading ? "Signing In..." : "🔒 Sign In"}
           </button>
 
-          <div className="border-t my-4"></div>
+          <div className="border-t my-6"></div>
 
-          <p className="text-center text-xs text-gray-600">
+          <p className="text-center text-sm text-gray-600">
             First time?{" "}
             <Link
               to="/register"
