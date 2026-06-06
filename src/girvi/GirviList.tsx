@@ -13,7 +13,7 @@ import {
   FaUserFriends,
 } from "react-icons/fa";
 
-const API_BASE = "http://localhost:8080/api";
+const API_BASE = "https://pawnsecure-1.onrender.com/api";
 
 type GirviResponseDTO = {
   id?: number;
