@@ -20,42 +20,7 @@ import {
   FaGem,
 } from "react-icons/fa";
 
-const stats = [
-  {
-    title: "Today's Pledges",
-    value: "₹1,25,000",
-    subtitle: "4 Transactions",
-    icon: <FaRupeeSign />,
-    iconBg: "bg-purple-600",
-    cardBg: "bg-white",
-  },
-  {
-    title: "Active Customers",
-    value: "128",
-    subtitle: "View all",
-    icon: <FaUserFriends />,
-    iconBg: "bg-blue-500",
-    cardBg: "bg-white",
-    path: "/dealer/customers", // ✅ ADD THIS
-  },
-  {
-    title: "Due Today",
-    value: "17",
-    subtitle: "₹45,600",
-    icon: <FaCalendarAlt />,
-    iconBg: "bg-orange-500",
-    cardBg: "bg-orange-50",
-  },
-  {
-    title: "Overdue Accounts",
-    value: "9",
-    subtitle: "₹32,750",
-    icon: <FaClock />,
-    iconBg: "bg-red-500",
-    cardBg: "bg-red-50",
-  },
-];
-
+// Keep static config lists outside the component definition
 const metalRates = [
   {
     title: "GOLD 24K (999)",
@@ -190,7 +155,6 @@ export default function DealerDashboard() {
     query.get("dealerName") ||
     localStorage.getItem("ps_dealer_name") ||
     "Dealer";
-
   const dealerId =
     query.get("dealerId") ||
     localStorage.getItem("ps_dealer_id") ||
@@ -199,13 +163,88 @@ export default function DealerDashboard() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
+  // 1. STATE FOR DYNAMIC SUMMARY DASHBOARD METRICS
+  const [metrics, setMetrics] = useState({
+    activeCustomers: 0,
+    todayPledges: "₹0",
+    dueToday: 0,
+    overdueAccounts: 0,
+    totalLoanValue: "₹0"
+  });
+
+  // 2. FETCH DASHBOARD SUMMARY DATA FROM BACKEND
   useEffect(() => {
+    async function fetchDashboardSummary() {
+      if (!dealerId || dealerId === "-") return;
+      try {
+        const token = localStorage.getItem("ps_token");
+        const res = await fetch(`https://pawnsecure-1.onrender.com/api/dealer/dashboard-summary`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "X-DEALER-ID": dealerId
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setMetrics({
+            activeCustomers: data.activeCustomers || 0,
+            todayPledges: data.todayPledges || "₹0",
+            dueToday: data.dueToday || 0,
+            overdueAccounts: data.overdueAccounts || 0,
+            totalLoanValue: data.totalLoanValue || "₹0"
+          });
+        }
+      } catch (err) {
+        console.error("Failed to load dashboard statistics data", err);
+      }
+    }
+
+    fetchDashboardSummary();
+
     const timer = setInterval(() => {
       setCurrentDate(new Date());
     }, 60000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [dealerId]);
+
+  // 3. GENERATE DYNAMIC STATS ARRAY FROM STATE
+  const stats = [
+    {
+      title: "Today's Pledges",
+      value: metrics.todayPledges,
+      subtitle: "Dynamic Transactions",
+      icon: <FaRupeeSign />,
+      iconBg: "bg-purple-600",
+      cardBg: "bg-white",
+    },
+    {
+      title: "Active Customers",
+      value: metrics.activeCustomers.toString(),
+      subtitle: "View all",
+      icon: <FaUserFriends />,
+      iconBg: "bg-blue-500",
+      cardBg: "bg-white",
+      path: "/dealer/customers",
+    },
+    {
+      title: "Due Today",
+      value: metrics.dueToday.toString(),
+      subtitle: "Pending actions",
+      icon: <FaCalendarAlt />,
+      iconBg: "bg-orange-500",
+      cardBg: "bg-orange-50",
+    },
+    {
+      title: "Overdue Accounts",
+      value: metrics.overdueAccounts.toString(),
+      subtitle: "Immediate collection",
+      icon: <FaClock />,
+      iconBg: "bg-red-500",
+      cardBg: "bg-red-50",
+    },
+  ];
 
   const getGreeting = () => {
     const hour = currentDate.getHours();
@@ -220,7 +259,6 @@ export default function DealerDashboard() {
     month: "long",
     year: "numeric",
   });
-
   const todayDay = currentDate.toLocaleDateString("en-IN", {
     weekday: "long",
   });
@@ -399,10 +437,11 @@ export default function DealerDashboard() {
                 </div>
               </div>
 
+              {/* DYNAMIC TOTAL LOAN CARD (DESKTOP) */}
               <div className="lg:col-span-4 bg-white rounded-3xl p-8 border border-gray-100 shadow-sm flex flex-col justify-center">
                 <p className="text-sm text-gray-500">Total Active Loan Value</p>
-                <h2 className="text-4xl font-bold text-gray-900 mt-3">₹42.8L</h2>
-                <p className="text-sm text-gray-500 mt-2">Across 128 active Customers</p>
+                <h2 className="text-4xl font-bold text-gray-900 mt-3">{metrics.totalLoanValue}</h2>
+                <p className="text-sm text-gray-500 mt-2">Across {metrics.activeCustomers} active Customers</p>
                 <div className="mt-6 bg-green-50 text-green-700 px-4 py-3 rounded-xl text-sm font-semibold inline-block">
                   +12.5% from last month
                 </div>
@@ -459,46 +498,39 @@ export default function DealerDashboard() {
             {/* General System Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               {stats.map((item, index) => {
-  const isClickable = !!item.path && !isAdminView;
+                const isClickable = !!item.path && !isAdminView;
 
-  return (
-    <div
-      key={index}
-      onClick={() =>
-        isClickable ? navigate(item.path!) : undefined
-      }
-      className={`${item.cardBg} rounded-2xl p-5 shadow-sm border border-gray-100 transition ${
-        isClickable
-          ? "cursor-pointer hover:shadow-md hover:border-purple-400"
-          : "cursor-default"
-      }`}
-    >
-      <div className="flex items-center justify-between">
-        <div
-          className={`${item.iconBg} text-white w-12 h-12 rounded-full flex items-center justify-center text-lg`}
-        >
-          {item.icon}
-        </div>
+                return (
+                  <div
+                    key={index}
+                    onClick={() => isClickable ? navigate(item.path!) : undefined}
+                    className={`${item.cardBg} rounded-2xl p-5 shadow-sm border border-gray-100 transition ${
+                      isClickable ? "cursor-pointer hover:shadow-md hover:border-purple-400" : "cursor-default"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className={`${item.iconBg} text-white w-12 h-12 rounded-full flex items-center justify-center text-lg`}>
+                        {item.icon}
+                      </div>
+                      {isClickable && (
+                        <span className="text-xs text-purple-600 font-semibold">
+                          View
+                        </span>
+                      )}
+                    </div>
 
-        {isClickable && (
-          <span className="text-xs text-purple-600 font-semibold">
-            View
-          </span>
-        )}
-      </div>
-
-      <p className="text-sm font-semibold text-gray-600 mt-5">
-        {item.title}
-      </p>
-      <h2 className="text-2xl font-bold mt-2">
-        {item.value}
-      </h2>
-      <p className="text-xs text-gray-500 mt-1">
-        {item.subtitle}
-      </p>
-    </div>
-  );
-})}
+                    <p className="text-sm font-semibold text-gray-600 mt-5">
+                      {item.title}
+                    </p>
+                    <h2 className="text-2xl font-bold mt-2">
+                      {item.value}
+                    </h2>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {item.subtitle}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Quick Actions Grid */}
@@ -635,41 +667,41 @@ export default function DealerDashboard() {
             </div>
           </div>
 
+          {/* DYNAMIC AND CLICKABLE CARDS FOR MOBILE */}
           <div className="grid grid-cols-2 gap-3 -mt-6 relative z-10 px-4">
-  {stats.map((item, index) => {
-    // Check if the item has a path and we are not in admin view
-    const isClickable = !!item.path && !isAdminView;
-
-    return (
-      <div 
-        key={index} 
-        onClick={() => isClickable ? navigate(item.path!) : undefined}
-        className={`${item.cardBg} rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[120px] transition ${
-          isClickable ? "active:bg-gray-50 cursor-pointer border-active" : "cursor-default"
-        }`}
-      >
-        <div className="flex items-center gap-2">
-          <div className={`${item.iconBg} text-white w-9 h-9 rounded-full flex items-center justify-center text-sm shrink-0`}>
-            {item.icon}
+            {stats.map((item, index) => {
+              const isClickable = !!item.path && !isAdminView;
+              return (
+                <div 
+                  key={index} 
+                  onClick={() => isClickable ? navigate(item.path!) : undefined}
+                  className={`${item.cardBg} rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[120px] transition ${
+                    isClickable ? "active:bg-gray-50 cursor-pointer" : "cursor-default"
+                  }`}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center gap-2">
+                      <div className={`${item.iconBg} text-white w-9 h-9 rounded-full flex items-center justify-center text-sm shrink-0`}>
+                        {item.icon}
+                      </div>
+                      <p className="text-[11px] font-semibold text-gray-700 leading-tight">{item.title}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold mt-3">{item.value}</h2>
+                    <div className="flex justify-between items-center mt-0.5">
+                      <p className="text-[10px] text-gray-500">{item.subtitle}</p>
+                      {isClickable && (
+                        <span className="text-[9px] text-purple-600 font-bold bg-purple-50 px-1.5 py-0.5 rounded">
+                          View
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          <p className="text-[11px] font-semibold text-gray-700 leading-tight">{item.title}</p>
-        </div>
-        <div>
-          <h2 className="text-lg font-bold mt-3">{item.value}</h2>
-          <div className="flex justify-between items-center mt-0.5">
-            <p className="text-[10px] text-gray-500">{item.subtitle}</p>
-            {isClickable && (
-              <span className="text-[9px] text-purple-600 font-bold bg-purple-50 px-1.5 py-0.5 rounded">
-                View
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  })}
-</div>
-
 
           {/* LIVE METAL RATES Segment for Mobile Layout */}
           <div className="mt-6 px-4">
@@ -683,7 +715,6 @@ export default function DealerDashboard() {
               <span className="text-[10px] text-gray-400">10:35 AM</span>
             </div>
 
-            {/* Vertically stacked full-width cards without horizontal scrolling */}
             <div className="flex flex-col gap-3 pb-2">
               {metalRates.map((rate, i) => (
                 <div
