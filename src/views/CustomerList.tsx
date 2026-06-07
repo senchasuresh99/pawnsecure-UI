@@ -362,7 +362,7 @@ export default function CustomerList() {
                         state: { 
                           customerId: selectedCustomer.id,
                           customerName: selectedCustomer.fullName,
-                          returnTo: "/dealer/customer" 
+                          returnTo: "/dealer/customers" 
                         } 
                       });
                     }}
