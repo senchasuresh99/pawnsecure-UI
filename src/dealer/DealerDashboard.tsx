@@ -163,16 +163,18 @@ export default function DealerDashboard() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
-  // 1. STATE FOR DYNAMIC SUMMARY DASHBOARD METRICS
+  // 1. STATE FOR DYNAMIC DASHBOARD METRICS
   const [metrics, setMetrics] = useState({
-    activeCustomers: 0,
     todayPledges: "₹0",
     dueToday: 0,
     overdueAccounts: 0,
     totalLoanValue: "₹0"
   });
 
-  // 2. FETCH DASHBOARD SUMMARY DATA FROM BACKEND
+  // 2. STATE FOR EXACT CUSTOMER COUNT
+  const [activeCustomerCount, setActiveCustomerCount] = useState<number | string>("...");
+
+  // 3. FETCH DASHBOARD SUMMARY DATA FROM BACKEND
   useEffect(() => {
     async function fetchDashboardSummary() {
       if (!dealerId || dealerId === "-") return;
@@ -188,7 +190,6 @@ export default function DealerDashboard() {
         if (res.ok) {
           const data = await res.json();
           setMetrics({
-            activeCustomers: data.activeCustomers || 0,
             todayPledges: data.todayPledges || "₹0",
             dueToday: data.dueToday || 0,
             overdueAccounts: data.overdueAccounts || 0,
@@ -200,7 +201,37 @@ export default function DealerDashboard() {
       }
     }
 
+    // 4. FETCH EXACT CUSTOMER COUNT FROM CUSTOMERS API
+    async function fetchCustomerCount() {
+      if (!dealerId || dealerId === "-") return;
+      try {
+        const token = localStorage.getItem("ps_token");
+        // We only request size=1 because we just need the totalElements metadata, not the list data
+        const res = await fetch(`https://pawnsecure-1.onrender.com/api/customers/allCustomer?page=0&size=1`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "X-DEALER-ID": dealerId
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            setActiveCustomerCount(data.length);
+          } else {
+            setActiveCustomerCount(data.totalElements || 0);
+          }
+        } else {
+          setActiveCustomerCount(0);
+        }
+      } catch (err) {
+        console.error("Failed to load true customer count", err);
+        setActiveCustomerCount(0);
+      }
+    }
+
     fetchDashboardSummary();
+    fetchCustomerCount();
 
     const timer = setInterval(() => {
       setCurrentDate(new Date());
@@ -209,7 +240,7 @@ export default function DealerDashboard() {
     return () => clearInterval(timer);
   }, [dealerId]);
 
-  // 3. GENERATE DYNAMIC STATS ARRAY FROM STATE
+  // 5. GENERATE DYNAMIC STATS ARRAY FROM STATE
   const stats = [
     {
       title: "Today's Pledges",
@@ -221,7 +252,7 @@ export default function DealerDashboard() {
     },
     {
       title: "Active Customers",
-      value: metrics.activeCustomers.toString(),
+      value: activeCustomerCount.toString(), // ✅ USING LIVE CUSTOMER COUNT HERE
       subtitle: "View all",
       icon: <FaUserFriends />,
       iconBg: "bg-blue-500",
@@ -441,7 +472,7 @@ export default function DealerDashboard() {
               <div className="lg:col-span-4 bg-white rounded-3xl p-8 border border-gray-100 shadow-sm flex flex-col justify-center">
                 <p className="text-sm text-gray-500">Total Active Loan Value</p>
                 <h2 className="text-4xl font-bold text-gray-900 mt-3">{metrics.totalLoanValue}</h2>
-                <p className="text-sm text-gray-500 mt-2">Across {metrics.activeCustomers} active Customers</p>
+                <p className="text-sm text-gray-500 mt-2">Across {activeCustomerCount} active Customers</p>
                 <div className="mt-6 bg-green-50 text-green-700 px-4 py-3 rounded-xl text-sm font-semibold inline-block">
                   +12.5% from last month
                 </div>

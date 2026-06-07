@@ -464,11 +464,22 @@ useEffect(() => {
       return;
     }
 
-    if (!res.ok) {
-      const msg = await res.text();
-      showPopup("error", msg || "Failed to submit review");
-      return;
-    }
+    // Inside submitReview function
+if (!res.ok) {
+  let errorMessage = "Failed to submit review";
+  
+  try {
+    // Attempt to parse the error as JSON
+    const errorData = await res.json();
+    errorMessage = errorData.message || errorMessage;
+  } catch {
+    // Fallback if the response is not JSON
+    errorMessage = await res.text() || errorMessage;
+  }
+  
+  showPopup("error", errorMessage);
+  return;
+}
 
     showPopup("success", "Review submitted successfully");
 

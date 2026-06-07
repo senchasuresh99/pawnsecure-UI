@@ -48,8 +48,7 @@ export default function AddGirvi() {
     loanDetails.customerId ||
     customer?.id ||
     customer?.customerId ||
-    customer?.customer_id ||
-    localStorage.getItem("ps_customer_id");
+    customer?.customer_id; 
 
   const customerName =
     customer?.fullName ||
@@ -62,8 +61,7 @@ export default function AddGirvi() {
       const savedCustomerId =
         customer?.id ||
         customer?.customerId ||
-        customer?.customer_id ||
-        localStorage.getItem("ps_customer_id");
+        customer?.customer_id;
 
       if (savedCustomerId) {
         setLoanDetails((prev: any) => ({
@@ -97,12 +95,10 @@ export default function AddGirvi() {
     }
 
     if (!file.type.startsWith("image/")) {
-      alert("Only image files are allowed");
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      alert("Photo must be less than 5MB");
       return;
     }
 
@@ -118,51 +114,20 @@ export default function AddGirvi() {
       customer?.customer_id ||
       localStorage.getItem("ps_customer_id");
 
-    if (!customerId) {
-      alert("Customer not selected");
-      return;
-    }
+    if (!customerId) return;
 
     if (!token) {
-      alert("Session expired. Please login again.");
       nav("/", { replace: true });
       return;
     }
 
-    if (!dealerId) {
-      alert("Dealer ID not found. Please login again.");
-      return;
-    }
-
-    if (!form.itemName.trim()) {
-      alert("Please enter item name");
-      return;
-    }
-
-    if (!form.itemWeightGram || Number(form.itemWeightGram) <= 0) {
-      alert("Please enter valid item weight");
-      return;
-    }
-
-    if (!form.ratePerGram || Number(form.ratePerGram) <= 0) {
-      alert("Please enter valid rate per gram");
-      return;
-    }
-
-    if (form.interestRate === "" || Number(form.interestRate) < 0) {
-      alert("Please enter valid interest rate");
-      return;
-    }
-
-    if (!form.girviDate) {
-      alert("Please select girvi date");
-      return;
-    }
-
-    if (!form.maturityDate) {
-      alert("Please select maturity date");
-      return;
-    }
+    if (!dealerId) return;
+    if (!form.itemName.trim()) return;
+    if (!form.itemWeightGram || Number(form.itemWeightGram) <= 0) return;
+    if (!form.ratePerGram || Number(form.ratePerGram) <= 0) return;
+    if (form.interestRate === "" || Number(form.interestRate) < 0) return;
+    if (!form.girviDate) return;
+    if (!form.maturityDate) return;
 
     setLoading(true);
 
@@ -196,30 +161,24 @@ export default function AddGirvi() {
       });
 
       if (res.status === 401 || res.status === 403) {
-        alert("Session expired or unauthorized. Please login again.");
         nav("/", { replace: true });
         return;
       }
 
       if (!res.ok) {
         let message = "Failed to save girvi";
-
         try {
           const data = await res.json();
           message = data.message || message;
         } catch {
           message = await res.text();
         }
-
         throw new Error(message || "Failed to save girvi");
       }
 
-      alert("Girvi added successfully");
-
-      // ✅ Return back to GirviList page
       nav(returnTo, { replace: true });
     } catch (err: any) {
-      alert(err.message || "Something went wrong");
+      console.error(err.message || "Something went wrong");
     } finally {
       setLoading(false);
     }

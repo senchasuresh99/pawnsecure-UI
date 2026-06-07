@@ -458,7 +458,13 @@ export default function GirviList() {
                 View all Girvi records created by this dealer
               </p>
             </div>
-            <div />
+            {/* Added Button Here */}
+             <button
+              onClick={goToAddGirvi}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2"
+            >
+              <FaPlus /> New Girvi
+            </button>
           </div>
 
           <div className="p-8">
