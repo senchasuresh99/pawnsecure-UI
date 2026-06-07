@@ -9,6 +9,14 @@ import {
   FaPlus,
   FaEdit,
   FaTrash,
+  FaPhone,
+  FaIdCard,
+  FaStar,
+  FaFilter,
+  FaTimes,
+  FaCheckCircle,
+  FaThumbsUp,
+  FaHeart
 } from "react-icons/fa";
 
 const API_BASE = "https://pawnsecure-1.onrender.com/api";
@@ -141,7 +149,7 @@ export default function CustomerList() {
   }
 
   async function deleteCustomer(id: number) {
-    if (!confirm("Are you sure you want to delete this customer? This action cannot be undone.")) return;
+    if (!window.confirm("Are you sure you want to delete this customer? This action cannot be undone.")) return;
 
     const dealerId = localStorage.getItem("ps_dealer_id");
     const token = localStorage.getItem("ps_token");
@@ -202,10 +210,10 @@ export default function CustomerList() {
     customers.forEach((c) => loadCustomerPhoto(c.id));
   }, [customers]);
 
-  function kycClass(status?: string) {
+  function kycBadge(status?: string) {
     return status === "VERIFIED"
-      ? "bg-green-100 text-green-700 border-green-200"
-      : "bg-yellow-100 text-yellow-700 border-yellow-200";
+      ? "bg-green-50 text-green-600 border-green-200"
+      : "bg-yellow-50 text-yellow-600 border-yellow-200";
   }
 
   const filteredCustomers = customers.filter((c) => {
@@ -221,141 +229,222 @@ export default function CustomerList() {
   });
 
   return (
-    <div className="min-h-screen bg-[#f4f5f7]">
-      {/* ================= DESKTOP ================= */}
-      <div className="hidden lg:block p-8">
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+    <div className="min-h-screen bg-[#f4f5f7] pb-20 font-sans">
+      
+      {/* ================= HEADER & SEARCH ================= */}
+      <div className="bg-[#2D1B69] text-white pt-8 pb-20 px-4 rounded-b-[40px] shadow-md relative">
+        <div className="max-w-5xl mx-auto">
           <div className="flex items-center justify-between mb-6">
-            
             <div className="flex items-center gap-4">
               <button
                 onClick={() => navigate("/dealer/dashboard")}
-                className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition"
+                className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition"
               >
-                <FaArrowLeft className="text-gray-600" />
+                <FaArrowLeft className="text-xl" />
               </button>
               <div>
-                <h2 className="text-xl font-bold text-gray-900">All Customers</h2>
-                <p className="text-sm text-gray-500">Total Records: {totalElements}</p>
+                <h1 className="text-2xl font-bold">Customers</h1>
+                <p className="text-sm text-gray-300">Total Records : {totalElements}</p>
               </div>
             </div>
-
-            <div className="flex items-center gap-3">
-              <div className="w-80 flex items-center border rounded-xl px-4 py-3 bg-gray-50">
-                <FaSearch className="text-gray-400 mr-3" />
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full outline-none bg-transparent text-sm"
-                  placeholder="Search customer..."
-                />
-              </div>
-
-              <button
-                onClick={() => navigate("/dealer/customer-register")}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-3 rounded-xl text-sm font-semibold flex items-center gap-2 transition"
-              >
-                <FaPlus /> Register Customer
-              </button>
-            </div>
+            
+            <button
+              onClick={() => navigate("/dealer/customer-register")}
+              className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition"
+            >
+              <FaPlus />
+            </button>
           </div>
-
-          {loading && <p className="text-center py-10 text-gray-500 font-semibold">Loading customers...</p>}
-          {error && (
-            <div className="bg-red-50 text-red-600 border border-red-100 rounded-xl px-4 py-3 mb-5 text-sm font-semibold">
-              {error}
-            </div>
-          )}
-          {!loading && !error && customers.length === 0 && !search && <EmptyState />}
-
-          {!loading && !error && filteredCustomers.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[900px]">
-                <thead>
-                  <tr className="text-left text-gray-500 border-b">
-                    <th className="py-3 px-3">Customer</th>
-                    <th className="py-3 px-3">Contact</th>
-                    <th className="py-3 px-3">Identity Card</th>
-                    <th className="py-3 px-3">KYC</th>
-                    <th className="py-3 px-3">Fraud</th>
-                    <th className="py-3 px-3">Reviews</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredCustomers.map((c) => (
-                    <tr
-                      key={c.id}
-                      onClick={() => {
-                        setSelectedCustomerId(c.id);
-                        fetchCustomerById(c.id);
-                      }}
-                      className="border-b hover:bg-purple-50/40 cursor-pointer transition"
-                    >
-                      <td className="py-4 px-3">
-                        <div className="flex items-center gap-3">
-                          {photoMap[c.id] ? (
-                            <img src={photoMap[c.id]} className="w-12 h-12 rounded-xl object-cover" alt="" />
-                          ) : (
-                            <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
-                              <FaUser className="text-purple-700" />
-                            </div>
-                          )}
-                          <div>
-                            <p className="font-semibold">{c.fullName}</p>
-                            <p className="text-xs text-gray-500 truncate max-w-[200px]">{c.customerAddress || "-"}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-4 px-3">{c.phoneNumber || "-"}</td>
-                      <td className="py-4 px-3">{c.maskedAadhaar || "-"}</td>
-                      <td className="py-4 px-3">
-                        <span className={`px-3 py-1 rounded-full border text-xs font-bold ${kycClass(c.kycStatus)}`}>
-                          {c.kycStatus || "PENDING"}
-                        </span>
-                      </td>
-                      <td className="py-4 px-3 flex items-center gap-1"><FaShieldAlt /> {c.fraudStatus || "NA"}</td>
-                      <td className="py-4 px-3">{c.reviews?.length || 0}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <Pagination
-                page={page}
-                size={size}
-                totalPages={totalPages}
-                totalElements={totalElements}
-                onPageChange={setPage}
-                onSizeChange={(s:any) => { setSize(s); setPage(0); }}
-              />
-            </div>
-          )}
         </div>
       </div>
 
-      {/* ================= MODAL ================= */}
+      {/* Floating Search Bar */}
+      <div className="max-w-5xl mx-auto px-4 -mt-8 relative z-10 flex gap-3">
+        <div className="flex-1 bg-white rounded-2xl shadow-sm px-4 py-3 flex items-center border border-gray-100">
+          <FaSearch className="text-gray-400 mr-3" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full outline-none text-sm text-gray-700 bg-transparent"
+            placeholder="Search by name, phone or Aadhaar"
+          />
+        </div>
+        <button className="bg-white px-4 py-3 rounded-2xl shadow-sm border border-gray-100 text-gray-500 hover:text-purple-600 transition">
+          <FaFilter />
+        </button>
+      </div>
+
+      {/* ================= CUSTOMER LIST ================= */}
+      <div className="max-w-5xl mx-auto px-4 mt-6">
+        {loading && <p className="text-center py-10 text-gray-500 font-semibold">Loading customers...</p>}
+        {error && (
+          <div className="bg-red-50 text-red-600 border border-red-100 rounded-xl px-4 py-3 mb-5 text-sm font-semibold">
+            {error}
+          </div>
+        )}
+        {!loading && !error && customers.length === 0 && !search && <EmptyState />}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {!loading && !error && filteredCustomers.map((c) => (
+            <div
+              key={c.id}
+              className="bg-white rounded-[24px] p-5 shadow-sm border border-gray-100 hover:border-purple-200 transition"
+            >
+              <div className="flex justify-between items-start mb-4">
+                <div className="flex gap-4">
+                  {photoMap[c.id] ? (
+                    <img src={photoMap[c.id]} className="w-14 h-14 rounded-full object-cover border border-gray-100 shadow-sm" alt="profile" />
+                  ) : (
+                    <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center border border-gray-200">
+                      <FaUser className="text-gray-400 text-xl" />
+                    </div>
+                  )}
+                  <div>
+                    <h3 className="font-bold text-gray-900 text-[17px] leading-tight">{c.fullName}</h3>
+                    <div className="text-gray-500 text-sm mt-1 flex flex-col gap-1">
+                      <span className="flex items-center gap-2"><FaPhone className="text-xs" /> {c.phoneNumber || "-"}</span>
+                      <span className="flex items-center gap-2"><FaIdCard className="text-xs" /> {c.maskedAadhaar || "-"}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-end">
+                   <span className={`px-2 py-1 rounded-md text-[10px] font-bold tracking-wide uppercase border ${kycBadge(c.kycStatus)}`}>
+                      {c.kycStatus || "PENDING"}
+                   </span>
+                </div>
+              </div>
+
+              <div className="bg-gray-50/50 rounded-2xl p-3 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                 <div>
+                    <div className="flex items-center gap-2 text-sm">
+                       <FaShieldAlt className={c.fraudStatus === "Medium Risk" ? "text-orange-500" : "text-green-500"} />
+                       <span className={`font-semibold ${c.fraudStatus === "Medium Risk" ? "text-orange-600" : "text-green-600"}`}>
+                         {c.fraudStatus || "Safe Customer"}
+                       </span>
+                    </div>
+                    <div className="flex items-center gap-1 mt-1 text-yellow-400 text-[10px]">
+                       <FaStar /><FaStar /><FaStar /><FaStar /><FaStar className="text-gray-300"/>
+                       <span className="text-gray-500 font-medium ml-1">4.0 ({c.reviews?.length || 0})</span>
+                    </div>
+                 </div>
+
+                 <div className="text-right text-xs">
+                    <p className="text-gray-500 font-medium mb-1">Active Girvi : <span className="font-bold text-gray-900">0</span></p>
+                    <p className="text-gray-500 font-medium">Total Loan : <span className="font-bold text-gray-900">₹ 0</span></p>
+                 </div>
+              </div>
+
+              <div className="mt-4 flex items-center justify-between">
+                <button
+                  onClick={() => {
+                    setSelectedCustomerId(c.id);
+                    fetchCustomerById(c.id);
+                  }}
+                  className="text-purple-700 font-bold text-sm px-2 hover:underline"
+                >
+                  View Details
+                </button>
+                <button
+                  onClick={() => navigate("/dealer/details", { state: { customerId: c.id, customerName: c.fullName, returnTo: "/dealer/customers" } })}
+                  className="bg-[#7128E6] hover:bg-[#5b1abf] text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 shadow-sm transition"
+                >
+                  <FaPlus /> New Girvi
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {filteredCustomers.length > 0 && (
+          <Pagination
+            page={page}
+            size={size}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            onPageChange={setPage}
+            onSizeChange={(s:any) => { setSize(s); setPage(0); }}
+          />
+        )}
+      </div>
+
+      {/* ================= MODAL DETAILS ================= */}
       {selectedCustomerId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-          <div className="bg-white w-full max-w-xl rounded-2xl p-6 shadow-xl relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white w-full max-w-[480px] rounded-[32px] p-6 sm:p-8 shadow-2xl relative animate-in fade-in zoom-in duration-200">
             <button
               onClick={() => { setSelectedCustomer(null); setSelectedCustomerId(null); }}
-              className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-black hover:bg-gray-100 transition"
-            >✕</button>
+              className="absolute top-5 right-5 w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-800 hover:bg-gray-100 transition"
+            >
+              <FaTimes />
+            </button>
 
             {detailLoading || !selectedCustomer ? (
-              <div className="py-12 text-center">
-                <div className="w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <div className="py-20 text-center">
+                <div className="w-10 h-10 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
               </div>
             ) : (
               <>
-                <h2 className="text-xl font-bold mb-4 border-b pb-2">{selectedCustomer.fullName}</h2>
-                <div className="grid grid-cols-2 gap-4 text-sm mb-6">
-                  <Info label="Phone" value={selectedCustomer.phoneNumber || "-"} />
-                  <Info label="Identification Card" value={selectedCustomer.maskedAadhaar || "-"} />
-                  <Info label="KYC Status" value={selectedCustomer.kycStatus || "PENDING"} />
-                  <Info label="Fraud Metric" value={selectedCustomer.fraudStatus || "NA"} />
+                <div className="text-center mb-6">
+                  <div className="relative inline-block">
+                    {photoMap[selectedCustomer.id] ? (
+                      <img src={photoMap[selectedCustomer.id]} className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md" alt="" />
+                    ) : (
+                      <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center border-4 border-white shadow-md">
+                        <FaUser className="text-gray-400 text-3xl" />
+                      </div>
+                    )}
+                    <div className="absolute bottom-1 right-1 bg-white rounded-full p-0.5">
+                      <FaCheckCircle className="text-green-500 text-xl" />
+                    </div>
+                  </div>
+
+                  <h2 className="text-2xl font-bold text-gray-900 mt-3">{selectedCustomer.fullName}</h2>
+                  
+                  <div className="flex items-center justify-center gap-1.5 mt-1">
+                    <FaShieldAlt className={selectedCustomer.fraudStatus === "Medium Risk" ? "text-orange-500" : "text-green-500"} />
+                    <span className={`font-semibold text-sm ${selectedCustomer.fraudStatus === "Medium Risk" ? "text-orange-600" : "text-green-600"}`}>
+                      {selectedCustomer.fraudStatus || "Safe Customer"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-center gap-1 mt-2 text-yellow-400 text-sm">
+                     <FaStar /><FaStar /><FaStar /><FaStar /><FaStar className="text-gray-300"/>
+                     <span className="text-gray-600 font-semibold ml-1 text-xs">4.0 <span className="font-normal opacity-70">({selectedCustomer.reviews?.length || 0} Reviews)</span></span>
+                  </div>
                 </div>
 
-                <div className="flex gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+                  <InfoCard label="Phone" value={selectedCustomer.phoneNumber || "-"} />
+                  <InfoCard label="Aadhaar" value={selectedCustomer.maskedAadhaar || "-"} />
+                  <InfoCard label="KYC Status" value={selectedCustomer.kycStatus || "PENDING"} />
+                  <InfoCard label="Total Girvi" value="0" />
+                  <InfoCard label="Active Loan" value="₹ 0" />
+                  <InfoCard label="Since" value="Today" />
+                </div>
+
+                <div className="mb-6">
+                  <div className="flex justify-between items-center mb-2">
+                    <h4 className="font-bold text-sm text-gray-900">Customer Reviews</h4>
+                    <button className="text-purple-700 text-xs font-bold hover:underline">View All</button>
+                  </div>
+                  <div className="flex gap-3">
+                    <div className="flex-1 bg-green-50/50 border border-green-100 rounded-xl p-3 flex justify-between items-center text-sm">
+                      <div className="flex items-center gap-2 text-green-600 font-semibold">
+                        <FaThumbsUp /> Positive
+                      </div>
+                      <span className="font-bold text-green-700">0</span>
+                    </div>
+                    <div className="flex-1 bg-red-50/50 border border-red-100 rounded-xl p-3 flex justify-between items-center text-sm">
+                      <div className="flex items-center gap-2 text-red-500 font-semibold">
+                        <FaHeart /> Negative
+                      </div>
+                      <span className="font-bold text-red-600">0</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => {
                       navigate("/dealer/details", { 
@@ -366,21 +455,28 @@ export default function CustomerList() {
                         } 
                       });
                     }}
-                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-xl transition shadow-lg shadow-purple-200"
+                    className="flex-1 min-w-[120px] bg-[#7128E6] hover:bg-[#5b1abf] text-white font-bold py-3.5 rounded-2xl transition shadow-lg shadow-purple-200/50 flex items-center justify-center gap-2 text-sm"
                   >
-                    Create New Girvi
+                    <FaPlus /> New Girvi
                   </button>
                   
-                  <button
+                  <button className="flex-1 min-w-[120px] bg-purple-50 text-purple-700 font-bold py-3.5 rounded-2xl transition flex items-center justify-center gap-2 text-sm hover:bg-purple-100">
+                    <FaBox className="opacity-70" /> View Girvi
+                  </button>
+                </div>
+
+                <div className="flex gap-2 mt-2">
+                   <button
                     onClick={() => navigate(`/dealer/edit-customer/${selectedCustomer.id}`)}
-                    className="flex items-center gap-2 px-5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl transition"
+                    className="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold py-3 rounded-2xl transition flex items-center justify-center gap-2 text-sm border border-gray-100"
                   >
-                    <FaEdit />
+                    <FaEdit className="text-gray-400" /> Edit Customer
                   </button>
 
                   <button
                     onClick={() => deleteCustomer(selectedCustomer.id)}
-                    className="flex items-center gap-2 px-5 bg-red-50 hover:bg-red-100 text-red-600 font-bold py-3 rounded-xl transition"
+                    className="w-14 bg-red-50 hover:bg-red-100 text-red-600 font-bold py-3 rounded-2xl transition flex items-center justify-center border border-red-100"
+                    title="Delete Customer"
                   >
                     <FaTrash />
                   </button>
@@ -390,70 +486,29 @@ export default function CustomerList() {
           </div>
         </div>
       )}
-
-      {/* ================= MOBILE ================= */}
-      <div className="lg:hidden pb-28">
-        <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-b-[32px] px-5 py-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
-              <button onClick={() => navigate("/dealer/dashboard")}><FaArrowLeft /></button>
-              <div>
-                <h1 className="font-bold text-lg">Customers</h1>
-                <p className="text-xs opacity-80">Total: {totalElements}</p>
-              </div>
-            </div>
-            <button onClick={() => navigate("/dealer/customer-register")} className="bg-white/20 p-2 rounded-lg"><FaPlus /></button>
-          </div>
-        </div>
-
-        <div className="px-4 -mt-5 relative z-30">
-          <div className="bg-white rounded-2xl border shadow-sm p-4">
-            <div className="flex items-center border rounded-xl px-4 py-3 bg-gray-50 mb-4">
-              <FaSearch className="text-gray-400 mr-3" />
-              <input value={search} onChange={(e) => setSearch(e.target.value)} className="w-full outline-none bg-transparent text-sm" placeholder="Search customer..." />
-            </div>
-
-            {loading && <p className="text-center py-6 text-gray-500 font-semibold text-sm">Loading...</p>}
-            {!loading && filteredCustomers.map((c) => (
-              <div
-                key={c.id}
-                onClick={() => { setSelectedCustomerId(c.id); fetchCustomerById(c.id); }}
-                className="bg-white border border-gray-100 rounded-2xl p-4 mb-4 shadow-sm active:bg-purple-50 transition text-left"
-              >
-                <div className="flex gap-4">
-                  {photoMap[c.id] ? <img src={photoMap[c.id]} className="w-16 h-16 rounded-2xl object-cover" alt="" /> : <div className="w-16 h-16 rounded-2xl bg-purple-100 flex items-center justify-center shrink-0"><FaUser className="text-purple-700 text-xl" /></div>}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold truncate">{c.fullName}</p>
-                    <p className="text-xs text-gray-500 mt-1 truncate">{c.customerAddress || "-"}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-            <Pagination page={page} size={size} totalPages={totalPages} totalElements={totalElements} onPageChange={setPage} onSizeChange={(s:any) => { setSize(s); setPage(0); }} />
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
 
 /* ================= HELPERS ================= */
 
-function Info({ label, value }: { label: string; value: string }) {
+function InfoCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-gray-50 rounded-xl p-3 w-full">
-      <p className="text-xs text-gray-500 font-medium">{label}</p>
-      <p className="font-bold text-gray-900 mt-1 break-all">{value}</p>
+    <div className="bg-gray-50/70 border border-gray-100 rounded-2xl p-3 w-full">
+      <p className="text-[11px] text-gray-500 font-medium mb-1">{label}</p>
+      <p className="font-bold text-gray-900 text-sm truncate">{value}</p>
     </div>
   );
 }
 
 function EmptyState() {
   return (
-    <div className="text-center py-12">
-      <div className="w-16 h-16 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center mx-auto text-2xl mb-3"><FaBox /></div>
-      <h3 className="font-bold text-gray-800">No Customers Found</h3>
-      <p className="text-sm text-gray-500 mt-1">Register a customer to see records here.</p>
+    <div className="text-center py-20">
+      <div className="w-20 h-20 rounded-full bg-white shadow-sm flex items-center justify-center mx-auto text-3xl mb-4 text-purple-200">
+        <FaBox />
+      </div>
+      <h3 className="font-bold text-gray-800 text-lg">No Customers Found</h3>
+      <p className="text-sm text-gray-500 mt-2 max-w-xs mx-auto">You haven't registered any customers yet or no match found for your search.</p>
     </div>
   );
 }
@@ -461,19 +516,23 @@ function EmptyState() {
 function Pagination({ page, size, totalPages, totalElements, onPageChange, onSizeChange }: any) {
   const start = totalElements === 0 ? 0 : page * size + 1;
   const end = Math.min((page + 1) * size, totalElements);
+  
   return (
-    <div className="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-t pt-5">
-      <div className="text-sm text-gray-500">Showing <b>{start}</b> to <b>{end}</b> of <b>{totalElements}</b> records</div>
-      <div className="flex items-center justify-end gap-2">
-        <select value={size} onChange={(e) => onSizeChange(Number(e.target.value))} className="border rounded-lg px-2 py-2 text-sm bg-white">
-          <option value={5}>5 / page</option>
+    <div className="mt-8 mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="text-sm text-gray-500 text-center sm:text-left">
+        Showing <b className="text-gray-800">{start}</b> to <b className="text-gray-800">{end}</b> of <b className="text-gray-800">{totalElements}</b> records
+      </div>
+      <div className="flex items-center justify-center gap-2">
+        <select value={size} onChange={(e) => onSizeChange(Number(e.target.value))} className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white outline-none focus:border-purple-400">
           <option value={10}>10 / page</option>
           <option value={20}>20 / page</option>
           <option value={50}>50 / page</option>
         </select>
-        <button onClick={() => onPageChange(page - 1)} disabled={page === 0} className="px-3 py-2 border rounded-lg text-sm font-bold bg-white disabled:opacity-40">Prev</button>
-        <span className="text-xs font-semibold px-1 min-w-[75px] text-center">{page + 1} / {totalPages}</span>
-        <button onClick={() => onPageChange(page + 1)} disabled={page >= totalPages - 1} className="px-3 py-2 border rounded-lg text-sm font-bold bg-white disabled:opacity-40">Next</button>
+        <div className="flex bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+          <button onClick={() => onPageChange(page - 1)} disabled={page === 0} className="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-40 border-r border-gray-200 transition">Prev</button>
+          <span className="text-xs font-bold px-4 py-2.5 min-w-[75px] text-center bg-gray-50 text-gray-600">{page + 1} / {totalPages}</span>
+          <button onClick={() => onPageChange(page + 1)} disabled={page >= totalPages - 1} className="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-40 border-l border-gray-200 transition">Next</button>
+        </div>
       </div>
     </div>
   );
