@@ -3,12 +3,12 @@ import { useLocation, useNavigate } from "react-router-dom";
 import {
   FaArrowLeft,
   FaArrowRight,
-  FaSave,
   FaUpload,
   FaRupeeSign,
   FaPlus,
   FaCheck,
-  FaTimes
+  FaTimes,
+  FaCoins
 } from "react-icons/fa";
 import DealerBottomNav from "../dealer/DealerBottomNav";
 import { useGirvi } from "./GirviContext";
@@ -243,10 +243,10 @@ export default function AddGirvi() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f4f5f7] pb-24 xl:pb-10 font-sans">
-      {/* HEADER */}
-      <div className="bg-[#4820C5] text-white pt-6 pb-20 px-4 shadow-sm relative">
-        <div className="max-w-3xl mx-auto flex items-center justify-center relative">
+    <div className="min-h-screen bg-[#f4f5f7] pb-24 xl:pb-12 font-sans flex flex-col">
+      {/* HEADER - Increased padding for desktop view */}
+      <div className="bg-[#4820C5] text-white pt-6 md:pt-10 pb-20 md:pb-28 px-4 shadow-sm relative">
+        <div className="max-w-4xl mx-auto flex items-center justify-center relative">
           <button
             type="button"
             onClick={() => nav(returnTo)}
@@ -254,22 +254,22 @@ export default function AddGirvi() {
           >
             <FaArrowLeft className="text-xl" />
           </button>
-          <h1 className="text-lg font-bold">Add New Girvi</h1>
+          <h1 className="text-lg md:text-2xl font-bold">Add New Girvi</h1>
         </div>
       </div>
 
-      {/* MAIN CONTENT CARD */}
-      <div className="max-w-3xl mx-auto px-4 -mt-12 relative z-10">
-        <div className="bg-white rounded-[24px] shadow-lg border border-gray-100 p-6 sm:p-8">
+      {/* MAIN CONTENT CARD - Wider on desktop, negative margin adjusted */}
+      <div className="max-w-4xl mx-auto px-4 w-full -mt-12 md:-mt-16 relative z-10 flex-grow">
+        <div className="bg-white rounded-[24px] shadow-lg border border-gray-100 p-6 sm:p-8 md:p-10">
           
           {/* STEPPER */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between relative px-2">
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-[2px] bg-gray-100 z-0 px-8"></div>
+          <div className="mb-8 md:mb-12">
+            <div className="flex items-center justify-between relative px-2 sm:px-8">
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-[2px] bg-gray-100 z-0 px-8 sm:px-16"></div>
               {steps.map((step) => (
-                <div key={step.id} className="relative z-10 flex flex-col items-center gap-2 bg-white px-2">
+                <div key={step.id} className="relative z-10 flex flex-col items-center gap-2 bg-white px-2 sm:px-4">
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
+                    className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-sm md:text-base font-bold transition-colors ${
                       currentStep > step.id
                         ? "bg-[#4820C5] text-white"
                         : currentStep === step.id
@@ -277,10 +277,10 @@ export default function AddGirvi() {
                         : "bg-gray-100 text-gray-400"
                     }`}
                   >
-                    {currentStep > step.id ? <FaCheck className="text-[12px]" /> : step.id}
+                    {currentStep > step.id ? <FaCheck className="text-[12px] md:text-sm" /> : step.id}
                   </div>
                   <span
-                    className={`text-[11px] font-semibold whitespace-nowrap ${
+                    className={`text-[11px] md:text-sm font-semibold whitespace-nowrap ${
                       currentStep >= step.id ? "text-[#4820C5]" : "text-gray-400"
                     }`}
                   >
@@ -292,7 +292,7 @@ export default function AddGirvi() {
           </div>
 
           {errors.form && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm font-medium mb-6 text-center border border-red-100">
+            <div className="bg-red-50 text-red-600 p-3 md:p-4 rounded-xl text-sm md:text-base font-medium mb-6 text-center border border-red-100">
               {errors.form}
             </div>
           )}
@@ -300,26 +300,27 @@ export default function AddGirvi() {
           {/* ================= STEP 1: CUSTOMER ================= */}
           {currentStep === 1 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Customer Information</h2>
-              <div className="space-y-4">
-                <div className="bg-gray-50/50 rounded-2xl p-5 border border-gray-100 shadow-sm">
-                  <p className="text-xs text-gray-500 font-semibold mb-1">Customer ID</p>
-                  <p className="font-bold text-gray-900 text-lg">{resolvedCustomerId || "Not selected"}</p>
+              <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6">Customer Information</h2>
+              {/* Responsive Grid: 1 col on mobile, 2 cols on desktop */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                <div className="bg-gray-50/50 rounded-2xl p-5 md:p-6 border border-gray-100 shadow-sm">
+                  <p className="text-xs md:text-sm text-gray-500 font-semibold mb-1">Customer ID</p>
+                  <p className="font-bold text-gray-900 text-lg md:text-xl">{resolvedCustomerId || "Not selected"}</p>
                 </div>
-                <div className="bg-gray-50/50 rounded-2xl p-5 border border-gray-100 shadow-sm">
-                  <p className="text-xs text-gray-500 font-semibold mb-1">Customer Name</p>
-                  <p className="font-bold text-gray-900 text-lg">{customerName}</p>
+                <div className="bg-gray-50/50 rounded-2xl p-5 md:p-6 border border-gray-100 shadow-sm">
+                  <p className="text-xs md:text-sm text-gray-500 font-semibold mb-1">Customer Name</p>
+                  <p className="font-bold text-gray-900 text-lg md:text-xl">{customerName}</p>
                 </div>
-                {errors.customer && <p className="text-red-500 text-sm mt-2">{errors.customer}</p>}
               </div>
+              {errors.customer && <p className="text-red-500 text-sm mt-3">{errors.customer}</p>}
             </div>
           )}
 
           {/* ================= STEP 2: ITEM DETAILS ================= */}
           {currentStep === 2 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Item Information</h2>
-              <div className="space-y-5">
+              <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6">Item Information</h2>
+              <div className="space-y-5 md:space-y-6">
                 <Input 
                   label="Item Name *" 
                   value={form.itemName} 
@@ -327,19 +328,20 @@ export default function AddGirvi() {
                   error={errors.itemName} 
                 />
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                {/* Responsive Grid: 1 col on mobile, 2 cols on desktop */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 md:gap-6">
                   <div>
-                    <label className="text-xs font-bold text-gray-600 block mb-1.5">Item Type *</label>
+                    <label className="text-xs md:text-sm font-bold text-gray-600 block mb-1.5 md:mb-2">Item Type *</label>
                     <div className="relative">
                       <select 
                         value={form.itemType} 
                         onChange={(e) => update("itemType", e.target.value)} 
-                        className="w-full px-4 py-3.5 rounded-xl border border-gray-200 bg-white text-sm font-medium outline-none focus:border-[#4820C5] focus:ring-1 focus:ring-[#4820C5] appearance-none"
+                        className="w-full px-4 py-3.5 md:py-4 rounded-xl border border-gray-200 bg-white text-sm md:text-base font-medium outline-none focus:border-[#4820C5] focus:ring-1 focus:ring-[#4820C5] appearance-none"
                       >
                         <option value="Gold">Gold</option>
                         <option value="Silver">Silver</option>
                       </select>
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 text-xs">▼</div>
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 text-xs md:text-sm">▼</div>
                     </div>
                   </div>
                   <Input 
@@ -368,27 +370,27 @@ export default function AddGirvi() {
                 />
 
                 <div>
-                  <label className="text-xs font-bold text-gray-600 block mb-2">Item Photo</label>
-                  <div className="flex flex-wrap gap-3">
+                  <label className="text-xs md:text-sm font-bold text-gray-600 block mb-2 md:mb-3">Item Photo</label>
+                  <div className="flex flex-wrap gap-3 md:gap-4">
                     {photoPreview && (
-                      <div className="relative w-[100px] h-[100px] rounded-xl overflow-hidden border border-gray-200 group">
+                      <div className="relative w-[100px] h-[100px] md:w-[120px] md:h-[120px] rounded-xl overflow-hidden border border-gray-200 group shadow-sm">
                         <img src={photoPreview} alt="Item" className="w-full h-full object-cover" />
                         <button 
                           onClick={() => { setPhoto(null); setPhotoPreview(""); }}
-                          className="absolute top-1 right-1 bg-black/60 text-white w-6 h-6 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition"
+                          className="absolute top-1.5 right-1.5 bg-black/60 text-white w-7 h-7 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition shadow-md"
                         >
-                          <FaTimes className="text-[10px]" />
+                          <FaTimes className="text-[12px]" />
                         </button>
                       </div>
                     )}
                     
-                    <label className="w-[100px] h-[100px] rounded-xl border-2 border-dashed border-purple-200 bg-purple-50/50 flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-purple-50 transition text-[#4820C5]">
-                      <FaPlus />
-                      <span className="text-xs font-semibold">Add</span>
+                    <label className="w-[100px] h-[100px] md:w-[120px] md:h-[120px] rounded-xl border-2 border-dashed border-purple-200 bg-purple-50/50 flex flex-col items-center justify-center gap-1.5 md:gap-2 cursor-pointer hover:bg-purple-50 transition text-[#4820C5]">
+                      <FaPlus className="md:text-lg" />
+                      <span className="text-xs md:text-sm font-semibold">Add</span>
                       <input type="file" accept="image/*" hidden onChange={(e) => handlePhotoChange(e.target.files?.[0] || null)} />
                     </label>
                   </div>
-                  {errors.photo && <p className="text-red-500 text-xs mt-1">{errors.photo}</p>}
+                  {errors.photo && <p className="text-red-500 text-xs md:text-sm mt-2">{errors.photo}</p>}
                 </div>
               </div>
             </div>
@@ -397,12 +399,12 @@ export default function AddGirvi() {
           {/* ================= STEP 3: LOAN DETAILS ================= */}
           {currentStep === 3 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Loan Information</h2>
-              <div className="space-y-5">
+              <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6">Loan Information</h2>
+              <div className="space-y-5 md:space-y-6">
                 
                 <div>
-                  <label className="text-xs font-bold text-gray-600 block mb-1.5">Estimated Value</label>
-                  <div className="w-full px-4 py-3.5 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 font-bold text-sm">
+                  <label className="text-xs md:text-sm font-bold text-gray-600 block mb-1.5 md:mb-2">Estimated Value</label>
+                  <div className="w-full px-4 py-3.5 md:py-4 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 font-bold text-sm md:text-base">
                     ₹ {totalValue.toLocaleString('en-IN', { minimumFractionDigits: 0 })}
                   </div>
                 </div>
@@ -415,21 +417,24 @@ export default function AddGirvi() {
                   error={errors.interestRate} 
                 />
 
-                <Input 
-                  label="Girvi Date *" 
-                  type="date" 
-                  value={form.girviDate} 
-                  onChange={(v: any) => update("girviDate", v)} 
-                  error={errors.girviDate} 
-                />
+                {/* Responsive Grid for Dates */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 md:gap-6">
+                  <Input 
+                    label="Girvi Date *" 
+                    type="date" 
+                    value={form.girviDate} 
+                    onChange={(v: any) => update("girviDate", v)} 
+                    error={errors.girviDate} 
+                  />
 
-                <Input 
-                  label="Maturity Date *" 
-                  type="date" 
-                  value={form.maturityDate} 
-                  onChange={(v: any) => update("maturityDate", v)} 
-                  error={errors.maturityDate} 
-                />
+                  <Input 
+                    label="Maturity Date *" 
+                    type="date" 
+                    value={form.maturityDate} 
+                    onChange={(v: any) => update("maturityDate", v)} 
+                    error={errors.maturityDate} 
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -437,30 +442,40 @@ export default function AddGirvi() {
           {/* ================= STEP 4: REVIEW ================= */}
           {currentStep === 4 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Review Information</h2>
+              <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6">Review Information</h2>
               
-              <div className="bg-gray-50 rounded-2xl border border-gray-100 p-5 space-y-4 text-sm">
-                <ReviewRow label="Customer" value={customerName} />
-                <ReviewRow label="Item Name" value={form.itemName} />
-                <ReviewRow label="Item Type" value={form.itemType} />
-                <ReviewRow label="Weight" value={`${form.itemWeightGram} Grams`} />
-                <ReviewRow label="Rate" value={`₹ ${form.ratePerGram} / gm`} />
-                <ReviewRow label="Calculated Value" value={`₹ ${totalValue.toLocaleString('en-IN')}`} isHighlight />
-                <ReviewRow label="Interest Rate" value={`${form.interestRate}%`} />
-                <ReviewRow label="Girvi Date" value={form.girviDate} />
-                <ReviewRow label="Maturity Date" value={form.maturityDate} />
+              <div className="space-y-4 md:space-y-6">
+                  <ItemSummaryCard 
+                    photo={photoPreview} 
+                    name={form.itemName} 
+                    type={form.itemType} 
+                    weight={`${form.itemWeightGram} gram`} 
+                  />
+                  
+                  {/* Grid on desktop, stack on mobile */}
+                  <div className="bg-gray-50 rounded-2xl border border-gray-100 p-5 md:p-8 text-sm md:text-base">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 sm:gap-y-6">
+                      <ReviewRow label="Customer" value={customerName} />
+                      <ReviewRow label="Interest Rate" value={`${form.interestRate}%`} />
+                      <ReviewRow label="Girvi Date" value={form.girviDate} />
+                      <ReviewRow label="Maturity Date" value={form.maturityDate} />
+                    </div>
+                    <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-200">
+                      <ReviewRow label="Calculated Value" value={`₹ ${totalValue.toLocaleString('en-IN')}`} isHighlight />
+                    </div>
+                  </div>
               </div>
             </div>
           )}
 
           {/* ================= FOOTER BUTTONS ================= */}
-          <div className="flex items-center justify-between mt-10 pt-6 border-t border-gray-100">
+          <div className="flex items-center justify-between mt-10 md:mt-12 pt-6 md:pt-8 border-t border-gray-100">
             {currentStep > 1 ? (
               <button
                 onClick={prevStep}
-                className="text-[#4820C5] font-bold px-4 py-3 flex items-center gap-2 hover:bg-purple-50 rounded-xl transition"
+                className="text-[#4820C5] font-bold px-4 py-3 md:px-6 md:py-3.5 flex items-center gap-2 hover:bg-purple-50 rounded-xl transition md:text-lg"
               >
-                <FaArrowLeft className="text-sm" /> Previous
+                <FaArrowLeft className="text-sm md:text-base" /> Previous
               </button>
             ) : (
               <div></div> // Empty div for flex spacing
@@ -469,20 +484,20 @@ export default function AddGirvi() {
             {currentStep < 4 ? (
               <button
                 onClick={nextStep}
-                className="bg-[#4820C5] hover:bg-[#3d1aab] text-white font-bold px-8 py-3.5 rounded-xl flex items-center gap-2 transition shadow-md shadow-purple-200"
+                className="bg-[#4820C5] hover:bg-[#3d1aab] text-white font-bold px-8 py-3.5 md:px-10 md:py-4 rounded-xl flex items-center gap-2 transition shadow-md shadow-purple-200 md:text-lg"
               >
-                Next Step <FaArrowRight className="text-sm" />
+                Next Step <FaArrowRight className="text-sm md:text-base" />
               </button>
             ) : (
               <button
                 onClick={saveGirvi}
                 disabled={loading}
-                className="bg-[#4820C5] hover:bg-[#3d1aab] disabled:bg-gray-400 text-white font-bold px-8 py-3.5 rounded-xl flex items-center gap-2 transition shadow-md shadow-purple-200"
+                className={`font-bold px-8 py-3.5 md:px-10 md:py-4 rounded-xl flex items-center gap-2 transition shadow-md md:text-lg ${loading ? 'bg-gray-400 text-white' : 'bg-[#28A745] hover:bg-[#218838] text-white shadow-xl shadow-green-200/50'}`}
               >
                 {loading ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <div className="w-5 h-5 md:w-6 md:h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                 ) : (
-                  <><FaSave className="text-lg" /> Save Girvi</>
+                  <><FaCheck className="text-lg md:text-xl" /> Save Girvi</>
                 )}
               </button>
             )}
@@ -491,6 +506,7 @@ export default function AddGirvi() {
         </div>
       </div>
       
+      {/* Hidden on desktop since it's a mobile bottom nav */}
       <div className="xl:hidden"><DealerBottomNav /></div>
     </div>
   );
@@ -500,25 +516,48 @@ export default function AddGirvi() {
 function Input({ label, value, onChange, type = "text", placeholder, error }: any) {
   return (
     <div>
-      <label className="text-xs font-bold text-gray-600 block mb-1.5">{label}</label>
+      <label className="text-xs md:text-sm font-bold text-gray-600 block mb-1.5 md:mb-2">{label}</label>
       <input
         type={type}
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className={`w-full px-4 py-3.5 rounded-xl border bg-white text-sm font-medium outline-none transition
+        className={`w-full px-4 py-3.5 md:py-4 rounded-xl border bg-white text-sm md:text-base font-medium outline-none transition
           ${error ? "border-red-400 focus:ring-1 focus:ring-red-400" : "border-gray-200 focus:border-[#4820C5] focus:ring-1 focus:ring-[#4820C5]"}`}
       />
-      {error && <p className="text-red-500 text-xs mt-1 font-medium">{error}</p>}
+      {error && <p className="text-red-500 text-xs md:text-sm mt-1.5 font-medium">{error}</p>}
     </div>
   );
 }
 
 function ReviewRow({ label, value, isHighlight = false }: { label: string, value: string, isHighlight?: boolean }) {
+  // Mobile uses borders, desktop relies on grid spacing. So we apply border-b mainly for sm (mobile) screens where they stack.
   return (
-    <div className={`flex items-center justify-between pb-2 border-b border-gray-100 last:border-0 last:pb-0 ${isHighlight ? 'text-[#4820C5] pt-2' : ''}`}>
-      <span className={`text-xs font-semibold ${isHighlight ? 'opacity-80' : 'text-gray-500'}`}>{label}</span>
-      <span className={`font-bold ${isHighlight ? 'text-lg' : 'text-gray-900'}`}>{value}</span>
+    <div className={`flex items-center justify-between pb-3 sm:pb-0 border-b border-gray-100 sm:border-b-0 last:border-0 last:pb-0 ${isHighlight ? 'text-[#4820C5]' : ''}`}>
+      <span className={`text-xs md:text-sm font-semibold ${isHighlight ? 'opacity-80 md:text-base' : 'text-gray-500'}`}>{label}</span>
+      <span className={`font-bold ${isHighlight ? 'text-xl md:text-2xl' : 'text-gray-900 md:text-base'}`}>{value}</span>
+    </div>
+  );
+}
+
+function ItemSummaryCard({ photo, name, type, weight }: { photo: string | null; name: string; type: string; weight: string }) {
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 p-4 md:p-6 flex items-center gap-4 md:gap-6 shadow-sm">
+      {photo ? (
+        <img src={photo} className="w-20 h-20 md:w-28 md:h-28 rounded-xl md:rounded-2xl object-cover shadow-sm" alt="Item" />
+      ) : (
+        <div className="w-20 h-20 md:w-28 md:h-28 rounded-xl md:rounded-2xl bg-purple-50 flex items-center justify-center text-purple-600">
+          <FaCoins size={28} className="md:w-10 md:h-10" />
+        </div>
+      )}
+      <div className="flex-1">
+        <p className="font-bold text-gray-900 text-base md:text-xl">{name || "Unnamed Item"}</p>
+        <div className="flex items-center gap-2 mt-2 md:mt-3">
+           <span className={`px-2.5 py-1 md:px-3 md:py-1.5 rounded-full text-[10px] md:text-xs font-bold ${type === 'Gold' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700'}`}>{type}</span>
+           <span className="px-2.5 py-1 md:px-3 md:py-1.5 rounded-full bg-green-100 text-green-700 text-[10px] md:text-xs font-bold">22K (916)</span>
+        </div>
+        <p className="font-semibold text-gray-700 text-sm md:text-base mt-2 md:mt-3">{weight}</p>
+      </div>
     </div>
   );
 }
