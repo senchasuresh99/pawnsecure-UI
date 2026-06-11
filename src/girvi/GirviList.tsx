@@ -233,6 +233,46 @@ export default function GirviList() {
     }
   }
 
+  async function handleRenewGirvi(girviId?: number) {
+    if (!girviId) {
+      alert("Invalid Girvi Record Identifier");
+      return;
+    }
+
+    const confirmRenew = window.confirm("Are you sure you want to renew this loan application record?");
+    if (!confirmRenew) return;
+
+    const dealerId = localStorage.getItem("ps_dealer_id");
+    const token = localStorage.getItem("ps_token");
+
+    if (!dealerId || !token) {
+      alert("Authentication tokens expired. Please re-authenticate login session.");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/girvi/${girviId}/renew`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-DEALER-ID": dealerId,
+        },
+      });
+
+      if (!res.ok) {
+        const message = await res.text();
+        alert(message || "Backend configuration rejected loan renewal sequence.");
+        return;
+      }
+
+      alert("Girvi secure asset portfolio loan configuration extended/renewed successfully.");
+      fetchGirviList();
+    } catch (err) {
+      console.error("Renewal transaction failure:", err);
+      alert("Network subsystem interface uncommunicative. Try execution again later.");
+    }
+  }
+
   function openEditModal(item: GirviResponseDTO) {
     setSelectedGirvi(item);
 
@@ -396,7 +436,8 @@ export default function GirviList() {
     <div className="min-h-screen bg-[#f4f5f7] font-sans">
       {/* ================= DESKTOP SIDEBAR & VIEW ================= */}
       <div className="hidden lg:flex min-h-screen">
-        <aside className="w-66 bg-white border-r border-gray-200 px-5 py-6 fixed left-0 top-0 bottom-0 z-20">
+        {/* Fixed layout tracking: updated tracking width values from w-66/ml-66 to standard w-72/ml-72 layout blocks */}
+        <aside className="w-72 bg-white border-r border-gray-200 px-5 py-6 fixed left-0 top-0 bottom-0 z-20">
           <div className="flex items-center gap-3 mb-10 px-2">
             <div className="w-11 h-11 rounded-xl bg-purple-100 flex items-center justify-center shrink-0">
               <img
@@ -442,7 +483,7 @@ export default function GirviList() {
           </nav>
         </aside>
 
-        <main className="ml-66 flex-1 overflow-x-hidden">
+        <main className="ml-72 flex-1 overflow-x-hidden">
           <div className="h-20 bg-white border-b border-gray-100 px-8 flex items-center justify-between sticky top-0 z-30">
             <div>
               <h2 className="text-xl font-bold text-gray-900">Girvi Records</h2>
@@ -470,6 +511,7 @@ export default function GirviList() {
               formatDate={formatDate}
               getStatusClass={getStatusClass}
               openEditModal={openEditModal}
+              handleRenewGirvi={handleRenewGirvi}
               page={page}
               size={size}
               totalPages={totalPages}
@@ -482,7 +524,6 @@ export default function GirviList() {
 
       {/* ================= MOBILE VIEW (MATCHING NEW DESIGN) ================= */}
       <div className="lg:hidden pb-24">
-        {/* Modern Curved Upper Background Banner */}
         <div className="bg-[#4820C5] text-white pt-7 pb-20 px-5 rounded-b-[32px] shadow-sm relative">
           <div className="flex items-center justify-between mb-5">
             <button 
@@ -515,7 +556,6 @@ export default function GirviList() {
           </div>
         </div>
 
-        {/* Content Container Overlapping the Banner Header */}
         <div className="px-4 -mt-10 relative z-10">
           <MobileRecordsPanel
             loading={loading}
@@ -529,6 +569,7 @@ export default function GirviList() {
             formatDate={formatDate}
             getStatusClass={getStatusClass}
             openEditModal={openEditModal}
+            handleRenewGirvi={handleRenewGirvi}
             page={page}
             size={size}
             totalPages={totalPages}
@@ -537,7 +578,6 @@ export default function GirviList() {
           />
         </div>
 
-        {/* Bottom Nav Section */}
         <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 flex justify-around py-3 z-50 shadow-xl">
           <button
             onClick={() => navigate("/dealer/dashboard")}
@@ -601,12 +641,12 @@ function RecordsPanel({
   totalElements,
   search,
   setSearch,
-  goToAddGirvi,
   getImageSrc,
   formatCurrency,
   formatDate,
   getStatusClass,
   openEditModal,
+  handleRenewGirvi,
   page,
   size,
   totalPages,
@@ -667,7 +707,7 @@ function RecordsPanel({
                   <th className="py-4 px-4 font-bold text-xs uppercase tracking-wider text-gray-400">Girvi Date</th>
                   <th className="py-4 px-4 font-bold text-xs uppercase tracking-wider text-gray-400">Maturity Date</th>
                   <th className="py-4 px-4 font-bold text-xs uppercase tracking-wider text-gray-400 text-center">Status</th>
-                  <th className="py-4 px-4 font-bold text-xs uppercase tracking-wider text-gray-400 text-right">Actions</th>
+                  <th className="py-4 px-4 font-bold text-xs uppercase tracking-wider text-gray-400 text-center">Actions</th>
                 </tr>
               </thead>
 
@@ -741,15 +781,25 @@ function RecordsPanel({
                         </span>
                       </td>
 
-                      <td className="py-4 px-4 text-right">
-                        <button
-                          type="button"
-                          onClick={() => openEditModal(item)}
-                          className="inline-flex bg-purple-50 hover:bg-purple-100 text-[#4820C5] px-3.5 py-2 rounded-xl font-bold text-xs items-center gap-1.5 transition ml-auto"
-                        >
-                          <FaEdit />
-                          Edit
-                        </button>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(item)}
+                            className="inline-flex bg-purple-50 hover:bg-purple-100 text-[#4820C5] px-3 py-2 rounded-xl font-bold text-xs items-center gap-1.5 transition"
+                          >
+                            <FaEdit />
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRenewGirvi(item.id)}
+                            className="inline-flex bg-green-50 hover:bg-green-100 text-[#28A745] px-3 py-2 rounded-xl font-bold text-xs items-center gap-1.5 transition"
+                          >
+                            <FaSyncAlt className="text-[10px]" />
+                            Renew
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -789,6 +839,7 @@ function MobileRecordsPanel({
   formatDate,
   getStatusClass,
   openEditModal,
+  handleRenewGirvi,
   page,
   size,
   totalPages,
@@ -797,7 +848,6 @@ function MobileRecordsPanel({
 }: any) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-xl p-4">
-      {/* Search Input */}
       <div className="flex items-center border border-gray-200 rounded-xl px-3 py-3 bg-gray-50/50 mb-5 focus-within:border-[#4820C5] transition">
         <FaSearch className="text-gray-400 mr-2.5 text-sm" />
         <input
@@ -833,7 +883,6 @@ function MobileRecordsPanel({
               key={item.id || `${item.customerId}-${index}`}
               className="border border-gray-100 rounded-2xl p-4 mb-4 bg-white shadow-sm hover:shadow-md transition-shadow"
             >
-              {/* Top Row: Photo + Item Core Data */}
               <div className="flex gap-4 items-start">
                 {imageSrc ? (
                   <img
@@ -877,7 +926,6 @@ function MobileRecordsPanel({
                 </div>
               </div>
 
-              {/* Attributes Compartment Grid Layout */}
               <div className="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-gray-50">
                 <InfoBox
                   label="Loan Amount"
@@ -898,7 +946,6 @@ function MobileRecordsPanel({
                 />
               </div>
 
-              {/* Dual Layout Action Buttons Footer */}
               <div className="grid grid-cols-2 gap-2 mt-4">
                 <button
                   type="button"
@@ -910,7 +957,7 @@ function MobileRecordsPanel({
                 </button>
                 <button
                   type="button"
-                  onClick={() => alert("Renew functionality triggered via context api integration.")}
+                  onClick={() => handleRenewGirvi(item.id)}
                   className="bg-[#28A745]/5 hover:bg-[#28A745]/10 text-[#28A745] py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition"
                 >
                   <FaSyncAlt className="text-[10px]" />
@@ -1130,6 +1177,7 @@ function PhotoPlaceholder({ size }: { size: "sm" | "lg" }) {
   );
 }
 
+// Compact structural layout component
 function InfoBox({ label, value, isPrimary = false }: { label: string; value: string; isPrimary?: boolean }) {
   return (
     <div className="bg-gray-50/70 rounded-xl p-2.5 border border-gray-100/50">
