@@ -239,7 +239,9 @@ export default function GirviList() {
       return;
     }
 
-    const confirmRenew = window.confirm("Are you sure you want to renew this loan application record?");
+    const confirmRenew = window.confirm(
+      "Are you sure you want to renew this loan application record?"
+    );
     if (!confirmRenew) return;
 
     const dealerId = localStorage.getItem("ps_dealer_id");
@@ -265,7 +267,9 @@ export default function GirviList() {
         return;
       }
 
-      alert("Girvi secure asset portfolio loan configuration extended/renewed successfully.");
+      alert(
+        "Girvi secure asset portfolio loan configuration extended/renewed successfully."
+      );
       fetchGirviList();
     } catch (err) {
       console.error("Renewal transaction failure:", err);
@@ -436,7 +440,6 @@ export default function GirviList() {
     <div className="min-h-screen bg-[#f4f5f7] font-sans">
       {/* ================= DESKTOP SIDEBAR & VIEW ================= */}
       <div className="hidden lg:flex min-h-screen">
-        {/* Fixed layout tracking: updated tracking width values from w-66/ml-66 to standard w-72/ml-72 layout blocks */}
         <aside className="w-72 bg-white border-r border-gray-200 px-5 py-6 fixed left-0 top-0 bottom-0 z-20">
           <div className="flex items-center gap-3 mb-10 px-2">
             <div className="w-11 h-11 rounded-xl bg-purple-100 flex items-center justify-center shrink-0">
@@ -448,7 +451,9 @@ export default function GirviList() {
             </div>
             <div>
               <h1 className="text-lg font-bold text-[#4820C5]">PawnSecure</h1>
-              <p className="text-[11px] text-gray-400 font-medium tracking-wide uppercase">Dealer Portal</p>
+              <p className="text-[11px] text-gray-400 font-medium tracking-wide uppercase">
+                Dealer Portal
+              </p>
             </div>
           </div>
 
@@ -487,7 +492,9 @@ export default function GirviList() {
           <div className="h-20 bg-white border-b border-gray-100 px-8 flex items-center justify-between sticky top-0 z-30">
             <div>
               <h2 className="text-xl font-bold text-gray-900">Girvi Records</h2>
-              <p className="text-xs text-gray-400 font-medium">Manage and review secure customer pledge listings</p>
+              <p className="text-xs text-gray-400 font-medium">
+                Manage and review secure customer pledge listings
+              </p>
             </div>
             <button
               onClick={goToAddGirvi}
@@ -505,7 +512,6 @@ export default function GirviList() {
               totalElements={totalElements}
               search={search}
               setSearch={setSearch}
-              goToAddGirvi={goToAddGirvi}
               getImageSrc={getImageSrc}
               formatCurrency={formatCurrency}
               formatDate={formatDate}
@@ -522,12 +528,12 @@ export default function GirviList() {
         </main>
       </div>
 
-      {/* ================= MOBILE VIEW (MATCHING NEW DESIGN) ================= */}
+      {/* ================= MOBILE VIEW ================= */}
       <div className="lg:hidden pb-24">
         <div className="bg-[#4820C5] text-white pt-7 pb-20 px-5 rounded-b-[32px] shadow-sm relative">
           <div className="flex items-center justify-between mb-5">
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={() => navigate("/dealer/dashboard")}
               className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition"
             >
@@ -536,7 +542,9 @@ export default function GirviList() {
 
             <div className="text-center">
               <h1 className="font-bold text-lg tracking-tight">Girvi Records</h1>
-              <p className="text-[10px] opacity-75 font-semibold tracking-wider uppercase">PawnSecure</p>
+              <p className="text-[10px] opacity-75 font-semibold tracking-wider uppercase">
+                PawnSecure
+              </p>
             </div>
 
             <button
@@ -549,7 +557,9 @@ export default function GirviList() {
           </div>
 
           <div className="mt-4">
-            <h2 className="text-2xl font-extrabold tracking-tight">All Active Girvi</h2>
+            <h2 className="text-2xl font-extrabold tracking-tight">
+              All Active Girvi
+            </h2>
             <p className="text-xs opacity-80 font-medium mt-1">
               Total Records Logged: {totalElements}
             </p>
@@ -613,7 +623,6 @@ export default function GirviList() {
         </div>
       </div>
 
-      {/* ================= EDIT MODAL ================= */}
       {showEditModal && selectedGirvi && (
         <EditModal
           selectedGirvi={selectedGirvi}
@@ -693,119 +702,134 @@ function RecordsPanel({
 
       {!loading && !error && filteredList.length > 0 && (
         <>
-          <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-sm">
-            <table className="w-full text-sm min-w-[1050px]">
-              <thead>
-                <tr className="text-left text-gray-500 bg-gray-50/70 border-b border-gray-100">
-                  <th className="py-4 px-4 font-bold text-xs uppercase tracking-wider text-gray-400">Photo</th>
-                  <th className="py-4 px-4 font-bold text-xs uppercase tracking-wider text-gray-400">Customer Details</th>
-                  <th className="py-4 px-4 font-bold text-xs uppercase tracking-wider text-gray-400">Item Name</th>
-                  <th className="py-4 px-4 font-bold text-xs uppercase tracking-wider text-gray-400">Type</th>
-                  <th className="py-4 px-4 font-bold text-xs uppercase tracking-wider text-gray-400">Weight</th>
-                  <th className="py-4 px-4 font-bold text-xs uppercase tracking-wider text-gray-400">Loan Amount</th>
-                  <th className="py-4 px-4 font-bold text-xs uppercase tracking-wider text-gray-400">Interest</th>
-                  <th className="py-4 px-4 font-bold text-xs uppercase tracking-wider text-gray-400">Girvi Date</th>
-                  <th className="py-4 px-4 font-bold text-xs uppercase tracking-wider text-gray-400">Maturity Date</th>
-                  <th className="py-4 px-4 font-bold text-xs uppercase tracking-wider text-gray-400 text-center">Status</th>
-                  <th className="py-4 px-4 font-bold text-xs uppercase tracking-wider text-gray-400 text-center">Actions</th>
-                </tr>
-              </thead>
+          <div className="space-y-4">
+            {filteredList.map((item: GirviResponseDTO, index: number) => {
+              const imageSrc = getImageSrc(item);
+              const typeLower = String(item.itemType || "").toLowerCase();
 
-              <tbody className="divide-y divide-gray-100">
-                {filteredList.map((item: GirviResponseDTO, index: number) => {
-                  const imageSrc = getImageSrc(item);
+              return (
+                <div
+                  key={item.id || `${item.customerId}-${index}`}
+                  className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-purple-100 transition"
+                >
+                  <div className="grid grid-cols-12 gap-4 items-center">
+                    <div className="col-span-1">
+                      {imageSrc ? (
+                        <img
+                          src={imageSrc}
+                          alt={item.itemName || "Item asset"}
+                          className="w-14 h-14 rounded-xl object-cover border border-gray-100 bg-white shadow-sm"
+                        />
+                      ) : (
+                        <PhotoPlaceholder size="sm" />
+                      )}
+                    </div>
 
-                  return (
-                    <tr
-                      key={item.id || `${item.customerId}-${index}`}
-                      className="hover:bg-purple-50/30 transition-colors duration-150"
-                    >
-                      <td className="py-4 px-4">
-                        {imageSrc ? (
-                          <img
-                            src={imageSrc}
-                            alt={item.itemName || "Item asset"}
-                            className="w-14 h-14 rounded-xl object-cover border border-gray-100 bg-white shadow-sm"
-                          />
-                        ) : (
-                          <PhotoPlaceholder size="sm" />
-                        )}
-                      </td>
+                    <div className="col-span-3 min-w-0">
+                      <p className="font-extrabold text-gray-900 text-sm truncate">
+                        {item.customerName || "-"}
+                      </p>
+                      <p className="text-xs text-gray-400 font-medium mt-0.5">
+                        Customer ID: {item.customerId || "-"}
+                      </p>
 
-                      <td className="py-4 px-4">
-                        <p className="font-bold text-gray-900 text-sm">
-                          {item.customerName || "-"}
+                      <div className="mt-3">
+                        <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">
+                          Item
                         </p>
-                        <p className="text-xs text-gray-400 font-medium mt-0.5">
-                          ID: {item.customerId || "-"}
+                        <p className="font-bold text-gray-900 text-sm leading-snug break-words">
+                          {item.itemName || "-"}
                         </p>
-                      </td>
+                      </div>
+                    </div>
 
-                      <td className="py-4 px-4 font-bold text-gray-900 text-sm">
-                        {item.itemName || "-"}
-                      </td>
+                    <div className="col-span-2">
+                      <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-2">
+                        Asset Details
+                      </p>
 
-                      <td className="py-4 px-4">
-                        <span className={`px-2.5 py-1 rounded-md text-xs font-bold ${item.itemType === 'Gold' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-700'}`}>
-                          {item.itemType || "-"}
-                        </span>
-                      </td>
+                      <span
+                        className={`inline-block px-2.5 py-1 rounded-md text-[11px] font-bold ${
+                          typeLower === "gold"
+                            ? "bg-amber-50 text-amber-700"
+                            : "bg-slate-100 text-slate-700"
+                        }`}
+                      >
+                        {item.itemType || "-"}
+                      </span>
 
-                      <td className="py-4 px-4 font-semibold text-gray-700">
+                      <p className="text-sm font-bold text-gray-700 mt-2">
                         {item.itemWeightGram || 0} gm
-                      </td>
+                      </p>
+                    </div>
 
-                      <td className="py-4 px-4 font-extrabold text-green-600 text-sm">
+                    <div className="col-span-2">
+                      <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">
+                        Loan Amount
+                      </p>
+
+                      <p className="font-black text-green-600 text-base mt-1">
                         {formatCurrency(item.loanAmount)}
-                      </td>
+                      </p>
 
-                      <td className="py-4 px-4 font-medium text-gray-600">
-                        {item.interestRate || 0}%
-                      </td>
-
-                      <td className="py-4 px-4 text-xs font-medium text-gray-500">
-                        {formatDate(item.girviDate)}
-                      </td>
-
-                      <td className="py-4 px-4 text-xs font-medium text-gray-500">
-                        {formatDate(item.maturityDate)}
-                      </td>
-
-                      <td className="py-4 px-4 text-center">
-                        <span
-                          className={`px-3 py-1 rounded-full border text-[11px] font-extrabold tracking-wide uppercase ${getStatusClass(
-                            item.status
-                          )}`}
-                        >
-                          {item.status || "ACTIVE"}
+                      <p className="text-xs text-gray-400 mt-2">
+                        Interest:{" "}
+                        <span className="font-bold text-gray-700">
+                          {item.interestRate || 0}%
                         </span>
-                      </td>
+                      </p>
+                    </div>
 
-                      <td className="py-4 px-4">
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => openEditModal(item)}
-                            className="inline-flex bg-purple-50 hover:bg-purple-100 text-[#4820C5] px-3 py-2 rounded-xl font-bold text-xs items-center gap-1.5 transition"
-                          >
-                            <FaEdit />
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleRenewGirvi(item.id)}
-                            className="inline-flex bg-green-50 hover:bg-green-100 text-[#28A745] px-3 py-2 rounded-xl font-bold text-xs items-center gap-1.5 transition"
-                          >
-                            <FaSyncAlt className="text-[10px]" />
-                            Renew
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                    <div className="col-span-2">
+                      <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">
+                        Timeline
+                      </p>
+
+                      <div className="mt-1 text-xs font-medium text-gray-600 leading-relaxed">
+                        <p>
+                          <span className="text-gray-400">Start:</span>{" "}
+                          {formatDate(item.girviDate)}
+                        </p>
+                        <p>
+                          <span className="text-gray-400">Maturity:</span>{" "}
+                          {formatDate(item.maturityDate)}
+                        </p>
+                      </div>
+
+                      <span
+                        className={`inline-block mt-2 px-3 py-1 rounded-full border text-[10px] font-extrabold tracking-wide uppercase ${getStatusClass(
+                          item.status
+                        )}`}
+                      >
+                        {item.status || "ACTIVE"}
+                      </span>
+                    </div>
+
+                    <div className="col-span-2">
+                      <div className="flex flex-col gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(item)}
+                          className="w-full bg-purple-50 hover:bg-purple-100 text-[#4820C5] px-3 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition"
+                        >
+                          <FaEdit />
+                          Edit
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRenewGirvi(item.id)}
+                          className="w-full bg-green-50 hover:bg-green-100 text-[#28A745] px-3 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition"
+                        >
+                          <FaSyncAlt className="text-[10px]" />
+                          Renew
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           <Pagination
@@ -909,7 +933,13 @@ function MobileRecordsPanel({
                   </div>
 
                   <div className="flex items-center gap-2 mt-1">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${item.itemType === 'Gold' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-700'}`}>
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        item.itemType === "Gold"
+                          ? "bg-amber-50 text-amber-700"
+                          : "bg-slate-100 text-slate-700"
+                      }`}
+                    >
                       {item.itemType || "-"}
                     </span>
                     <span className="text-xs font-bold text-gray-500">
@@ -936,13 +966,10 @@ function MobileRecordsPanel({
                   label="Interest Rate"
                   value={`${item.interestRate || 0}%`}
                 />
-                <InfoBox 
-                  label="Girvi Date" 
-                  value={formatDate(item.girviDate)} 
-                />
-                <InfoBox 
-                  label="Maturity Date" 
-                  value={formatDate(item.maturityDate)} 
+                <InfoBox label="Girvi Date" value={formatDate(item.girviDate)} />
+                <InfoBox
+                  label="Maturity Date"
+                  value={formatDate(item.maturityDate)}
                 />
               </div>
 
@@ -1001,7 +1028,9 @@ function EditModal({
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[92vh] flex flex-col border border-gray-100">
         <div className="bg-[#4820C5] text-white px-6 py-5 flex items-center justify-between sticky top-0 z-10">
           <div>
-            <h2 className="text-lg font-bold tracking-tight">Modify Girvi Entry</h2>
+            <h2 className="text-lg font-bold tracking-tight">
+              Modify Girvi Entry
+            </h2>
             <p className="text-xs opacity-80 font-medium mt-0.5">
               Customer Account: {selectedGirvi.customerName}
             </p>
@@ -1082,7 +1111,9 @@ function EditModal({
 
           <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 flex justify-between items-center">
             <div>
-              <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Recalculated Loan Value</p>
+              <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">
+                Recalculated Loan Value
+              </p>
               <p className="text-2xl font-black text-green-600 mt-0.5">
                 {formatCurrency(
                   Number(editForm.itemWeightGram || 0) *
@@ -1154,7 +1185,9 @@ function EmptyState() {
       <div className="w-14 h-14 rounded-full bg-purple-50 text-[#4820C5] flex items-center justify-center mx-auto text-xl mb-3 shadow-inner">
         <FaBox />
       </div>
-      <h3 className="font-bold text-gray-800 text-base">No Matching Pledge Records</h3>
+      <h3 className="font-bold text-gray-800 text-base">
+        No Matching Pledge Records
+      </h3>
       <p className="text-xs text-gray-400 font-medium mt-1 max-w-xs mx-auto">
         Your current search parameter query could not locate database listings.
       </p>
@@ -1177,12 +1210,27 @@ function PhotoPlaceholder({ size }: { size: "sm" | "lg" }) {
   );
 }
 
-// Compact structural layout component
-function InfoBox({ label, value, isPrimary = false }: { label: string; value: string; isPrimary?: boolean }) {
+function InfoBox({
+  label,
+  value,
+  isPrimary = false,
+}: {
+  label: string;
+  value: string;
+  isPrimary?: boolean;
+}) {
   return (
     <div className="bg-gray-50/70 rounded-xl p-2.5 border border-gray-100/50">
-      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{label}</p>
-      <p className={`mt-0.5 font-bold ${isPrimary ? "text-green-600 text-sm font-extrabold" : "text-gray-800 text-xs"}`}>
+      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+        {label}
+      </p>
+      <p
+        className={`mt-0.5 font-bold ${
+          isPrimary
+            ? "text-green-600 text-sm font-extrabold"
+            : "text-gray-800 text-xs"
+        }`}
+      >
         {value}
       </p>
     </div>
@@ -1214,14 +1262,16 @@ function Pagination({
   return (
     <div className="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-t border-gray-100 pt-5">
       <div className="text-xs font-medium text-gray-400 text-center sm:text-left">
-        Showing <span className="font-bold text-gray-700">{startRecord}</span> to{" "}
-        <span className="font-bold text-gray-700">{endRecord}</span> of{" "}
+        Showing <span className="font-bold text-gray-700">{startRecord}</span>{" "}
+        to <span className="font-bold text-gray-700">{endRecord}</span> of{" "}
         <span className="font-bold text-gray-700">{totalElements}</span> items
       </div>
 
       <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Rows:</span>
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+            Rows:
+          </span>
           <select
             value={size}
             onChange={(e) => onSizeChange(Number(e.target.value))}
