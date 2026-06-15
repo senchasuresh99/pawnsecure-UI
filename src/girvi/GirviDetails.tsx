@@ -80,13 +80,38 @@ export default function AddGirvi() {
   ];
 
   function update(key: string, value: any) {
-    setForm((prev) => ({ ...prev, [key]: value }));
+  setForm((prev) => {
+    const next = {
+      ...prev,
+      [key]: value,
+    };
 
-    if (errors[key]) {
-      setErrors((prev) => ({ ...prev, [key]: "" }));
+    if (
+      key === "girviDate" &&
+      next.maturityDate &&
+      value &&
+      new Date(next.maturityDate) < new Date(value)
+    ) {
+      next.maturityDate = "";
     }
+
+    return next;
+  });
+
+  if (errors[key]) {
+    setErrors((prev) => ({
+      ...prev,
+      [key]: "",
+    }));
   }
 
+  if (key === "girviDate" && errors.maturityDate) {
+    setErrors((prev) => ({
+      ...prev,
+      maturityDate: "",
+    }));
+  }
+}
   useEffect(() => {
     if (navState?.customerId) {
       const incomingId = String(navState.customerId);
@@ -198,49 +223,60 @@ export default function AddGirvi() {
     setErrors((prev) => ({ ...prev, photo: "" }));
   }
 
-  function validateStep(step: number) {
-    const newErrors: Record<string, string> = {};
-    const customerId =
-      resolvedCustomerId || localStorage.getItem("ps_customer_id");
+function validateStep(step: number) {
+  const newErrors: Record<string, string> = {};
+  const customerId =
+    resolvedCustomerId || localStorage.getItem("ps_customer_id");
 
-    if (step === 1) {
-      if (!customerId) {
-        newErrors.customer =
-          "Customer not selected. Please go back and select a customer.";
-      }
+  if (step === 1) {
+    if (!customerId) {
+      newErrors.customer =
+        "Customer not selected. Please go back and select a customer.";
     }
-
-    if (step === 2) {
-      if (!form.itemName.trim()) {
-        newErrors.itemName = "Please enter item name";
-      }
-
-      if (!form.itemWeightGram || Number(form.itemWeightGram) <= 0) {
-        newErrors.itemWeightGram = "Enter valid weight";
-      }
-
-      if (!form.ratePerGram || Number(form.ratePerGram) <= 0) {
-        newErrors.ratePerGram = "Enter valid rate";
-      }
-    }
-
-    if (step === 3) {
-      if (form.interestRate === "" || Number(form.interestRate) < 0) {
-        newErrors.interestRate = "Enter valid interest rate";
-      }
-
-      if (!form.girviDate) {
-        newErrors.girviDate = "Select girvi date";
-      }
-
-      if (!form.maturityDate) {
-        newErrors.maturityDate = "Select maturity date";
-      }
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
   }
+
+  if (step === 2) {
+    if (!form.itemName.trim()) {
+      newErrors.itemName = "Please enter item name";
+    }
+
+    if (!form.itemWeightGram || Number(form.itemWeightGram) <= 0) {
+      newErrors.itemWeightGram = "Enter valid weight";
+    }
+
+    if (!form.ratePerGram || Number(form.ratePerGram) <= 0) {
+      newErrors.ratePerGram = "Enter valid rate";
+    }
+  }
+
+  if (step === 3) {
+    if (form.interestRate === "" || Number(form.interestRate) < 0) {
+      newErrors.interestRate = "Enter valid interest rate";
+    }
+
+    if (!form.girviDate) {
+      newErrors.girviDate = "Select girvi date";
+    }
+
+    if (!form.maturityDate) {
+      newErrors.maturityDate = "Select maturity date";
+    }
+
+    // Maturity Date should not be less than Girvi Date
+    if (form.girviDate && form.maturityDate) {
+      const girviDateObj = new Date(form.girviDate);
+      const maturityDateObj = new Date(form.maturityDate);
+
+      if (maturityDateObj < girviDateObj) {
+        newErrors.maturityDate =
+          "Maturity date cannot be before Girvi date";
+      }
+    }
+  }
+
+  setErrors(newErrors);
+  return Object.keys(newErrors).length === 0;
+}
 
   function nextStep() {
     if (validateStep(currentStep)) {
@@ -300,220 +336,113 @@ export default function AddGirvi() {
 
     if (!authToken || !currentDealerId || !invoiceId) return null;
 
-    const headers = {
-      Authorization: `Bearer ${authToken}`,
-      "X-DEALER-ID": currentDealerId,
-    };
+    try {
+      const res = await fetch(`${API_BASE}/invoices/${invoiceId}/details`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          "X-DEALER-ID": currentDealerId,
+        },
+      });
 
-    const urls = [
-      `${API_BASE}/invoices/${invoiceId}`,
-      `${API_BASE}/invoices/${invoiceId}/details`,
-    ];
-
-    for (const url of urls) {
-      try {
-        const res = await fetch(url, {
-          method: "GET",
-          headers,
-        });
-
-        if (res.ok) {
-          return await res.json();
-        }
-      } catch (err) {
-        console.warn("Invoice details fetch failed:", url, err);
+      if (!res.ok) {
+        console.warn("Invoice details API failed:", res.status);
+        return null;
       }
-    }
 
-    return null;
+      return await res.json();
+    } catch (err) {
+      console.warn("Invoice details fetch failed:", err);
+      return null;
+    }
   }
 
-  function buildCompleteInvoiceData({
-    savedGirvi,
+  function buildInvoiceDataFromBackend({
     invoiceDetails,
+    savedGirvi,
     invoiceId,
     invoiceNumber,
   }: {
-    savedGirvi: any;
     invoiceDetails: any;
+    savedGirvi: any;
     invoiceId: any;
     invoiceNumber: string;
   }) {
-    const invoice = invoiceDetails?.data || invoiceDetails || {};
-    const shop = invoice?.shop || invoice?.dealer || invoice?.shopDetails || {};
-    const customerObj =
-      invoice?.customer ||
-      invoice?.customerDetails ||
-      savedGirvi?.customer ||
-      customer ||
-      {};
-    const itemObj = invoice?.item || invoice?.itemDetails || {};
-    const loanObj = invoice?.loan || invoice?.loanDetails || {};
+    const data = invoiceDetails?.data || invoiceDetails || {};
 
     return {
       ...savedGirvi,
-      ...invoice,
+      ...data,
 
       invoiceId,
       invoiceNumber: firstValue(
-        invoice?.invoiceNumber,
+        data.invoiceNumber,
         savedGirvi?.invoiceNumber,
         invoiceNumber
       ),
 
-      shopName: firstValue(
-        invoice?.shopName,
-        shop?.shopName,
-        shop?.businessName,
-        savedGirvi?.shopName,
-        localStorage.getItem("ps_shop_name")
-      ),
-
-      dealerName: firstValue(
-        invoice?.dealerName,
-        shop?.dealerName,
-        shop?.name,
-        savedGirvi?.dealerName,
-        localStorage.getItem("ps_dealer_name")
-      ),
-
-      gstNumber: firstValue(
-        invoice?.gstNumber,
-        invoice?.gstin,
-        shop?.gstNumber,
-        shop?.gstin,
-        savedGirvi?.gstNumber
-      ),
-
+      shopName: firstValue(data.shopName, savedGirvi?.shopName),
+      gstNumber: firstValue(data.gstNumber, data.gstin, savedGirvi?.gstNumber),
+      dealerName: firstValue(data.dealerName, savedGirvi?.dealerName),
       dealerPhone: firstValue(
-        invoice?.dealerPhone,
-        invoice?.mobile,
-        invoice?.dealerMobile,
-        shop?.mobile,
-        shop?.phoneNumber,
-        shop?.dealerPhone,
-        shop?.dealerMobile,
-        savedGirvi?.dealerPhone,
-        localStorage.getItem("ps_dealer_phone")
+        data.dealerPhone,
+        data.dealerMobile,
+        savedGirvi?.dealerPhone
       ),
-
       shopAddress: firstValue(
-        invoice?.shopAddress,
-        invoice?.dealerShopAddress,
-        invoice?.address,
-        shop?.address,
-        shop?.shopAddress,
-        savedGirvi?.shopAddress,
-        savedGirvi?.dealerShopAddress,
-        localStorage.getItem("ps_shop_address")
+        data.shopAddress,
+        data.dealerShopAddress,
+        savedGirvi?.shopAddress
       ),
 
-      customerName: firstValue(
-        invoice?.customerName,
-        customerObj?.customerName,
-        customerObj?.fullName,
-        customerObj?.name,
-        savedGirvi?.customerName,
-        customerName
-      ),
-
+      customerId: firstValue(data.customerId, savedGirvi?.customerId),
+      customerName: firstValue(data.customerName, savedGirvi?.customerName),
       customerPhone: firstValue(
-        invoice?.customerPhone,
-        invoice?.customerPhoneNumber,
-        invoice?.phone,
-        invoice?.phoneNumber,
-        customerObj?.phone,
-        customerObj?.mobile,
-        customerObj?.phoneNumber,
-        savedGirvi?.customerPhone,
-        savedGirvi?.phoneNumber,
-        customer?.phone,
-        customer?.phoneNumber
+        data.customerPhone,
+        data.customerPhoneNumber,
+        data.phoneNumber,
+        savedGirvi?.customerPhone
       ),
-
       customerAddress: firstValue(
-        invoice?.customerAddress,
-        invoice?.customerAddr,
-        customerObj?.address,
-        customerObj?.customerAddress,
-        savedGirvi?.customerAddress,
-        customer?.address,
-        customer?.customerAddress
+        data.customerAddress,
+        savedGirvi?.customerAddress
       ),
 
-      customerId: firstValue(
-        invoice?.customerId,
-        customerObj?.id,
-        customerObj?.customerId,
-        savedGirvi?.customerId,
-        resolvedCustomerId
-      ),
-
-      itemName: firstValue(
-        invoice?.itemName,
-        itemObj?.itemName,
-        savedGirvi?.itemName,
-        form.itemName
-      ),
-
-      itemType: firstValue(
-        invoice?.itemType,
-        itemObj?.itemType,
-        savedGirvi?.itemType,
-        form.itemType
-      ),
-
+      itemName: firstValue(data.itemName, savedGirvi?.itemName, form.itemName),
+      itemType: firstValue(data.itemType, savedGirvi?.itemType, form.itemType),
       itemWeightGram: firstValue(
-        invoice?.itemWeightGram,
-        itemObj?.itemWeightGram,
-        itemObj?.weight,
+        data.itemWeightGram,
         savedGirvi?.itemWeightGram,
         form.itemWeightGram
       ),
-
       ratePerGram: firstValue(
-        invoice?.ratePerGram,
-        itemObj?.ratePerGram,
+        data.ratePerGram,
         savedGirvi?.ratePerGram,
         form.ratePerGram
       ),
 
       loanAmount: firstValue(
-        invoice?.loanAmount,
-        loanObj?.loanAmount,
+        data.loanAmount,
         savedGirvi?.loanAmount,
         Number(form.itemWeightGram || 0) * Number(form.ratePerGram || 0)
       ),
-
       interestRate: firstValue(
-        invoice?.interestRate,
-        loanObj?.interestRate,
+        data.interestRate,
         savedGirvi?.interestRate,
         form.interestRate
       ),
-
       girviDate: firstValue(
-        invoice?.girviDate,
-        loanObj?.girviDate,
+        data.girviDate,
         savedGirvi?.girviDate,
         form.girviDate
       ),
-
       maturityDate: firstValue(
-        invoice?.maturityDate,
-        loanObj?.maturityDate,
+        data.maturityDate,
         savedGirvi?.maturityDate,
         form.maturityDate
       ),
-
-      remarks: firstValue(
-        invoice?.remarks,
-        savedGirvi?.remarks,
-        form.remarks,
-        "-"
-      ),
-
-      status: firstValue(invoice?.status, savedGirvi?.status, "ACTIVE"),
+      remarks: firstValue(data.remarks, savedGirvi?.remarks, form.remarks, "-"),
+      status: firstValue(data.status, savedGirvi?.status, "ACTIVE"),
     };
   }
 
@@ -1061,16 +990,17 @@ Please find attached invoice PDF.`;
         Number(invoiceId)
       );
 
-      const completeInvoiceData = buildCompleteInvoiceData({
-        savedGirvi,
+      const invoiceDataForFrontend = buildInvoiceDataFromBackend({
         invoiceDetails,
+        savedGirvi,
         invoiceId,
         invoiceNumber,
       });
 
-      console.log("COMPLETE FRONTEND INVOICE DATA:", completeInvoiceData);
+      console.log("BACKEND INVOICE DETAILS:", invoiceDetails);
+      console.log("FINAL FRONTEND INVOICE DATA:", invoiceDataForFrontend);
 
-      setSavedGirviData(completeInvoiceData);
+      setSavedGirviData(invoiceDataForFrontend);
       setSavedInvoiceId(Number(invoiceId));
       setSavedInvoiceNumber(invoiceNumber);
       setShowInvoicePopup(true);
@@ -1312,12 +1242,13 @@ Please find attached invoice PDF.`;
                 />
 
                 <Input
-                  label="Maturity Date *"
-                  type="date"
-                  value={form.maturityDate}
-                  onChange={(v: any) => update("maturityDate", v)}
-                  error={errors.maturityDate}
-                />
+  label="Maturity Date *"
+  type="date"
+  value={form.maturityDate}
+  min={form.girviDate || undefined}
+  onChange={(v: any) => update("maturityDate", v)}
+  error={errors.maturityDate}
+/>
               </div>
             </div>
           </div>
@@ -1610,6 +1541,8 @@ function Input({
   type = "text",
   placeholder,
   error,
+  min,
+  max,
 }: any) {
   return (
     <div>
@@ -1621,6 +1554,8 @@ function Input({
         type={type}
         value={value}
         placeholder={placeholder}
+        min={min}
+        max={max}
         onChange={(e) => onChange(e.target.value)}
         className={`w-full px-4 py-3.5 md:py-4 rounded-xl border bg-white text-sm md:text-base font-medium outline-none transition ${
           error
