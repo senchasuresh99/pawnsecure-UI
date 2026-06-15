@@ -79,13 +79,13 @@ export default function AddGirvi() {
     { id: 4, label: "Review" },
   ];
 
-function update(key: string, value: any) {
-  setForm((prev) => ({ ...prev, [key]: value }));
+  function update(key: string, value: any) {
+    setForm((prev) => ({ ...prev, [key]: value }));
 
-  if (errors[key]) {
-    setErrors((prev) => ({ ...prev, [key]: "" }));
+    if (errors[key]) {
+      setErrors((prev) => ({ ...prev, [key]: "" }));
+    }
   }
-}
 
   useEffect(() => {
     if (navState?.customerId) {
@@ -96,10 +96,39 @@ function update(key: string, value: any) {
         resetGirvi();
 
         setCustomer({
+          ...(customer || {}),
           id: navState.customerId,
           customerId: navState.customerId,
-          fullName: navState.customerName,
-          customerName: navState.customerName,
+          fullName: navState.customerName || customer?.fullName,
+          customerName: navState.customerName || customer?.customerName,
+          phoneNumber:
+            navState.phoneNumber ||
+            navState.customerPhone ||
+            navState.customerPhoneNumber ||
+            customer?.phoneNumber ||
+            customer?.phone ||
+            customer?.mobile,
+          phone:
+            navState.phone ||
+            navState.phoneNumber ||
+            navState.customerPhone ||
+            customer?.phone ||
+            customer?.phoneNumber,
+          mobile:
+            navState.mobile ||
+            navState.phoneNumber ||
+            navState.customerPhone ||
+            customer?.mobile,
+          customerAddress:
+            navState.customerAddress ||
+            navState.address ||
+            customer?.customerAddress ||
+            customer?.address,
+          address:
+            navState.address ||
+            navState.customerAddress ||
+            customer?.address ||
+            customer?.customerAddress,
         });
       }
     }
@@ -115,6 +144,7 @@ function update(key: string, value: any) {
     customer?.fullName ||
     customer?.name ||
     customer?.customerName ||
+    navState?.customerName ||
     "Selected Customer";
 
   useEffect(() => {
@@ -241,433 +271,682 @@ function update(key: string, value: any) {
     }
   }
 
-function escapeHtml(value: any) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
+  function escapeHtml(value: any) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
 
-function invoicePanelHtml(title: string, rows: [string, any][]) {
-  return `
-    <div style="
-      border:1px solid #eef2f7;
-      border-radius:20px;
-      overflow:hidden;
-      background:#ffffff;
-      margin-bottom:18px;
-    ">
+  function firstValue(...values: any[]) {
+    for (const value of values) {
+      if (
+        value !== undefined &&
+        value !== null &&
+        String(value).trim() !== ""
+      ) {
+        return value;
+      }
+    }
+
+    return "";
+  }
+
+  async function fetchInvoiceDetailsForFrontend(invoiceId: number) {
+    const authToken = localStorage.getItem("ps_token");
+    const currentDealerId = localStorage.getItem("ps_dealer_id");
+
+    if (!authToken || !currentDealerId || !invoiceId) return null;
+
+    const headers = {
+      Authorization: `Bearer ${authToken}`,
+      "X-DEALER-ID": currentDealerId,
+    };
+
+    const urls = [
+      `${API_BASE}/invoices/${invoiceId}`,
+      `${API_BASE}/invoices/${invoiceId}/details`,
+    ];
+
+    for (const url of urls) {
+      try {
+        const res = await fetch(url, {
+          method: "GET",
+          headers,
+        });
+
+        if (res.ok) {
+          return await res.json();
+        }
+      } catch (err) {
+        console.warn("Invoice details fetch failed:", url, err);
+      }
+    }
+
+    return null;
+  }
+
+  function buildCompleteInvoiceData({
+    savedGirvi,
+    invoiceDetails,
+    invoiceId,
+    invoiceNumber,
+  }: {
+    savedGirvi: any;
+    invoiceDetails: any;
+    invoiceId: any;
+    invoiceNumber: string;
+  }) {
+    const invoice = invoiceDetails?.data || invoiceDetails || {};
+    const shop = invoice?.shop || invoice?.dealer || invoice?.shopDetails || {};
+    const customerObj =
+      invoice?.customer ||
+      invoice?.customerDetails ||
+      savedGirvi?.customer ||
+      customer ||
+      {};
+    const itemObj = invoice?.item || invoice?.itemDetails || {};
+    const loanObj = invoice?.loan || invoice?.loanDetails || {};
+
+    return {
+      ...savedGirvi,
+      ...invoice,
+
+      invoiceId,
+      invoiceNumber: firstValue(
+        invoice?.invoiceNumber,
+        savedGirvi?.invoiceNumber,
+        invoiceNumber
+      ),
+
+      shopName: firstValue(
+        invoice?.shopName,
+        shop?.shopName,
+        shop?.businessName,
+        savedGirvi?.shopName,
+        localStorage.getItem("ps_shop_name")
+      ),
+
+      dealerName: firstValue(
+        invoice?.dealerName,
+        shop?.dealerName,
+        shop?.name,
+        savedGirvi?.dealerName,
+        localStorage.getItem("ps_dealer_name")
+      ),
+
+      gstNumber: firstValue(
+        invoice?.gstNumber,
+        invoice?.gstin,
+        shop?.gstNumber,
+        shop?.gstin,
+        savedGirvi?.gstNumber
+      ),
+
+      dealerPhone: firstValue(
+        invoice?.dealerPhone,
+        invoice?.mobile,
+        invoice?.dealerMobile,
+        shop?.mobile,
+        shop?.phoneNumber,
+        shop?.dealerPhone,
+        shop?.dealerMobile,
+        savedGirvi?.dealerPhone,
+        localStorage.getItem("ps_dealer_phone")
+      ),
+
+      shopAddress: firstValue(
+        invoice?.shopAddress,
+        invoice?.dealerShopAddress,
+        invoice?.address,
+        shop?.address,
+        shop?.shopAddress,
+        savedGirvi?.shopAddress,
+        savedGirvi?.dealerShopAddress,
+        localStorage.getItem("ps_shop_address")
+      ),
+
+      customerName: firstValue(
+        invoice?.customerName,
+        customerObj?.customerName,
+        customerObj?.fullName,
+        customerObj?.name,
+        savedGirvi?.customerName,
+        customerName
+      ),
+
+      customerPhone: firstValue(
+        invoice?.customerPhone,
+        invoice?.customerPhoneNumber,
+        invoice?.phone,
+        invoice?.phoneNumber,
+        customerObj?.phone,
+        customerObj?.mobile,
+        customerObj?.phoneNumber,
+        savedGirvi?.customerPhone,
+        savedGirvi?.phoneNumber,
+        customer?.phone,
+        customer?.phoneNumber
+      ),
+
+      customerAddress: firstValue(
+        invoice?.customerAddress,
+        invoice?.customerAddr,
+        customerObj?.address,
+        customerObj?.customerAddress,
+        savedGirvi?.customerAddress,
+        customer?.address,
+        customer?.customerAddress
+      ),
+
+      customerId: firstValue(
+        invoice?.customerId,
+        customerObj?.id,
+        customerObj?.customerId,
+        savedGirvi?.customerId,
+        resolvedCustomerId
+      ),
+
+      itemName: firstValue(
+        invoice?.itemName,
+        itemObj?.itemName,
+        savedGirvi?.itemName,
+        form.itemName
+      ),
+
+      itemType: firstValue(
+        invoice?.itemType,
+        itemObj?.itemType,
+        savedGirvi?.itemType,
+        form.itemType
+      ),
+
+      itemWeightGram: firstValue(
+        invoice?.itemWeightGram,
+        itemObj?.itemWeightGram,
+        itemObj?.weight,
+        savedGirvi?.itemWeightGram,
+        form.itemWeightGram
+      ),
+
+      ratePerGram: firstValue(
+        invoice?.ratePerGram,
+        itemObj?.ratePerGram,
+        savedGirvi?.ratePerGram,
+        form.ratePerGram
+      ),
+
+      loanAmount: firstValue(
+        invoice?.loanAmount,
+        loanObj?.loanAmount,
+        savedGirvi?.loanAmount,
+        Number(form.itemWeightGram || 0) * Number(form.ratePerGram || 0)
+      ),
+
+      interestRate: firstValue(
+        invoice?.interestRate,
+        loanObj?.interestRate,
+        savedGirvi?.interestRate,
+        form.interestRate
+      ),
+
+      girviDate: firstValue(
+        invoice?.girviDate,
+        loanObj?.girviDate,
+        savedGirvi?.girviDate,
+        form.girviDate
+      ),
+
+      maturityDate: firstValue(
+        invoice?.maturityDate,
+        loanObj?.maturityDate,
+        savedGirvi?.maturityDate,
+        form.maturityDate
+      ),
+
+      remarks: firstValue(
+        invoice?.remarks,
+        savedGirvi?.remarks,
+        form.remarks,
+        "-"
+      ),
+
+      status: firstValue(invoice?.status, savedGirvi?.status, "ACTIVE"),
+    };
+  }
+
+  function invoicePanelHtml(title: string, rows: [string, any][]) {
+    return `
       <div style="
-        background:#f8fafc;
-        padding:14px 18px;
-        font-size:13px;
-        font-weight:900;
-        text-transform:uppercase;
-        letter-spacing:0.6px;
-        color:#4820C5;
-        border-bottom:1px solid #eef2f7;
+        border:1px solid #eef2f7;
+        border-radius:20px;
+        overflow:hidden;
+        background:#ffffff;
+        margin-bottom:18px;
       ">
-        ${escapeHtml(title)}
-      </div>
+        <div style="
+          background:#f8fafc;
+          padding:14px 18px;
+          font-size:13px;
+          font-weight:900;
+          text-transform:uppercase;
+          letter-spacing:0.6px;
+          color:#4820C5;
+          border-bottom:1px solid #eef2f7;
+        ">
+          ${escapeHtml(title)}
+        </div>
 
-      <div style="padding:16px 18px;">
-        ${rows
-          .map(
-            ([label, value]) => `
+        <div style="padding:16px 18px;">
+          ${rows
+            .map(
+              ([label, value]) => `
+                <div style="
+                  display:flex;
+                  justify-content:space-between;
+                  gap:18px;
+                  padding:10px 0;
+                  border-bottom:1px dashed #e5e7eb;
+                  font-size:13px;
+                ">
+                  <span style="color:#64748b; font-weight:700; min-width:120px;">
+                    ${escapeHtml(label)}
+                  </span>
+                  <span style="color:#111827; font-weight:800; text-align:right; word-break:break-word;">
+                    ${escapeHtml(value)}
+                  </span>
+                </div>
+              `
+            )
+            .join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  function getInvoiceHtmlForPdf(invoiceId: number) {
+    if (!savedGirviData) return "";
+
+    const invoiceNumber =
+      savedInvoiceNumber || savedGirviData.invoiceNumber || `INV-${invoiceId}`;
+
+    const dealerName =
+      savedGirviData.dealerName ||
+      localStorage.getItem("ps_dealer_name") ||
+      "PawnSecure Dealer";
+
+    const shopName =
+      savedGirviData.shopName ||
+      savedGirviData.dealerShopName ||
+      localStorage.getItem("ps_shop_name") ||
+      dealerName ||
+      "PawnSecure";
+
+    const gstNumber = savedGirviData.gstNumber || savedGirviData.gstin || "-";
+
+    const shopAddress =
+      savedGirviData.shopAddress ||
+      savedGirviData.dealerShopAddress ||
+      localStorage.getItem("ps_shop_address") ||
+      "-";
+
+    const dealerPhone =
+      savedGirviData.dealerPhone ||
+      savedGirviData.dealerMobile ||
+      localStorage.getItem("ps_dealer_phone") ||
+      "-";
+
+    const customerDisplayName =
+      savedGirviData.customerName || customerName || "Selected Customer";
+
+    const customerPhone =
+      savedGirviData.customerPhone ||
+      savedGirviData.phoneNumber ||
+      savedGirviData.customerPhoneNumber ||
+      customer?.phoneNumber ||
+      customer?.phone ||
+      "-";
+
+    const customerAddress =
+      savedGirviData.customerAddress ||
+      customer?.customerAddress ||
+      customer?.address ||
+      "-";
+
+    const itemName = savedGirviData.itemName || form.itemName || "-";
+    const itemType = savedGirviData.itemType || form.itemType || "-";
+    const weight = savedGirviData.itemWeightGram || form.itemWeightGram || "-";
+    const ratePerGram = savedGirviData.ratePerGram || form.ratePerGram || 0;
+
+    const loanAmount =
+      savedGirviData.loanAmount ||
+      Number(form.itemWeightGram || 0) * Number(form.ratePerGram || 0);
+
+    const interestRate = savedGirviData.interestRate || form.interestRate || 0;
+    const girviDate = savedGirviData.girviDate || form.girviDate;
+    const maturityDate = savedGirviData.maturityDate || form.maturityDate;
+    const remarks = savedGirviData.remarks || form.remarks || "-";
+
+    return `
+      <div id="frontend-invoice-pdf" style="
+        width:794px;
+        min-height:1123px;
+        background:#ffffff;
+        font-family:Arial, Helvetica, sans-serif;
+        color:#111827;
+        box-sizing:border-box;
+        overflow:hidden;
+      ">
+        <div style="
+          background:linear-gradient(135deg, #4820C5, #24106D);
+          color:white;
+          padding:34px 40px;
+        ">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:24px;">
+            <div style="display:flex; align-items:center; gap:14px;">
               <div style="
+                width:58px;
+                height:58px;
+                background:white;
+                color:#4820C5;
+                border-radius:18px;
                 display:flex;
-                justify-content:space-between;
-                gap:18px;
-                padding:10px 0;
-                border-bottom:1px dashed #e5e7eb;
-                font-size:13px;
-              ">
-                <span style="color:#64748b; font-weight:700; min-width:120px;">
-                  ${escapeHtml(label)}
-                </span>
-                <span style="color:#111827; font-weight:800; text-align:right; word-break:break-word;">
-                  ${escapeHtml(value)}
-                </span>
-              </div>
-            `
-          )
-          .join("")}
-      </div>
-    </div>
-  `;
-}
+                align-items:center;
+                justify-content:center;
+                font-weight:900;
+                font-size:22px;
+              ">PS</div>
 
-function getInvoiceHtmlForPdf(invoiceId: number) {
-  if (!savedGirviData) return "";
-
-  const invoiceNumber =
-    savedInvoiceNumber || savedGirviData.invoiceNumber || `INV-${invoiceId}`;
-
-  const dealerName =
-    localStorage.getItem("ps_dealer_name") ||
-    savedGirviData.dealerName ||
-    "PawnSecure Dealer";
-
-  const shopName =
-    savedGirviData.shopName ||
-    savedGirviData.dealerShopName ||
-    dealerName ||
-    "PawnSecure";
-
-  const shopAddress =
-    savedGirviData.shopAddress ||
-    savedGirviData.dealerShopAddress ||
-    "Bangalore, Karnataka";
-
-  const dealerPhone =
-    savedGirviData.dealerPhone ||
-    localStorage.getItem("ps_dealer_phone") ||
-    "-";
-
-  const customerDisplayName =
-    savedGirviData.customerName || customerName || "Selected Customer";
-
-  const customerPhone =
-    savedGirviData.customerPhone ||
-    savedGirviData.phoneNumber ||
-    savedGirviData.customerPhoneNumber ||
-    customer?.phoneNumber ||
-    customer?.phone ||
-    "-";
-
-  const customerAddress =
-    savedGirviData.customerAddress ||
-    customer?.customerAddress ||
-    customer?.address ||
-    "-";
-
-  const itemName = savedGirviData.itemName || form.itemName || "-";
-  const itemType = savedGirviData.itemType || form.itemType || "-";
-  const weight = savedGirviData.itemWeightGram || form.itemWeightGram || "-";
-  const ratePerGram = savedGirviData.ratePerGram || form.ratePerGram || 0;
-
-  const loanAmount =
-    savedGirviData.loanAmount ||
-    Number(form.itemWeightGram || 0) * Number(form.ratePerGram || 0);
-
-  const interestRate = savedGirviData.interestRate || form.interestRate || 0;
-  const girviDate = savedGirviData.girviDate || form.girviDate;
-  const maturityDate = savedGirviData.maturityDate || form.maturityDate;
-  const remarks = savedGirviData.remarks || form.remarks || "-";
-
-  return `
-    <div id="frontend-invoice-pdf" style="
-      width: 794px;
-      min-height: 1123px;
-      background: #ffffff;
-      font-family: Arial, Helvetica, sans-serif;
-      color: #111827;
-      box-sizing: border-box;
-      overflow:hidden;
-    ">
-      <div style="
-        background: linear-gradient(135deg, #4820C5, #24106D);
-        color: white;
-        padding: 34px 40px;
-      ">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:24px;">
-          <div style="display:flex; align-items:center; gap:14px;">
-            <div style="
-              width:58px;
-              height:58px;
-              background:white;
-              color:#4820C5;
-              border-radius:18px;
-              display:flex;
-              align-items:center;
-              justify-content:center;
-              font-weight:900;
-              font-size:22px;
-            ">PS</div>
-
-            <div>
-              <h1 style="font-size:28px; font-weight:900; margin:0;">
-                PawnSecure
-              </h1>
-              <div style="font-size:12px; opacity:0.85; margin-top:4px;">
-                Secure Girvi Invoice / Pledge Receipt
+              <div>
+                <h1 style="font-size:28px; font-weight:900; margin:0;">
+                  PawnSecure
+                </h1>
+                <div style="font-size:12px; opacity:0.85; margin-top:4px;">
+                  Secure Girvi Invoice / Pledge Receipt
+                </div>
               </div>
             </div>
+
+            <div style="
+              background:rgba(255,255,255,0.14);
+              border:1px solid rgba(255,255,255,0.24);
+              padding:12px 16px;
+              border-radius:16px;
+              text-align:right;
+              min-width:230px;
+            ">
+              <div style="font-size:11px; text-transform:uppercase; opacity:0.75; letter-spacing:0.8px;">
+                Invoice Number
+              </div>
+              <strong style="font-size:15px; word-break:break-word;">
+                ${escapeHtml(invoiceNumber)}
+              </strong>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding:34px 40px 40px;">
+          <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:14px; margin-bottom:28px;">
+            <div style="background:#ecfdf5; border:1px solid #bbf7d0; border-radius:18px; padding:16px;">
+              <div style="font-size:11px; color:#64748b; font-weight:800; text-transform:uppercase; margin-bottom:8px;">
+                Loan Amount
+              </div>
+              <div style="font-size:18px; font-weight:900; color:#15803d;">
+                ${escapeHtml(formatInvoiceCurrency(loanAmount))}
+              </div>
+            </div>
+
+            <div style="background:#f8fafc; border:1px solid #eef2f7; border-radius:18px; padding:16px;">
+              <div style="font-size:11px; color:#64748b; font-weight:800; text-transform:uppercase; margin-bottom:8px;">
+                Interest Rate
+              </div>
+              <div style="font-size:18px; font-weight:900;">
+                ${escapeHtml(interestRate)}%
+              </div>
+            </div>
+
+            <div style="background:#f8fafc; border:1px solid #eef2f7; border-radius:18px; padding:16px;">
+              <div style="font-size:11px; color:#64748b; font-weight:800; text-transform:uppercase; margin-bottom:8px;">
+                Maturity Date
+              </div>
+              <div style="font-size:18px; font-weight:900;">
+                ${escapeHtml(formatInvoiceDate(maturityDate))}
+              </div>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:18px;">
+            ${invoicePanelHtml("Shop Details", [
+              ["Shop Name", shopName],
+              ["GST Number", gstNumber],
+              ["Dealer", dealerName],
+              ["Mobile", dealerPhone],
+              ["Address", shopAddress],
+            ])}
+
+            ${invoicePanelHtml("Customer Details", [
+              ["Name", customerDisplayName],
+              [
+                "Customer ID",
+                savedGirviData.customerId || resolvedCustomerId || "-",
+              ],
+              ["Phone", customerPhone],
+              ["Address", customerAddress],
+            ])}
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:18px;">
+            ${invoicePanelHtml("Item Details", [
+              ["Item Name", itemName],
+              ["Item Type", itemType],
+              ["Weight", `${weight} gm`],
+              ["Rate / Gram", formatInvoiceCurrency(ratePerGram)],
+            ])}
+
+            ${invoicePanelHtml("Loan Details", [
+              ["Girvi Date", formatInvoiceDate(girviDate)],
+              ["Maturity Date", formatInvoiceDate(maturityDate)],
+              ["Status", savedGirviData.status || "ACTIVE"],
+              ["Remarks", remarks],
+            ])}
           </div>
 
           <div style="
-            background:rgba(255,255,255,0.14);
-            border:1px solid rgba(255,255,255,0.24);
-            padding:12px 16px;
-            border-radius:16px;
-            text-align:right;
-            min-width:230px;
+            background:#fff7ed;
+            border:1px solid #fed7aa;
+            color:#9a3412;
+            padding:16px 18px;
+            border-radius:18px;
+            font-size:12px;
+            line-height:1.6;
+            margin-top:4px;
+            margin-bottom:28px;
           ">
-            <div style="font-size:11px; text-transform:uppercase; opacity:0.75; letter-spacing:0.8px;">
-              Invoice Number
-            </div>
-            <strong style="font-size:15px; word-break:break-word;">
-              ${escapeHtml(invoiceNumber)}
+            <strong style="display:block; font-size:13px; margin-bottom:6px;">
+              Terms &amp; Declaration
             </strong>
-          </div>
-        </div>
-      </div>
-
-      <div style="padding:34px 40px 40px;">
-        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:14px; margin-bottom:28px;">
-          <div style="background:#ecfdf5; border:1px solid #bbf7d0; border-radius:18px; padding:16px;">
-            <div style="font-size:11px; color:#64748b; font-weight:800; text-transform:uppercase; margin-bottom:8px;">
-              Loan Amount
-            </div>
-            <div style="font-size:18px; font-weight:900; color:#15803d;">
-              ${escapeHtml(formatInvoiceCurrency(loanAmount))}
-            </div>
+            This invoice is generated for the pledged item and loan details recorded in PawnSecure.
+            Customer and dealer are advised to verify item details, loan amount, interest rate and maturity date before signing.
           </div>
 
-          <div style="background:#f8fafc; border:1px solid #eef2f7; border-radius:18px; padding:16px;">
-            <div style="font-size:11px; color:#64748b; font-weight:800; text-transform:uppercase; margin-bottom:8px;">
-              Interest Rate
-            </div>
-            <div style="font-size:18px; font-weight:900;">
-              ${escapeHtml(interestRate)}%
-            </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:34px;">
+            <div style="
+              height:95px;
+              border:1px dashed #cbd5e1;
+              border-radius:18px;
+              display:flex;
+              align-items:flex-end;
+              justify-content:center;
+              padding-bottom:12px;
+              color:#64748b;
+              font-size:12px;
+              font-weight:800;
+            ">Customer Signature</div>
+
+            <div style="
+              height:95px;
+              border:1px dashed #cbd5e1;
+              border-radius:18px;
+              display:flex;
+              align-items:flex-end;
+              justify-content:center;
+              padding-bottom:12px;
+              color:#64748b;
+              font-size:12px;
+              font-weight:800;
+            ">Dealer Signature</div>
           </div>
-
-          <div style="background:#f8fafc; border:1px solid #eef2f7; border-radius:18px; padding:16px;">
-            <div style="font-size:11px; color:#64748b; font-weight:800; text-transform:uppercase; margin-bottom:8px;">
-              Maturity Date
-            </div>
-            <div style="font-size:18px; font-weight:900;">
-              ${escapeHtml(formatInvoiceDate(maturityDate))}
-            </div>
-          </div>
-        </div>
-
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:18px;">
-          ${invoicePanelHtml("Shop Details", [
-            ["Shop Name", shopName],
-            ["Dealer", dealerName],
-            ["Mobile", dealerPhone],
-            ["Address", shopAddress],
-          ])}
-
-          ${invoicePanelHtml("Customer Details", [
-            ["Name", customerDisplayName],
-            ["Customer ID", savedGirviData.customerId || resolvedCustomerId || "-"],
-            ["Phone", customerPhone],
-            ["Address", customerAddress],
-          ])}
-        </div>
-
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:18px;">
-          ${invoicePanelHtml("Item Details", [
-            ["Item Name", itemName],
-            ["Item Type", itemType],
-            ["Weight", `${weight} gm`],
-            ["Rate / Gram", formatInvoiceCurrency(ratePerGram)],
-          ])}
-
-          ${invoicePanelHtml("Loan Details", [
-            ["Girvi Date", formatInvoiceDate(girviDate)],
-            ["Maturity Date", formatInvoiceDate(maturityDate)],
-            ["Status", savedGirviData.status || "ACTIVE"],
-            ["Remarks", remarks],
-          ])}
         </div>
 
         <div style="
-          background:#fff7ed;
-          border:1px solid #fed7aa;
-          color:#9a3412;
-          padding:16px 18px;
-          border-radius:18px;
-          font-size:12px;
-          line-height:1.6;
-          margin-top:4px;
-          margin-bottom:28px;
+          text-align:center;
+          padding:18px 40px 28px;
+          font-size:11px;
+          color:#64748b;
+          border-top:1px solid #eef2f7;
         ">
-          <strong style="display:block; font-size:13px; margin-bottom:6px;">
-            Terms &amp; Declaration
-          </strong>
-          This invoice is generated for the pledged item and loan details recorded in PawnSecure.
-          Customer and dealer are advised to verify item details, loan amount, interest rate and maturity date before signing.
-        </div>
-
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:34px;">
-          <div style="
-            height:95px;
-            border:1px dashed #cbd5e1;
-            border-radius:18px;
-            display:flex;
-            align-items:flex-end;
-            justify-content:center;
-            padding-bottom:12px;
-            color:#64748b;
-            font-size:12px;
-            font-weight:800;
-          ">Customer Signature</div>
-
-          <div style="
-            height:95px;
-            border:1px dashed #cbd5e1;
-            border-radius:18px;
-            display:flex;
-            align-items:flex-end;
-            justify-content:center;
-            padding-bottom:12px;
-            color:#64748b;
-            font-size:12px;
-            font-weight:800;
-          ">Dealer Signature</div>
+          Generated by <strong style="color:#4820C5;">PawnSecure</strong> • Secure pledge management system
         </div>
       </div>
+    `;
+  }
 
-      <div style="
-        text-align:center;
-        padding:18px 40px 28px;
-        font-size:11px;
-        color:#64748b;
-        border-top:1px solid #eef2f7;
-      ">
-        Generated by <strong style="color:#4820C5;">PawnSecure</strong> • Secure pledge management system
-      </div>
-    </div>
-  `;
-}
+  async function generateFrontendInvoicePdfFile(invoiceId: number) {
+    const invoiceNumber =
+      savedInvoiceNumber || savedGirviData?.invoiceNumber || `INV-${invoiceId}`;
 
-async function generateFrontendInvoicePdfFile(invoiceId: number) {
-  const invoiceNumber =
-    savedInvoiceNumber || savedGirviData?.invoiceNumber || `INV-${invoiceId}`;
+    const container = document.createElement("div");
+    container.style.position = "fixed";
+    container.style.left = "-10000px";
+    container.style.top = "0";
+    container.style.background = "#ffffff";
+    container.innerHTML = getInvoiceHtmlForPdf(invoiceId);
 
-  const container = document.createElement("div");
-  container.style.position = "fixed";
-  container.style.left = "-10000px";
-  container.style.top = "0";
-  container.style.background = "#ffffff";
-  container.innerHTML = getInvoiceHtmlForPdf(invoiceId);
+    document.body.appendChild(container);
 
-  document.body.appendChild(container);
+    const invoiceElement = container.querySelector(
+      "#frontend-invoice-pdf"
+    ) as HTMLElement;
 
-  const invoiceElement = container.querySelector(
-    "#frontend-invoice-pdf"
-  ) as HTMLElement;
+    if (!invoiceElement) {
+      document.body.removeChild(container);
+      throw new Error("Invoice template not found.");
+    }
 
-  if (!invoiceElement) {
+    const canvas = await html2canvas(invoiceElement, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: "#ffffff",
+    });
+
+    const imgData = canvas.toDataURL("image/png");
+
+    const pdf = new jsPDF("p", "mm", "a4");
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+
+    pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+
+    const blob = pdf.output("blob");
+
     document.body.removeChild(container);
-    throw new Error("Invoice template not found.");
+
+    return new File([blob], `${invoiceNumber}.pdf`, {
+      type: "application/pdf",
+    });
   }
 
-  const canvas = await html2canvas(invoiceElement, {
-    scale: 2,
-    useCORS: true,
-    backgroundColor: "#ffffff",
-  });
+  async function downloadInvoice(invoiceId: number) {
+    if (!savedGirviData) {
+      alert("Invoice data not available. Please try again.");
+      return;
+    }
 
-  const imgData = canvas.toDataURL("image/png");
+    setDownloadingInvoice(true);
 
-  const pdf = new jsPDF("p", "mm", "a4");
-  const pdfWidth = pdf.internal.pageSize.getWidth();
-  const pdfHeight = pdf.internal.pageSize.getHeight();
+    try {
+      const file = await generateFrontendInvoicePdfFile(invoiceId);
+      const url = window.URL.createObjectURL(file);
 
-  pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = file.name;
 
-  const blob = pdf.output("blob");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
 
-  document.body.removeChild(container);
-
-  return new File([blob], `${invoiceNumber}.pdf`, {
-    type: "application/pdf",
-  });
-}
-
- async function downloadInvoice(invoiceId: number) {
-  if (!savedGirviData) {
-    alert("Invoice data not available. Please try again.");
-    return;
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Invoice download failed:", err);
+      alert("Could not generate invoice PDF.");
+    } finally {
+      setDownloadingInvoice(false);
+    }
   }
 
-  setDownloadingInvoice(true);
+  async function sendInvoiceOnWhatsApp(invoiceId: number) {
+    if (!savedGirviData) {
+      alert("Invoice data not available. Please try again.");
+      return;
+    }
 
-  try {
-    const file = await generateFrontendInvoicePdfFile(invoiceId);
-    const url = window.URL.createObjectURL(file);
+    setSendingInvoice(true);
 
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = file.name;
+    try {
+      const file = await generateFrontendInvoicePdfFile(invoiceId);
 
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+      const message = `PawnSecure Invoice
 
-    window.URL.revokeObjectURL(url);
-  } catch (err) {
-    console.error("Invoice download failed:", err);
-    alert("Could not generate invoice PDF.");
-  } finally {
-    setDownloadingInvoice(false);
-  }
-}
-
-async function sendInvoiceOnWhatsApp(invoiceId: number) {
-  if (!savedGirviData) {
-    alert("Invoice data not available. Please try again.");
-    return;
-  }
-
-  setSendingInvoice(true);
-
-  try {
-    const file = await generateFrontendInvoicePdfFile(invoiceId);
-
-    const message = `PawnSecure Invoice
-
-Invoice No: ${savedInvoiceNumber || savedGirviData.invoiceNumber || `INV-${invoiceId}`}
+Invoice No: ${
+        savedInvoiceNumber || savedGirviData.invoiceNumber || `INV-${invoiceId}`
+      }
 Customer: ${savedGirviData.customerName || customerName || "-"}
 Loan Amount: ${formatInvoiceCurrency(savedGirviData.loanAmount || totalValue)}
 
 Please find attached invoice PDF.`;
 
-    const navAny = navigator as any;
+      const navAny = navigator as any;
 
-    if (
-      navAny.share &&
-      navAny.canShare &&
-      navAny.canShare({ files: [file] })
-    ) {
-      await navAny.share({
-        title: "PawnSecure Invoice",
-        text: message,
-        files: [file],
-      });
+      if (
+        navAny.share &&
+        navAny.canShare &&
+        navAny.canShare({ files: [file] })
+      ) {
+        await navAny.share({
+          title: "PawnSecure Invoice",
+          text: message,
+          files: [file],
+        });
 
-      return;
+        return;
+      }
+
+      const url = window.URL.createObjectURL(file);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = file.name;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.URL.revokeObjectURL(url);
+
+      alert(
+        "PDF downloaded. Your browser does not support direct WhatsApp PDF sharing. Please attach the downloaded PDF manually in WhatsApp."
+      );
+    } catch (err) {
+      console.error("Invoice PDF share failed:", err);
+      alert("Could not share invoice PDF.");
+    } finally {
+      setSendingInvoice(false);
     }
-
-    const url = window.URL.createObjectURL(file);
-
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = file.name;
-
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-
-    window.URL.revokeObjectURL(url);
-
-    alert(
-      "PDF downloaded. Your browser does not support direct WhatsApp PDF sharing. Please attach the downloaded PDF manually in WhatsApp."
-    );
-  } catch (err) {
-    console.error("Invoice PDF share failed:", err);
-    alert("Could not share invoice PDF.");
-  } finally {
-    setSendingInvoice(false);
   }
-}
+
   function closeInvoicePopupAndGoBack() {
     setShowInvoicePopup(false);
     setSavedInvoiceId(null);
@@ -778,25 +1057,20 @@ Please find attached invoice PDF.`;
         return;
       }
 
-      setSavedGirviData({
-        ...savedGirvi,
-        itemName: savedGirvi?.itemName || form.itemName,
-        itemType: savedGirvi?.itemType || form.itemType,
-        itemWeightGram: savedGirvi?.itemWeightGram || form.itemWeightGram,
-        ratePerGram: savedGirvi?.ratePerGram || form.ratePerGram,
-        loanAmount:
-          savedGirvi?.loanAmount ||
-          Number(form.itemWeightGram || 0) * Number(form.ratePerGram || 0),
-        interestRate: savedGirvi?.interestRate || form.interestRate,
-        girviDate: savedGirvi?.girviDate || form.girviDate,
-        maturityDate: savedGirvi?.maturityDate || form.maturityDate,
-        remarks: savedGirvi?.remarks || form.remarks,
-        customerName: savedGirvi?.customerName || customerName,
-        customerId: savedGirvi?.customerId || resolvedCustomerId,
+      const invoiceDetails = await fetchInvoiceDetailsForFrontend(
+        Number(invoiceId)
+      );
+
+      const completeInvoiceData = buildCompleteInvoiceData({
+        savedGirvi,
+        invoiceDetails,
         invoiceId,
         invoiceNumber,
       });
 
+      console.log("COMPLETE FRONTEND INVOICE DATA:", completeInvoiceData);
+
+      setSavedGirviData(completeInvoiceData);
       setSavedInvoiceId(Number(invoiceId));
       setSavedInvoiceNumber(invoiceNumber);
       setShowInvoicePopup(true);
@@ -1258,75 +1532,73 @@ Please find attached invoice PDF.`;
         </div>
       </div>
 
-{/* ================= INVOICE SUCCESS POPUP ================= */}
-{showInvoicePopup && savedInvoiceId && (
-  <div className="fixed inset-0 bg-black/45 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
-    <div className="bg-white rounded-[28px] shadow-2xl w-full max-w-[430px] overflow-hidden text-center animate-in fade-in zoom-in-95 duration-200">
-      {/* Top Accent */}
-      <div className="h-2 bg-gradient-to-r from-[#4820C5] via-purple-500 to-green-500" />
+      {showInvoicePopup && savedInvoiceId && (
+        <div className="fixed inset-0 bg-black/45 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[28px] shadow-2xl w-full max-w-[430px] overflow-hidden text-center animate-in fade-in zoom-in-95 duration-200">
+            <div className="h-2 bg-gradient-to-r from-[#4820C5] via-purple-500 to-green-500" />
 
-      <div className="px-6 py-7">
-        {/* Icon */}
-        <div className="w-20 h-20 rounded-full bg-green-50 text-green-600 flex items-center justify-center mx-auto text-3xl mb-5 border border-green-100">
-          <FaFileInvoice />
-        </div>
+            <div className="px-6 py-7">
+              <div className="w-20 h-20 rounded-full bg-green-50 text-green-600 flex items-center justify-center mx-auto text-3xl mb-5 border border-green-100">
+                <FaFileInvoice />
+              </div>
 
-        {/* Title */}
-        <h2 className="text-2xl font-extrabold text-gray-900">
-          Girvi Saved Successfully
-        </h2>
+              <h2 className="text-2xl font-extrabold text-gray-900">
+                Girvi Saved Successfully
+              </h2>
 
-        <p className="text-sm text-gray-500 mt-2 leading-relaxed">
-          Invoice has been generated successfully. You can send it on WhatsApp
-          or download a copy.
-        </p>
+              <p className="text-sm text-gray-500 mt-2 leading-relaxed">
+                Invoice has been generated successfully. You can send it on
+                WhatsApp or download a copy.
+              </p>
 
-        {/* Invoice Number */}
-        {savedInvoiceNumber && (
-          <div className="mt-5 bg-purple-50 border border-purple-100 rounded-2xl px-4 py-3">
-            <p className="text-[11px] text-purple-500 font-bold uppercase tracking-wide">
-              Invoice Number
-            </p>
-            <p className="text-sm font-extrabold text-purple-800 mt-1 break-all">
-              {savedInvoiceNumber}
-            </p>
+              {savedInvoiceNumber && (
+                <div className="mt-5 bg-purple-50 border border-purple-100 rounded-2xl px-4 py-3">
+                  <p className="text-[11px] text-purple-500 font-bold uppercase tracking-wide">
+                    Invoice Number
+                  </p>
+                  <p className="text-sm font-extrabold text-purple-800 mt-1 break-all">
+                    {savedInvoiceNumber}
+                  </p>
+                </div>
+              )}
+
+              <div className="mt-6 space-y-3">
+                <button
+                  type="button"
+                  onClick={() => sendInvoiceOnWhatsApp(savedInvoiceId)}
+                  disabled={sendingInvoice}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white py-3.5 rounded-2xl font-bold disabled:bg-gray-400 transition flex items-center justify-center gap-2 shadow-md shadow-green-100"
+                >
+                  <FaWhatsapp className="text-lg" />
+                  {sendingInvoice
+                    ? "Preparing PDF..."
+                    : "Share PDF on WhatsApp"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => downloadInvoice(savedInvoiceId)}
+                  disabled={downloadingInvoice}
+                  className="w-full bg-[#4820C5] hover:bg-[#3917a3] text-white py-3.5 rounded-2xl font-bold disabled:bg-gray-400 transition flex items-center justify-center gap-2 shadow-md shadow-purple-100"
+                >
+                  <FaDownload className="text-lg" />
+                  {downloadingInvoice
+                    ? "Preparing Invoice..."
+                    : "Download Invoice"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={closeInvoicePopupAndGoBack}
+                  className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3.5 rounded-2xl font-bold transition"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
-        )}
-
-        {/* Buttons */}
-        <div className="mt-6 space-y-3">
-          <button
-            type="button"
-            onClick={() => sendInvoiceOnWhatsApp(savedInvoiceId)}
-            disabled={sendingInvoice}
-            className="w-full bg-green-600 hover:bg-green-700 text-white py-3.5 rounded-2xl font-bold disabled:bg-gray-400 transition flex items-center justify-center gap-2 shadow-md shadow-green-100"
-          >
-            <FaWhatsapp className="text-lg" />
-            {sendingInvoice ? "Preparing PDF..." : "Share PDF on WhatsApp"}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => downloadInvoice(savedInvoiceId)}
-            disabled={downloadingInvoice}
-            className="w-full bg-[#4820C5] hover:bg-[#3917a3] text-white py-3.5 rounded-2xl font-bold disabled:bg-gray-400 transition flex items-center justify-center gap-2 shadow-md shadow-purple-100"
-          >
-            <FaDownload className="text-lg" />
-            {downloadingInvoice ? "Preparing Invoice..." : "Download Invoice"}
-          </button>
-
-          <button
-            type="button"
-            onClick={closeInvoicePopupAndGoBack}
-            className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3.5 rounded-2xl font-bold transition"
-          >
-            Close
-          </button>
         </div>
-      </div>
-    </div>
-  </div>
-)}
+      )}
     </div>
   );
 }
@@ -1414,7 +1686,11 @@ function ItemSummaryCard({
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-4 md:p-6 flex items-center gap-4 md:gap-6 shadow-sm">
       {photo ? (
-        <img src={photo} alt={name} className="w-20 h-20 md:w-28 md:h-28 rounded-xl md:rounded-2xl object-cover" />
+        <img
+          src={photo}
+          alt={name || "Item"}
+          className="w-20 h-20 md:w-28 md:h-28 rounded-xl md:rounded-2xl object-cover"
+        />
       ) : (
         <div className="w-20 h-20 md:w-28 md:h-28 rounded-xl md:rounded-2xl bg-purple-50 flex items-center justify-center text-purple-600">
           <FaCoins size={28} className="md:w-10 md:h-10" />
