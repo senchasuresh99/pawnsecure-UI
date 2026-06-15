@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {Html5Qrcode,Html5QrcodeSupportedFormats,} from "html5-qrcode";
+import DealerSidebar from "../dealer/DealerSidebar";
+import {
+  Html5Qrcode,
+  Html5QrcodeSupportedFormats,
+} from "html5-qrcode";
 
 import {
   FaHome,
   FaUserFriends,
   FaRupeeSign,
   FaCoins,
-  FaChartBar,
   FaEllipsisH,
   FaArrowLeft,
   FaSearch,
@@ -23,8 +26,21 @@ export default function CustomerReviews() {
 
   const resultRef = useRef<HTMLDivElement | null>(null);
 
+  const query = new URLSearchParams(window.location.search);
+  const isAdminView = query.get("adminView") === "true";
+
   const dealerName = localStorage.getItem("ps_dealer_name") || "Dealer";
   const dealerId = localStorage.getItem("ps_dealer_id") || "";
+
+  const todayDate = new Date().toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+
+  const todayDay = new Date().toLocaleDateString("en-IN", {
+    weekday: "long",
+  });
 
   const [aadhaar, setAadhaar] = useState("");
   const [loading, setLoading] = useState(false);
@@ -40,12 +56,11 @@ export default function CustomerReviews() {
   const [scannerError, setScannerError] = useState("");
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
-  const [deletingReviewId, setDeletingReviewId] = useState<
-    number | string | null
-  >(null);
+  const [deletingReviewId, setDeletingReviewId] =
+    useState<number | string | null>(null);
 
-const [itemPhoto, setItemPhoto] = useState<File | null>(null);
-const [itemPhotoPreview, setItemPhotoPreview] = useState<string>("");
+  const [itemPhoto, setItemPhoto] = useState<File | null>(null);
+  const [itemPhotoPreview, setItemPhotoPreview] = useState<string>("");
 
   useEffect(() => {
     const token = localStorage.getItem("ps_token");
@@ -67,34 +82,42 @@ const [itemPhotoPreview, setItemPhotoPreview] = useState<string>("");
     }
   }, [customer]);
 
+  useEffect(() => {
+    return () => {
+      if (itemPhotoPreview) {
+        URL.revokeObjectURL(itemPhotoPreview);
+      }
+    };
+  }, [itemPhotoPreview]);
+
   function getToken() {
     return localStorage.getItem("ps_token");
   }
 
-function handleItemPhotoChange(file: File | null) {
-  if (itemPhotoPreview) {
-    URL.revokeObjectURL(itemPhotoPreview);
-  }
+  function handleItemPhotoChange(file: File | null) {
+    if (itemPhotoPreview) {
+      URL.revokeObjectURL(itemPhotoPreview);
+    }
 
-  if (!file) {
-    setItemPhoto(null);
-    setItemPhotoPreview("");
-    return;
-  }
+    if (!file) {
+      setItemPhoto(null);
+      setItemPhotoPreview("");
+      return;
+    }
 
-  if (!file.type.startsWith("image/")) {
-    showPopup("error", "Only image files are allowed");
-    return;
-  }
+    if (!file.type.startsWith("image/")) {
+      showPopup("error", "Only image files are allowed");
+      return;
+    }
 
-  if (file.size > 5 * 1024 * 1024) {
-    showPopup("error", "Item photo must be less than 5MB");
-    return;
-  }
+    if (file.size > 5 * 1024 * 1024) {
+      showPopup("error", "Item photo must be less than 5MB");
+      return;
+    }
 
-  setItemPhoto(file);
-  setItemPhotoPreview(URL.createObjectURL(file));
-}
+    setItemPhoto(file);
+    setItemPhotoPreview(URL.createObjectURL(file));
+  }
 
   function handleUnauthorized() {
     showPopup("error", "Session expired or unauthorized. Please login again.");
@@ -136,216 +159,199 @@ function handleItemPhotoChange(file: File | null) {
     setPopup(null);
   }
 
-function extractAadhaarFromQR(text: string) {
-  if (!text) return "";
+  function extractAadhaarFromQR(text: string) {
+    if (!text) return "";
 
-  const raw = text.trim();
+    const raw = text.trim();
 
-  try {
-    // ✅ ONLY old Aadhaar XML QR
-    if (raw.includes("PrintLetterBarcodeData") || raw.startsWith("<")) {
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(raw, "text/xml");
-
-      const parserError = xmlDoc.getElementsByTagName("parsererror")[0];
-      if (parserError) return "";
-
-      const node =
-        xmlDoc.getElementsByTagName("PrintLetterBarcodeData")[0] ||
-        xmlDoc.documentElement;
-
-      const uid = node?.getAttribute("uid") || "";
-
-      // ✅ Strict validation
-      if (/^\d{12}$/.test(uid)) {
-        return uid;
-      }
-    }
-
-    // ✅ DO NOT guess Aadhaar from encrypted QR
-    return "";
-  } catch {
-    return "";
-  }
-}
-
-useEffect(() => {
-  if (!showScanner) return;
-
-  let scanner: Html5Qrcode | null = null;
-  let isScannerRunning = false;
-  let hasScanned = false;
-  let isUnmounted = false;
-
-  const scanConfig = {
-    fps: 15,
-
-    qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-      const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-      const size = Math.floor(minEdge * 0.9);
-
-      return {
-        width: size,
-        height: size,
-      };
-    },
-
-    aspectRatio: 1.0,
-    disableFlip: true,
-  };
-
-  async function stopScanner() {
     try {
-      if (scanner && isScannerRunning) {
-        await scanner.stop();
-        scanner.clear();
-        isScannerRunning = false;
-      } else if (scanner) {
-        scanner.clear();
-      }
-    } catch {
-      // ignore scanner stop/clear error
-    }
-  }
+      if (raw.includes("PrintLetterBarcodeData") || raw.startsWith("<")) {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(raw, "text/xml");
 
-  async function onScanSuccess(decodedText: string) {
-    if (hasScanned) return;
+        const parserError = xmlDoc.getElementsByTagName("parsererror")[0];
+        if (parserError) return "";
 
-    if (!decodedText) {
-      setScannerError("QR scanned, but data was not readable. Please try again.");
-      return;
-    }
+        const node =
+          xmlDoc.getElementsByTagName("PrintLetterBarcodeData")[0] ||
+          xmlDoc.documentElement;
 
-    const extractedAadhaar = extractAadhaarFromQR(decodedText);
+        const uid = node?.getAttribute("uid") || "";
 
-    if (!extractedAadhaar) {
-      setScannerError(
-        "QR scanned, but full Aadhaar number was not found. Secure Aadhaar QR may not contain full Aadhaar. Please enter Aadhaar manually."
-      );
-      return;
-    }
-
-    hasScanned = true;
-
-    setAadhaar(extractedAadhaar);
-    setScannerError("");
-
-    await stopScanner();
-
-    setShowScanner(false);
-
-    showPopup(
-      "success",
-      "Aadhaar number scanned. Please click Check Customer Review."
-    );
-  }
-
-  async function startAndroidBackCamera() {
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 300));
-
-      if (isUnmounted) return;
-
-      scanner = new Html5Qrcode("aadhaar-qr-reader", {
-        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
-        verbose: false,
-      });
-
-      const cameras = await Html5Qrcode.getCameras();
-
-      if (!cameras || cameras.length === 0) {
-        throw new Error("No camera found on this device");
-      }
-
-      const backCamera =
-        cameras.find((camera) =>
-          /back|rear|environment|facing back/i.test(camera.label || "")
-        ) || cameras[cameras.length - 1];
-
-      try {
-        await scanner.start(
-          backCamera.id,
-          scanConfig,
-          onScanSuccess,
-          () => {
-            // ignore frame decode errors
-          }
-        );
-
-        isScannerRunning = true;
-        setScannerError("");
-        return;
-      } catch {
-        // fallback below
-      }
-
-      try {
-        await scanner.start(
-          { facingMode: "environment" },
-          scanConfig,
-          onScanSuccess,
-          () => {
-            // ignore frame decode errors
-          }
-        );
-
-        isScannerRunning = true;
-        setScannerError("");
-        return;
-      } catch {
-        // fallback below
-      }
-
-      await scanner.start(
-        cameras[cameras.length - 1].id,
-        scanConfig,
-        onScanSuccess,
-        () => {
-          // ignore frame decode errors
+        if (/^\d{12}$/.test(uid)) {
+          return uid;
         }
-      );
+      }
 
-      isScannerRunning = true;
-      setScannerError("");
-    } catch (err: any) {
-      const message =
-        err?.message ||
-        err?.name ||
-        "Camera permission denied or camera not available";
-
-      setScannerError(
-        `Camera start failed: ${message}. Please allow camera permission and try again.`
-      );
+      return "";
+    } catch {
+      return "";
     }
   }
 
-  startAndroidBackCamera();
+  useEffect(() => {
+    if (!showScanner) return;
 
-  return () => {
-    isUnmounted = true;
+    let scanner: Html5Qrcode | null = null;
+    let isScannerRunning = false;
+    let hasScanned = false;
+    let isUnmounted = false;
 
-    if (scanner && isScannerRunning) {
-      scanner
-        .stop()
-        .then(() => {
-          try {
-            scanner?.clear();
-          } catch {
-            // ignore clear error
-          }
-        })
-        .catch(() => {
-          // ignore stop error
-        });
-    } else if (scanner) {
+    const scanConfig = {
+      fps: 15,
+      qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+        const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+        const size = Math.floor(minEdge * 0.9);
+
+        return {
+          width: size,
+          height: size,
+        };
+      },
+      aspectRatio: 1.0,
+      disableFlip: true,
+    };
+
+    async function stopScanner() {
       try {
-        scanner.clear();
+        if (scanner && isScannerRunning) {
+          await scanner.stop();
+          scanner.clear();
+          isScannerRunning = false;
+        } else if (scanner) {
+          scanner.clear();
+        }
       } catch {
-        // ignore clear error
+        // ignore scanner stop/clear error
       }
     }
-  };
-}, [showScanner]);
+
+    async function onScanSuccess(decodedText: string) {
+      if (hasScanned) return;
+
+      if (!decodedText) {
+        setScannerError("QR scanned, but data was not readable. Please try again.");
+        return;
+      }
+
+      const extractedAadhaar = extractAadhaarFromQR(decodedText);
+
+      if (!extractedAadhaar) {
+        setScannerError(
+          "QR scanned, but full Aadhaar number was not found. Secure Aadhaar QR may not contain full Aadhaar. Please enter Aadhaar manually."
+        );
+        return;
+      }
+
+      hasScanned = true;
+
+      setAadhaar(extractedAadhaar);
+      setScannerError("");
+
+      await stopScanner();
+
+      setShowScanner(false);
+
+      showPopup(
+        "success",
+        "Aadhaar number scanned. Please click Check Customer Review."
+      );
+    }
+
+    async function startAndroidBackCamera() {
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        if (isUnmounted) return;
+
+        scanner = new Html5Qrcode("aadhaar-qr-reader", {
+          formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+          verbose: false,
+        });
+
+        const cameras = await Html5Qrcode.getCameras();
+
+        if (!cameras || cameras.length === 0) {
+          throw new Error("No camera found on this device");
+        }
+
+        const backCamera =
+          cameras.find((camera) =>
+            /back|rear|environment|facing back/i.test(camera.label || "")
+          ) || cameras[cameras.length - 1];
+
+        try {
+          await scanner.start(
+            backCamera.id,
+            scanConfig,
+            onScanSuccess,
+            () => {}
+          );
+
+          isScannerRunning = true;
+          setScannerError("");
+          return;
+        } catch {
+          // fallback below
+        }
+
+        try {
+          await scanner.start(
+            { facingMode: "environment" },
+            scanConfig,
+            onScanSuccess,
+            () => {}
+          );
+
+          isScannerRunning = true;
+          setScannerError("");
+          return;
+        } catch {
+          // fallback below
+        }
+
+        await scanner.start(
+          cameras[cameras.length - 1].id,
+          scanConfig,
+          onScanSuccess,
+          () => {}
+        );
+
+        isScannerRunning = true;
+        setScannerError("");
+      } catch (err: any) {
+        const message =
+          err?.message ||
+          err?.name ||
+          "Camera permission denied or camera not available";
+
+        setScannerError(
+          `Camera start failed: ${message}. Please allow camera permission and try again.`
+        );
+      }
+    }
+
+    startAndroidBackCamera();
+
+    return () => {
+      isUnmounted = true;
+
+      if (scanner && isScannerRunning) {
+        scanner
+          .stop()
+          .then(() => {
+            try {
+              scanner?.clear();
+            } catch {}
+          })
+          .catch(() => {});
+      } else if (scanner) {
+        try {
+          scanner.clear();
+        } catch {}
+      }
+    };
+  }, [showScanner]);
 
   async function searchCustomer() {
     if (aadhaar.length !== 12) {
@@ -403,99 +409,93 @@ useEffect(() => {
     }
   }
 
- async function submitReview() {
-  if (!customer?.id) {
-    showPopup("error", "Please search customer first");
-    return;
-  }
-
-  if (!riskLevel) {
-    showPopup("error", "Please select a review risk level");
-    return;
-  }
-
-  if (!comment.trim()) {
-    showPopup("error", "Please enter review details");
-    return;
-  }
-
-  const token = getToken();
-  if (!token) {
-    handleUnauthorized();
-    return;
-  }
-
-  setSubmitting(true);
-
-  try {
-    const formData = new FormData();
-
-    // ✅ JSON part
-    formData.append(
-      "review",
-      new Blob(
-        [
-          JSON.stringify({
-            customerId: customer.id,
-            type: riskLevel,
-            comment: comment,
-          }),
-        ],
-        { type: "application/json" }
-      )
-    );
-
-    // ✅ Image part
-    if (itemPhoto) {
-      formData.append("itemPhoto", itemPhoto);
+  async function submitReview() {
+    if (!customer?.id) {
+      showPopup("error", "Please search customer first");
+      return;
     }
 
-    const res = await fetch(`${API_BASE}/reviews`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        // ❌ DO NOT set Content-Type
-      },
-      body: formData,
-    });
+    if (!riskLevel) {
+      showPopup("error", "Please select a review risk level");
+      return;
+    }
 
-    if (res.status === 401 || res.status === 403) {
+    if (!comment.trim()) {
+      showPopup("error", "Please enter review details");
+      return;
+    }
+
+    const token = getToken();
+
+    if (!token) {
       handleUnauthorized();
       return;
     }
 
-    // Inside submitReview function
-if (!res.ok) {
-  let errorMessage = "Failed to submit review";
-  
-  try {
-    // Attempt to parse the error as JSON
-    const errorData = await res.json();
-    errorMessage = errorData.message || errorMessage;
-  } catch {
-    // Fallback if the response is not JSON
-    errorMessage = await res.text() || errorMessage;
+    setSubmitting(true);
+
+    try {
+      const formData = new FormData();
+
+      formData.append(
+        "review",
+        new Blob(
+          [
+            JSON.stringify({
+              customerId: customer.id,
+              type: riskLevel,
+              comment: comment,
+            }),
+          ],
+          { type: "application/json" }
+        )
+      );
+
+      if (itemPhoto) {
+        formData.append("itemPhoto", itemPhoto);
+      }
+
+      const res = await fetch(`${API_BASE}/reviews`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (res.status === 401 || res.status === 403) {
+        handleUnauthorized();
+        return;
+      }
+
+      if (!res.ok) {
+        let errorMessage = "Failed to submit review";
+
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+          errorMessage = (await res.text()) || errorMessage;
+        }
+
+        showPopup("error", errorMessage);
+        return;
+      }
+
+      showPopup("success", "Review submitted successfully");
+
+      setRiskLevel("");
+      setComment("");
+      setItemPhoto(null);
+      setItemPhotoPreview("");
+
+      searchCustomer();
+    } catch {
+      showPopup("error", "Server error while submitting review");
+    } finally {
+      setSubmitting(false);
+    }
   }
-  
-  showPopup("error", errorMessage);
-  return;
-}
-
-    showPopup("success", "Review submitted successfully");
-
-    // ✅ Reset
-    setRiskLevel("");
-    setComment("");
-    setItemPhoto(null);
-    setItemPhotoPreview("");
-
-    searchCustomer();
-  } catch {
-    showPopup("error", "Server error while submitting review");
-  } finally {
-    setSubmitting(false);
-  }
-}
 
   async function deleteReview(reviewId: number | string) {
     const token = getToken();
@@ -553,181 +553,96 @@ if (!res.ok) {
 
   return (
     <div className="min-h-screen bg-[#f4f5f7]">
-      {/* ================= DESKTOP VIEW ================= */}
-      <div className="hidden xl:flex min-h-screen">
-        <aside className="w-64 bg-white border-r border-gray-200 px-5 py-6 fixed left-0 top-0 bottom-0">
-          <div className="flex items-center gap-3 mb-10">
-            <div className="w-12 h-12 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
-              <img
-                src="https://github.com/senchasuresh99/LearningScalare/blob/main/logo1.png?raw=true"
-                alt="PawnSecure"
-                className="w-10 h-10 bg-white rounded-lg p-1"
-              />
-            </div>
+      {/* ================= DESKTOP VIEW WITH GLOBAL SIDEBAR ================= */}
+      <div className="hidden lg:flex min-h-screen">
+        <DealerSidebar isAdminView={isAdminView} />
 
-            <div>
-              <h1 className="text-xl font-bold text-purple-700">PawnSecure</h1>
-              <p className="text-xs text-gray-500">Dealer Portal</p>
-            </div>
-          </div>
-
-          <nav className="space-y-2">
-            <button
-              onClick={() => navigate("/dealer/dashboard")}
-              className="w-full text-gray-600 px-4 py-3 rounded-xl flex items-center gap-3 hover:bg-gray-100"
-            >
-              <FaHome />
-              Dashboard
-            </button>
-
-            <button
-              onClick={() => navigate("/dealer/customer-search")}
-              className="w-full bg-purple-600 text-white px-4 py-3 rounded-xl flex items-center gap-3 font-semibold"
-            >
-              <FaUserFriends />
-              Customers Review
-            </button>
-
-            <button
-              onClick={() => navigate("/dealer/customer")}
-              className="w-full text-gray-600 px-4 py-3 rounded-xl flex items-center gap-3 hover:bg-gray-100"
-            >
-              <FaRupeeSign />
-              Girvi
-            </button>
-
-            <button
-              onClick={() => navigate("/dealer/collections")}
-              className="w-full text-gray-600 px-4 py-3 rounded-xl flex items-center gap-3 hover:bg-gray-100"
-            >
-              <FaCoins />
-              Collections
-            </button>
-
-            <button
-              onClick={() => navigate("/dealer/reports")}
-              className="w-full text-gray-600 px-4 py-3 rounded-xl flex items-center gap-3 hover:bg-gray-100"
-            >
-              <FaChartBar />
-              Reports
-            </button>
-
-            <button
-              onClick={handleLogout}
-              className="w-full text-red-600 px-4 py-3 rounded-xl flex items-center gap-3 hover:bg-red-50 font-semibold mt-8"
-            >
-              <FaSignOutAlt />
-              Logout
-            </button>
-          </nav>
-        </aside>
-
-        <main className="ml-64 flex-1">
-          <div className="h-16 bg-white border-b border-gray-200 px-8 flex items-center justify-between sticky top-0 z-30">
+        <main className="ml-64 flex-1 flex flex-col">
+          <header className="h-16 bg-white border-b border-gray-200 px-8 flex items-center justify-between sticky top-0 z-30 shrink-0">
             <div>
               <h2 className="text-lg font-bold text-gray-900">
                 Check Customer Review
               </h2>
-
               <p className="text-xs text-gray-500">
                 Search customer history and review dealer feedback
               </p>
             </div>
 
-            <div className="relative">
-              <button
-                onClick={() => setShowProfileMenu(!showProfileMenu)}
-                className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold"
-              >
-                {getInitials(dealerName)}
-              </button>
-
-              {showProfileMenu && (
-                <div className="absolute right-0 mt-2 w-44 bg-white rounded-xl shadow-lg border z-50 overflow-hidden">
-                  <div className="px-4 py-3 border-b">
-                    <p className="text-sm font-bold text-gray-800">
-                      {dealerName}
-                    </p>
-                    <p className="text-xs text-gray-500">Dealer</p>
-                  </div>
-
-                  <button
-                    onClick={handleLogout}
-                    className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 font-semibold"
-                  >
-                    Logout
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="p-8 max-w-7xl mx-auto">
-            <div className="grid grid-cols-12 gap-6 mb-8">
-              <div className="col-span-8 bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-3xl p-8">
-                <p className="text-sm opacity-90">Dealer Portal</p>
-
-                <h1 className="text-3xl font-bold mt-2">
-                  Check Customer Review
-                </h1>
-
-                <p className="text-sm opacity-80 mt-3 max-w-2xl">
-                  Search existing customer records, review previous dealer
-                  feedback, and check customer risk history.
+            <div className="flex items-center gap-5">
+              <div className="text-right leading-tight">
+                <p className="text-sm font-semibold text-gray-800">
+                  {todayDate}
                 </p>
-
-                <div className="grid grid-cols-3 gap-4 mt-8">
-                  <div className="bg-white/10 rounded-2xl p-4">
-                    <p className="text-xs opacity-80">Search Type</p>
-                    <h3 className="font-bold mt-1">Aadhaar</h3>
-                  </div>
-
-                  <div className="bg-white/10 rounded-2xl p-4">
-                    <p className="text-xs opacity-80">Review</p>
-                    <h3 className="font-bold mt-1">Dealer Notes</h3>
-                  </div>
-
-                  <div className="bg-white/10 rounded-2xl p-4">
-                    <p className="text-xs opacity-80">Status</p>
-                    <h3 className="font-bold mt-1">Secure</h3>
-                  </div>
-                </div>
+                <p className="text-xs text-gray-400">{todayDay}</p>
               </div>
 
-              <div className="col-span-4 bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
-                <h2 className="text-xl font-bold text-gray-900">
-                  Quick Verification
-                </h2>
+              <div className="relative">
+                <button
+                  onClick={() => setShowProfileMenu(!showProfileMenu)}
+                  className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold"
+                >
+                  {getInitials(dealerName)}
+                </button>
 
-                <p className="text-sm text-gray-500 mt-2">
-                  Enter Aadhaar manually or scan live QR to check customer
-                  review history.
-                </p>
+                {showProfileMenu && (
+                  <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-lg border border-gray-100 z-50 overflow-hidden">
+                    <div className="px-4 py-3 border-b">
+                      <p className="text-sm font-bold text-gray-800">
+                        {dealerName}
+                      </p>
+                      <p className="text-xs text-gray-500">Dealer</p>
+                    </div>
 
-                <div className="mt-6 space-y-3">
-                  <div className="bg-purple-50 text-purple-700 px-4 py-3 rounded-2xl text-sm font-semibold">
-                    1. Enter or scan Aadhaar
+                    <button
+                      onClick={handleLogout}
+                      className="w-full px-4 py-3 text-sm text-red-600 hover:bg-red-50 font-semibold flex items-center gap-2 transition"
+                    >
+                      <FaSignOutAlt className="text-base" />
+                      <span>Logout</span>
+                    </button>
                   </div>
+                )}
+              </div>
+            </div>
+          </header>
 
-                  <div className="bg-blue-50 text-blue-700 px-4 py-3 rounded-2xl text-sm font-semibold">
-                    2. Search customer record
+          <div className="p-5 xl:p-6 max-w-[1400px] w-full mx-auto flex-1">
+            <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-3xl px-8 py-5 mb-6">
+              <div className="flex items-center justify-between gap-6">
+                <div>
+                  <p className="text-sm opacity-90">Dealer Portal</p>
+                  <h1 className="text-2xl font-bold mt-1">
+                    Check Customer Review
+                  </h1>
+                  <p className="text-sm opacity-80 mt-1">
+                    Search customer records, review dealer feedback and check risk history.
+                  </p>
+                </div>
+
+                <div className="hidden xl:grid grid-cols-3 gap-3 min-w-[420px]">
+                  <div className="bg-white/10 rounded-2xl px-4 py-3">
+                    <p className="text-[11px] opacity-80">Search Type</p>
+                    <h3 className="font-bold text-sm mt-0.5">Aadhaar</h3>
                   </div>
-
-                  <div className="bg-green-50 text-green-700 px-4 py-3 rounded-2xl text-sm font-semibold">
-                    3. Submit dealer review
+                  <div className="bg-white/10 rounded-2xl px-4 py-3">
+                    <p className="text-[11px] opacity-80">Review</p>
+                    <h3 className="font-bold text-sm mt-0.5">Dealer Notes</h3>
+                  </div>
+                  <div className="bg-white/10 rounded-2xl px-4 py-3">
+                    <p className="text-[11px] opacity-80">Status</p>
+                    <h3 className="font-bold text-sm mt-0.5">Secure</h3>
                   </div>
                 </div>
               </div>
             </div>
 
             <div className="grid grid-cols-12 gap-6">
-              <div className="col-span-8 bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
+              <div className="col-span-12 xl:col-span-8 bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
                 <div className="flex justify-between items-start mb-6">
                   <div>
                     <h2 className="text-xl font-bold text-gray-900">
                       Customer Review Search
                     </h2>
-
                     <p className="text-sm text-gray-500 mt-1">
                       Enter Aadhaar number to check customer review history.
                     </p>
@@ -744,7 +659,7 @@ if (!res.ok) {
                 </div>
 
                 <div className="grid grid-cols-12 gap-4">
-                  <div className="col-span-9 flex items-center border border-gray-200 rounded-2xl px-4 py-4 bg-gray-50 focus-within:ring-2 focus-within:ring-purple-500">
+                  <div className="col-span-12 md:col-span-9 flex items-center border border-gray-200 rounded-2xl px-4 py-4 bg-gray-50 focus-within:ring-2 focus-within:ring-purple-500">
                     <FaSearch className="text-gray-400 mr-3" />
                     <input
                       value={maskAadhaar(aadhaar)}
@@ -763,7 +678,7 @@ if (!res.ok) {
                       setScannerError("");
                       setShowScanner(true);
                     }}
-                    className="col-span-3 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-2xl font-bold flex items-center justify-center gap-2"
+                    className="col-span-12 md:col-span-3 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-2xl font-bold flex items-center justify-center gap-2 py-4"
                   >
                     <FaQrcode />
                     Scan QR
@@ -774,13 +689,13 @@ if (!res.ok) {
                   type="button"
                   onClick={searchCustomer}
                   disabled={loading}
-                  className="mt-5 w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-2xl font-bold"
+                  className="mt-5 w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-2xl font-bold disabled:bg-gray-400"
                 >
                   {loading ? "Checking..." : "Check Customer Review"}
                 </button>
               </div>
 
-              <div className="col-span-4 bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
+              <div className="col-span-12 xl:col-span-4 bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
                 <h2 className="text-xl font-bold text-gray-900">
                   Safety Review Guide
                 </h2>
@@ -806,7 +721,7 @@ if (!res.ok) {
             </div>
 
             {customer && (
-              <div className="mt-6 max-w-3xl">
+              <div ref={resultRef} className="mt-6 max-w-4xl">
                 <CustomerResult
                   customer={customer}
                   aadhaar={aadhaar}
@@ -831,11 +746,14 @@ if (!res.ok) {
       </div>
 
       {/* ================= MOBILE / TABLET VIEW ================= */}
-      <div className="xl:hidden pb-32 bg-[#f4f5f7] min-h-screen">
+      <div className="lg:hidden pb-32 bg-[#f4f5f7] min-h-screen">
         <div className="max-w-md mx-auto bg-[#f4f5f7] min-h-screen">
-          <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-b-[32px] px-5 py-6">
-            <div className="flex justify-between items-center mb-6">
-              <button type="button" onClick={() => navigate("/dealer/dashboard")}>
+          <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-b-[28px] px-5 py-5 relative overflow-visible">
+            <div className="flex justify-between items-center mb-4">
+              <button
+                type="button"
+                onClick={() => navigate("/dealer/dashboard")}
+              >
                 <FaArrowLeft className="text-xl" />
               </button>
 
@@ -868,13 +786,13 @@ if (!res.ok) {
               </div>
             </div>
 
-            <h2 className="text-2xl font-bold">Check Customer</h2>
+            <h2 className="text-xl font-bold">Check Customer</h2>
             <p className="text-sm opacity-80 mt-1">
               Search Aadhaar and view customer reviews
             </p>
           </div>
 
-          <div className="px-4 -mt-5 relative z-10">
+          <div className="px-4 -mt-4 relative z-10">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="font-bold text-sm">Customer Aadhaar</h2>
@@ -918,7 +836,7 @@ if (!res.ok) {
                 type="button"
                 onClick={searchCustomer}
                 disabled={loading}
-                className="mt-3 w-full bg-purple-600 text-white py-3 rounded-xl font-bold"
+                className="mt-3 w-full bg-purple-600 text-white py-3 rounded-xl font-bold disabled:bg-gray-400"
               >
                 {loading ? "Checking..." : "Check Review"}
               </button>
@@ -947,7 +865,7 @@ if (!res.ok) {
             </div>
           )}
 
-          <div className="px-4 mt-6">
+          <div className="px-4 mt-4">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
               <h2 className="text-lg font-bold text-gray-900">
                 Safety Review Guide
@@ -1004,8 +922,9 @@ if (!res.ok) {
 
           <button
             type="button"
-            onClick={() => navigate("/dealer/collections")}
-            className="text-gray-500 flex flex-col items-center text-xs"
+            disabled
+            title="Collections feature is currently disabled"
+            className="text-gray-300 flex flex-col items-center text-xs cursor-not-allowed"
           >
             <FaCoins className="text-xl mb-1" />
             Collections
@@ -1040,7 +959,8 @@ if (!res.ok) {
               </button>
             </div>
 
-            <div id="aadhaar-qr-reader"
+            <div
+              id="aadhaar-qr-reader"
               className="w-full min-h-[420px] overflow-hidden rounded-xl border bg-black"
             />
 
@@ -1130,7 +1050,6 @@ function CustomerResult({
   deletingReviewId,
   itemPhotoPreview,
   onItemPhotoChange,
-
 }: any) {
   function getReviewType(r: any) {
     return r.riskLevel || r.type || "REVIEW";
@@ -1177,31 +1096,27 @@ function CustomerResult({
     <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 w-full overflow-hidden">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-  {/* ✅ Customer Photo Avatar */}
-  {customer.customerPhotoBase64 ? (
-    <img
-      src={`data:${customer.customerPhotoContentType};base64,${customer.customerPhotoBase64}`}
-      alt="Customer"
-      className="w-10 h-10 rounded-full object-cover border shrink-0"
-    />
-  ) : (
-    <div className="w-10 h-10 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold shrink-0">
-      {(customer.fullName || customer.name || customer.customerName || "?")
-        .charAt(0)
-        .toUpperCase()}
-    </div>
-  )}
+          {customer.customerPhotoBase64 ? (
+            <img
+              src={`data:${customer.customerPhotoContentType};base64,${customer.customerPhotoBase64}`}
+              alt="Customer"
+              className="w-10 h-10 rounded-full object-cover border shrink-0"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold shrink-0">
+              {(customer.fullName || customer.name || customer.customerName || "?")
+                .charAt(0)
+                .toUpperCase()}
+            </div>
+          )}
 
-  {/* ✅ Name + Aadhaar */}
-  <div className="min-w-0">
-    <h3 className="font-bold text-xl text-gray-900 truncate">
-      {customer.fullName || customer.name || customer.customerName}
-    </h3>
-    <p className="text-gray-500 text-sm">
-      {maskAadhaar(aadhaar)}
-    </p>
-  </div>
-</div>
+          <div className="min-w-0">
+            <h3 className="font-bold text-xl text-gray-900 truncate">
+              {customer.fullName || customer.name || customer.customerName}
+            </h3>
+            <p className="text-gray-500 text-sm">{maskAadhaar(aadhaar)}</p>
+          </div>
+        </div>
 
         <span className="bg-purple-50 text-purple-700 px-3 py-1 rounded-full text-xs font-bold shrink-0">
           Reviews: {customer.reviews?.length || 0}
@@ -1275,23 +1190,20 @@ function CustomerResult({
                   </div>
 
                   <div className="mt-3 bg-gray-50 rounded-2xl p-3 space-y-3">
-  {/* ✅ Review Comment */}
-  <p className="text-sm text-gray-800 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-    {r.comment || "No comment provided"}
-  </p>
+                    <p className="text-sm text-gray-800 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                      {r.comment || "No comment provided"}
+                    </p>
 
-  {/* ✅ Item Photo (from DB, Base64) */}
-  {r.itemPhotoBase64 && r.itemPhotoContentType && (
-    <div className="pt-2 border-t border-gray-200">
-      <img
-        src={`data:${r.itemPhotoContentType};base64,${r.itemPhotoBase64}`}
-        alt="Item"
-        className="w-full max-h-60 object-contain rounded-xl border bg-white"
-      />
-    </div>
-  )}
-</div>
-
+                    {r.itemPhotoBase64 && r.itemPhotoContentType && (
+                      <div className="pt-2 border-t border-gray-200">
+                        <img
+                          src={`data:${r.itemPhotoContentType};base64,${r.itemPhotoBase64}`}
+                          alt="Item"
+                          className="w-full max-h-60 object-contain rounded-xl border bg-white"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -1340,42 +1252,41 @@ function CustomerResult({
           </button>
         </div>
 
-{/* ✅ Item Photo Upload */}
-<div className="mt-4">
-  <label className="block text-xs font-semibold text-gray-600 mb-2">
-    Item Photo (optional)
-  </label>
+        <div className="mt-4">
+          <label className="block text-xs font-semibold text-gray-600 mb-2">
+            Item Photo (optional)
+          </label>
 
-  {!itemPhotoPreview ? (
-    <label className="cursor-pointer flex items-center justify-center border-2 border-dashed rounded-xl p-4 text-sm text-gray-500 hover:bg-gray-50">
-      Click to upload item photo
-      <input
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) =>
-          onItemPhotoChange(e.target.files?.[0] || null)
-        }
-      />
-    </label>
-  ) : (
-    <div className="flex items-center gap-3">
-      <img
-        src={itemPhotoPreview}
-        alt="Item preview"
-        className="w-24 h-24 rounded-xl object-cover border"
-      />
+          {!itemPhotoPreview ? (
+            <label className="cursor-pointer flex items-center justify-center border-2 border-dashed rounded-xl p-4 text-sm text-gray-500 hover:bg-gray-50">
+              Click to upload item photo
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) =>
+                  onItemPhotoChange(e.target.files?.[0] || null)
+                }
+              />
+            </label>
+          ) : (
+            <div className="flex items-center gap-3">
+              <img
+                src={itemPhotoPreview}
+                alt="Item preview"
+                className="w-24 h-24 rounded-xl object-cover border"
+              />
 
-      <button
-        type="button"
-        onClick={() => onItemPhotoChange(null)}
-        className="text-xs text-red-600 font-bold"
-      >
-        Remove
-      </button>
-    </div>
-  )}
-</div>
+              <button
+                type="button"
+                onClick={() => onItemPhotoChange(null)}
+                className="text-xs text-red-600 font-bold"
+              >
+                Remove
+              </button>
+            </div>
+          )}
+        </div>
 
         <textarea
           value={comment}
@@ -1388,7 +1299,7 @@ function CustomerResult({
           type="button"
           onClick={submitReview}
           disabled={submitting}
-          className="mt-4 w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-2xl font-bold"
+          className="mt-4 w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-2xl font-bold disabled:bg-gray-400"
         >
           {submitting ? "Submitting..." : "Submit Review"}
         </button>

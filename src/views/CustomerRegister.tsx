@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGirvi } from "../girvi/GirviContext";
+import DealerSidebar from "../dealer/DealerSidebar";
 import {
   Html5Qrcode,
   Html5QrcodeSupportedFormats,
@@ -11,7 +12,6 @@ import {
   FaUserFriends,
   FaRupeeSign,
   FaCoins,
-  FaChartBar,
   FaEllipsisH,
   FaArrowLeft,
   FaSearch,
@@ -52,12 +52,27 @@ export default function CustomerRegister() {
   const { setCustomer } = useGirvi();
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
   const autoNavigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
 
-  const dealerName = localStorage.getItem("ps_dealer_name") || "Dealer";
+  const query = new URLSearchParams(window.location.search);
+  const isAdminView = query.get("adminView") === "true";
+
+  const dealerName =
+    query.get("dealerName") ||
+    localStorage.getItem("ps_dealer_name") ||
+    "Dealer";
+
+  const todayDate = new Date().toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+
+  const todayDay = new Date().toLocaleDateString("en-IN", {
+    weekday: "long",
+  });
 
   const [aadhaar, setAadhaar] = useState("");
   const [qrPhoneNumber, setQrPhoneNumber] = useState("");
@@ -512,10 +527,7 @@ export default function CustomerRegister() {
     setCustomerPhotoPreview("");
   }
 
-  async function verifyAadhaarQRWithBackend(
-    file?: File | null,
-    qrText?: string
-  ) {
+  async function verifyAadhaarQRWithBackend(file?: File | null, qrText?: string) {
     const token = getToken();
     if (!token) {
       handleUnauthorized();
@@ -549,6 +561,7 @@ export default function CustomerRegister() {
 
     try {
       const formData = new FormData();
+
       if (file) {
         formData.append("file", file);
       }
@@ -591,8 +604,8 @@ export default function CustomerRegister() {
       }
 
       const data = await res.json();
-      setQrStep("success");
 
+      setQrStep("success");
       setQrPreviewData({
         ...data,
         phoneNumber: qrPhoneNumber,
@@ -608,6 +621,7 @@ export default function CustomerRegister() {
       showPopup("error", "Server error while verifying Aadhaar QR");
     } finally {
       setUploadingQR(false);
+
       setTimeout(() => {
         setQrStep("idle");
       }, 2000);
@@ -647,9 +661,11 @@ export default function CustomerRegister() {
             resolve(null);
             return;
           }
+
           const file = new File([blob], "scanned-aadhaar-qr.png", {
             type: "image/png",
           });
+
           resolve(file);
         },
         "image/png",
@@ -662,6 +678,7 @@ export default function CustomerRegister() {
     if (uploadingQR) return;
 
     const scannedQrImageFile = await captureScannerFrameAsFile();
+
     if (!scannedQrImageFile) {
       showPopup(
         "error",
@@ -672,6 +689,7 @@ export default function CustomerRegister() {
 
     setShowScanner(false);
     setScannerError("");
+
     await verifyAadhaarQRWithBackend(scannedQrImageFile);
   }
 
@@ -710,6 +728,7 @@ export default function CustomerRegister() {
 
     async function onScanSuccess(decodedText: string) {
       if (hasScanned) return;
+
       if (!decodedText) {
         setScannerError("QR scanned, but data was not readable. Please try again.");
         return;
@@ -717,6 +736,7 @@ export default function CustomerRegister() {
 
       hasScanned = true;
       setScannerError("");
+
       console.log("QR DECODED TEXT:", decodedText.substring(0, 80));
 
       await stopScanner();
@@ -735,6 +755,7 @@ export default function CustomerRegister() {
         });
 
         const cameras = await Html5Qrcode.getCameras();
+
         if (!cameras || cameras.length === 0) {
           throw new Error("No camera found on this device");
         }
@@ -754,7 +775,12 @@ export default function CustomerRegister() {
         }
 
         try {
-          await scanner.start({ facingMode: "environment" }, scanConfig, onScanSuccess, () => {});
+          await scanner.start(
+            { facingMode: "environment" },
+            scanConfig,
+            onScanSuccess,
+            () => {}
+          );
           isScannerRunning = true;
           setScannerError("");
           return;
@@ -776,12 +802,20 @@ export default function CustomerRegister() {
 
     return () => {
       isUnmounted = true;
+
       if (scanner && isScannerRunning) {
-        scanner.stop().then(() => {
-          try { scanner?.clear(); } catch {}
-        }).catch(() => {});
+        scanner
+          .stop()
+          .then(() => {
+            try {
+              scanner?.clear();
+            } catch {}
+          })
+          .catch(() => {});
       } else if (scanner) {
-        try { scanner.clear(); } catch {}
+        try {
+          scanner.clear();
+        } catch {}
       }
     };
   }, [showScanner]);
@@ -844,18 +878,33 @@ export default function CustomerRegister() {
           )}
 
           <div className="flex-1 text-sm space-y-1 min-w-0 text-left">
-            <p><span className="font-semibold text-gray-700">Customer ID:</span> {customerId || "Not returned"}</p>
-            <p><span className="font-semibold text-gray-700">Name:</span> {customerName}</p>
-            <p><span className="font-semibold text-gray-700">Aadhaar:</span> {masked}</p>
+            <p>
+              <span className="font-semibold text-gray-700">Customer ID:</span>{" "}
+              {customerId || "Not returned"}
+            </p>
+            <p>
+              <span className="font-semibold text-gray-700">Name:</span>{" "}
+              {customerName}
+            </p>
+            <p>
+              <span className="font-semibold text-gray-700">Aadhaar:</span>{" "}
+              {masked}
+            </p>
             <p>
               <span className="font-semibold text-gray-700">DOB:</span>{" "}
-              {qrPreviewData.dob || qrPreviewData.dateOfBirth || qrPreviewData.birthDate || "Not available"}
+              {qrPreviewData.dob ||
+                qrPreviewData.dateOfBirth ||
+                qrPreviewData.birthDate ||
+                "Not available"}
             </p>
             <p>
               <span className="font-semibold text-gray-700">Gender:</span>{" "}
               {qrPreviewData.gender || qrPreviewData.sex || "Not available"}
             </p>
-            <p><span className="font-semibold text-gray-700">Phone:</span> {qrPreviewData.phoneNumber || qrPhoneNumber}</p>
+            <p>
+              <span className="font-semibold text-gray-700">Phone:</span>{" "}
+              {qrPreviewData.phoneNumber || qrPhoneNumber}
+            </p>
             <p className="text-xs text-gray-600 mt-2 break-words">
               <span className="font-semibold">Address:</span> {address}
             </p>
@@ -873,6 +922,7 @@ export default function CustomerRegister() {
           >
             Confirm & Continue
           </button>
+
           <button
             type="button"
             className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-bold text-sm"
@@ -901,7 +951,9 @@ export default function CustomerRegister() {
               <div className="w-12 h-12 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center mb-3">
                 <FaUpload />
               </div>
-              <p className="text-sm font-bold text-gray-800">Upload Customer Photo</p>
+              <p className="text-sm font-bold text-gray-800">
+                Upload Customer Photo
+              </p>
               <p className="text-xs text-gray-500 mt-1">
                 Required for QR registration. JPG, PNG or WEBP. Max 5MB.
               </p>
@@ -923,7 +975,9 @@ export default function CustomerRegister() {
                 className="w-24 h-24 rounded-2xl object-cover border border-purple-200 bg-white"
               />
               <div className="flex-1">
-                <p className="text-sm font-bold text-gray-800">Customer photo selected</p>
+                <p className="text-sm font-bold text-gray-800">
+                  Customer photo selected
+                </p>
                 <p className="text-xs text-gray-500 mt-1">
                   This photo will be saved with QR registration.
                 </p>
@@ -940,6 +994,7 @@ export default function CustomerRegister() {
                       }}
                     />
                   </label>
+
                   <button
                     type="button"
                     onClick={() => handleCustomerPhotoChange(null)}
@@ -962,10 +1017,17 @@ export default function CustomerRegister() {
     return (
       <div className="mt-3 text-sm space-y-1 text-left">
         <QrStatus done={!!customerPhoto} text="Customer photo added" />
-        <QrStatus done={/^[6-9]\d{9}$/.test(qrPhoneNumber)} text="Phone number added" />
+        <QrStatus
+          done={/^[6-9]\d{9}$/.test(qrPhoneNumber)}
+          text="Phone number added"
+        />
         <QrStatus
           active={qrStep === "uploading"}
-          done={qrStep === "verifying" || qrStep === "success" || qrStep === "error"}
+          done={
+            qrStep === "verifying" ||
+            qrStep === "success" ||
+            qrStep === "error"
+          }
           text="Uploading Aadhaar QR"
         />
         <QrStatus
@@ -991,109 +1053,124 @@ export default function CustomerRegister() {
         }}
       />
 
-      {/* ================= DESKTOP VIEW ================= */}
-      <div className="hidden xl:flex min-h-screen">
-        <aside className="w-64 bg-white border-r border-gray-200 px-5 py-6 fixed left-0 top-0 bottom-0">
-          <div className="flex items-center gap-3 mb-10">
-            <div className="w-12 h-12 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
-              <img
-                src="https://github.com/senchasuresh99/LearningScalare/blob/main/logo1.png?raw=true"
-                alt="PawnSecure"
-                className="w-10 h-10 bg-white rounded-lg p-1"
-              />
-            </div>
+      {/* ================= DESKTOP VIEW WITH GLOBAL SIDEBAR ================= */}
+      <div className="hidden lg:flex min-h-screen">
+        <DealerSidebar isAdminView={isAdminView} />
+
+        <main className="ml-64 flex-1 flex flex-col">
+          <header className="h-16 bg-white border-b border-gray-200 px-8 flex items-center justify-between sticky top-0 z-30 shrink-0">
             <div>
-              <h1 className="text-xl font-bold text-purple-700">PawnSecure</h1>
-              <p className="text-xs text-gray-500">Dealer Portal</p>
+              <h2 className="text-lg font-bold text-gray-900">
+                Customer Register
+              </h2>
+              <p className="text-xs text-gray-500">
+                Register customer using Aadhaar QR scan, QR upload, or manual
+                Aadhaar entry
+              </p>
             </div>
-          </div>
 
-          <nav className="space-y-2">
-            <button onClick={() => navigate("/dealer/dashboard")} className="w-full text-gray-600 px-4 py-3 rounded-xl flex items-center gap-3 hover:bg-gray-100"><FaHome />Dashboard</button>
-            <button onClick={() => navigate("/dealer/customer-register")} className="w-full bg-purple-600 text-white px-4 py-3 rounded-xl flex items-center gap-3 font-semibold"><FaUserFriends />Customers</button>
-            <button onClick={() => navigate("/dealer/customer")} className="w-full text-gray-600 px-4 py-3 rounded-xl flex items-center gap-3 hover:bg-gray-100"><FaRupeeSign />Girvi</button>
-            <button onClick={() => navigate("/dealer/collections")} className="w-full text-gray-600 px-4 py-3 rounded-xl flex items-center gap-3 hover:bg-gray-100"><FaCoins />Collections</button>
-            <button onClick={() => navigate("/dealer/reports")} className="w-full text-gray-600 px-4 py-3 rounded-xl flex items-center gap-3 hover:bg-gray-100"><FaChartBar />Reports</button>
-            <button onClick={handleLogout} className="w-full text-red-600 px-4 py-3 rounded-xl flex items-center gap-3 hover:bg-red-50 font-semibold mt-8"><FaSignOutAlt />Logout</button>
-          </nav>
-        </aside>
-
-        <main className="ml-64 flex-1">
-          <div className="h-16 bg-white border-b border-gray-200 px-8 flex items-center justify-between sticky top-0 z-30">
-            <div>
-              <h2 className="text-lg font-bold text-gray-900">Customer Register</h2>
-              <p className="text-xs text-gray-500">Register customer using Aadhaar QR scan, QR upload, or manual Aadhaar entry</p>
-            </div>
-            <div className="relative">
-              <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold">
-                {getInitials(dealerName)}
-              </button>
-              {showProfileMenu && (
-                <div className="absolute right-0 mt-2 w-44 bg-white rounded-xl shadow-lg border z-50 overflow-hidden">
-                  <div className="px-4 py-3 border-b">
-                    <p className="text-sm font-bold text-gray-800">{dealerName}</p>
-                    <p className="text-xs text-gray-500">Dealer</p>
-                  </div>
-                  <button onClick={handleLogout} className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 font-semibold">Logout</button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="p-8 max-w-7xl mx-auto">
-            <div className="grid grid-cols-12 gap-6 mb-8">
-              <div className="col-span-8 bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-3xl p-8">
-                <p className="text-sm opacity-90">Dealer Portal</p>
-                <h1 className="text-3xl font-bold mt-2">Customer Register</h1>
-                <p className="text-sm opacity-80 mt-3 max-w-2xl">
-                  Register customer securely by scanning Aadhaar QR, uploading Aadhaar QR image, or entering Aadhaar manually.
+            <div className="flex items-center gap-5">
+              <div className="text-right leading-tight">
+                <p className="text-sm font-semibold text-gray-800">
+                  {todayDate}
                 </p>
-                <div className="grid grid-cols-3 gap-4 mt-8">
-                  <div className="bg-white/10 rounded-2xl p-4">
-                    <p className="text-xs opacity-80">Method 1</p>
-                    <h3 className="font-bold mt-1">Scan QR</h3>
-                  </div>
-                  <div className="bg-white/10 rounded-2xl p-4">
-                    <p className="text-xs opacity-80">Method 2</p>
-                    <h3 className="font-bold mt-1">Upload QR</h3>
-                  </div>
-                  <div className="bg-white/10 rounded-2xl p-4">
-                    <p className="text-xs opacity-80">Method 3</p>
-                    <h3 className="font-bold mt-1">Manual Entry</h3>
-                  </div>
-                </div>
+                <p className="text-xs text-gray-400">{todayDay}</p>
               </div>
 
-              <div className="col-span-4 bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
-                <h2 className="text-xl font-bold text-gray-900">Customer Register Options</h2>
-                <p className="text-sm text-gray-500 mt-2">Register a customer using Aadhaar QR scan, QR image upload, or manual Aadhaar entry.</p>
-                <div className="mt-6 space-y-3">
-                  <div className="bg-purple-50 text-purple-700 px-4 py-3 rounded-2xl text-sm font-semibold">1. Scan Aadhaar QR</div>
-                  <div className="bg-blue-50 text-blue-700 px-4 py-3 rounded-2xl text-sm font-semibold">2. Upload QR from gallery</div>
-                  <div className="bg-green-50 text-green-700 px-4 py-3 rounded-2xl text-sm font-semibold">3. Manual register if needed</div>
+              <div className="relative">
+                <button
+                  onClick={() => setShowProfileMenu(!showProfileMenu)}
+                  className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold"
+                >
+                  {getInitials(dealerName)}
+                </button>
+
+                {showProfileMenu && (
+                  <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-lg border border-gray-100 z-50 overflow-hidden">
+                    <div className="px-4 py-3 border-b">
+                      <p className="text-sm font-bold text-gray-800">
+                        {dealerName}
+                      </p>
+                      <p className="text-xs text-gray-500">Dealer</p>
+                    </div>
+
+                    <button
+                      onClick={handleLogout}
+                      className="w-full px-4 py-3 text-sm text-red-600 hover:bg-red-50 font-semibold flex items-center gap-2 transition"
+                    >
+                      <FaSignOutAlt className="text-base" />
+                      <span>Logout</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </header>
+
+          <div className="p-5 xl:p-6 max-w-[1400px] w-full mx-auto flex-1">
+            {/* Compact Banner */}
+            <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-3xl px-8 py-5 mb-6">
+              <div className="flex items-center justify-between gap-6">
+                <div>
+                  <p className="text-sm opacity-90">Dealer Portal</p>
+                  <h1 className="text-2xl font-bold mt-1">
+                    Customer Register
+                  </h1>
+                  <p className="text-sm opacity-80 mt-1">
+                    Scan QR, upload QR, or enter Aadhaar manually
+                  </p>
+                </div>
+
+                <div className="hidden xl:grid grid-cols-3 gap-3 min-w-[420px]">
+                  <div className="bg-white/10 rounded-2xl px-4 py-3">
+                    <p className="text-[11px] opacity-80">Method 1</p>
+                    <h3 className="font-bold text-sm mt-0.5">Scan QR</h3>
+                  </div>
+                  <div className="bg-white/10 rounded-2xl px-4 py-3">
+                    <p className="text-[11px] opacity-80">Method 2</p>
+                    <h3 className="font-bold text-sm mt-0.5">Upload QR</h3>
+                  </div>
+                  <div className="bg-white/10 rounded-2xl px-4 py-3">
+                    <p className="text-[11px] opacity-80">Method 3</p>
+                    <h3 className="font-bold text-sm mt-0.5">Manual</h3>
+                  </div>
                 </div>
               </div>
             </div>
 
             <div className="grid grid-cols-12 gap-6">
-              <div className="col-span-8 bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
-                <div className="flex justify-between items-start mb-6">
+              <div className="col-span-12 xl:col-span-8 bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+                <div className="flex justify-between items-start mb-5">
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900">Customer Register</h2>
-                    <p className="text-sm text-gray-500 mt-1">Scan Aadhaar QR, upload Aadhaar QR image, or enter Aadhaar manually to register customer.</p>
+                    <h2 className="text-xl font-bold text-gray-900">
+                      Customer Register
+                    </h2>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Scan Aadhaar QR, upload Aadhaar QR image, or enter Aadhaar
+                      manually.
+                    </p>
                   </div>
-                  <a href="https://myaadhaar.uidai.gov.in/" target="_blank" rel="noreferrer" className="text-purple-700 text-sm font-semibold hover:underline">Verify Portal ↗</a>
+
+                  <a
+                    href="https://myaadhaar.uidai.gov.in/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-purple-700 text-sm font-semibold hover:underline"
+                  >
+                    Verify Portal ↗
+                  </a>
                 </div>
 
                 <CustomerStepIndicator />
 
-                {/* Main functional interaction layout wrapped cleanly inside responsiveness parameters */}
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mt-4">
                   <div className="col-span-1 md:col-span-7 flex items-center border border-gray-200 rounded-2xl px-4 py-4 bg-gray-50 focus-within:ring-2 focus-within:ring-purple-500">
                     <FaSearch className="text-gray-400 mr-3" />
                     <input
                       value={maskAadhaar(aadhaar)}
-                      onChange={(e) => setAadhaar(e.target.value.replace(/\D/g, ""))}
+                      onChange={(e) =>
+                        setAadhaar(e.target.value.replace(/\D/g, ""))
+                      }
                       maxLength={14}
                       className="w-full outline-none text-sm bg-transparent"
                       placeholder="Enter Aadhaar number"
@@ -1132,7 +1209,11 @@ export default function CustomerRegister() {
                     <FaPhoneAlt className="text-gray-400 mr-3" />
                     <input
                       value={qrPhoneNumber}
-                      onChange={(e) => setQrPhoneNumber(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                      onChange={(e) =>
+                        setQrPhoneNumber(
+                          e.target.value.replace(/\D/g, "").slice(0, 10)
+                        )
+                      }
                       maxLength={10}
                       className="w-full outline-none text-sm bg-transparent"
                       placeholder="Phone number for QR registration"
@@ -1142,6 +1223,7 @@ export default function CustomerRegister() {
                   <div className="col-span-1 md:col-span-12">
                     <CustomerPhotoUploadCard />
                   </div>
+
                   <div className="col-span-1 md:col-span-12">
                     <QrCustomerPreviewCard />
                   </div>
@@ -1157,12 +1239,27 @@ export default function CustomerRegister() {
                 </button>
               </div>
 
-              <div className="col-span-4 bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
-                <h2 className="text-xl font-bold text-gray-900">Customer Register Methods</h2>
+              <div className="col-span-12 xl:col-span-4 bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+                <h2 className="text-xl font-bold text-gray-900">
+                  Customer Register Methods
+                </h2>
+
                 <div className="mt-5 space-y-4">
-                  <GuideBox color="green" title="Scan Aadhaar QR" text="Use camera to scan Aadhaar QR and fill registration details." />
-                  <GuideBox color="yellow" title="Upload Aadhaar QR" text="Upload Aadhaar QR image from phone/gallery and create customer securely." />
-                  <GuideBox color="red" title="Manual Register" text="Enter Aadhaar manually when QR scan or upload is not available." />
+                  <GuideBox
+                    color="green"
+                    title="Scan Aadhaar QR"
+                    text="Use camera to scan Aadhaar QR and fill registration details."
+                  />
+                  <GuideBox
+                    color="yellow"
+                    title="Upload Aadhaar QR"
+                    text="Upload Aadhaar QR image from phone/gallery."
+                  />
+                  <GuideBox
+                    color="red"
+                    title="Manual Register"
+                    text="Enter Aadhaar manually when QR scan or upload is not available."
+                  />
                 </div>
               </div>
             </div>
@@ -1171,35 +1268,64 @@ export default function CustomerRegister() {
       </div>
 
       {/* ================= MOBILE / TABLET VIEW ================= */}
-      <div className="xl:hidden pb-32 bg-[#f4f5f7] min-h-screen">
+      <div className="lg:hidden pb-32 bg-[#f4f5f7] min-h-screen">
         <div className="max-w-md mx-auto bg-[#f4f5f7] min-h-screen">
-          <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-b-[32px] px-5 py-6">
-            <div className="flex justify-between items-center mb-6">
-              <button type="button" onClick={() => navigate("/dealer/dashboard")}><FaArrowLeft className="text-xl" /></button>
+          <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-b-[28px] px-5 py-5 relative overflow-visible">
+            <div className="flex justify-between items-center mb-4">
+              <button
+                type="button"
+                onClick={() => navigate("/dealer/dashboard")}
+              >
+                <FaArrowLeft className="text-xl" />
+              </button>
+
               <div className="text-center">
                 <h1 className="font-bold text-lg">Customer Register</h1>
                 <p className="text-xs opacity-80">PawnSecure</p>
               </div>
+
               <div className="relative">
-                <button type="button" onClick={() => setShowProfileMenu(!showProfileMenu)} className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center font-bold">
+                <button
+                  type="button"
+                  onClick={() => setShowProfileMenu(!showProfileMenu)}
+                  className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center font-bold"
+                >
                   {getInitials(dealerName)}
                 </button>
+
                 {showProfileMenu && (
-                  <div className="absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-lg border z-50 overflow-hidden text-left">
-                    <button type="button" onClick={handleLogout} className="w-full px-4 py-3 text-sm text-red-600 hover:bg-red-50 font-semibold flex items-center gap-2"><FaSignOutAlt />Logout</button>
+                  <div className="absolute right-0 mt-2 w-44 bg-white rounded-xl shadow-lg border z-50 overflow-hidden text-left">
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="w-full px-4 py-3 text-sm text-red-600 hover:bg-red-50 font-semibold flex items-center gap-2"
+                    >
+                      <FaSignOutAlt />
+                      Logout
+                    </button>
                   </div>
                 )}
               </div>
             </div>
-            <h2 className="text-2xl font-bold">Customer Register</h2>
-            <p className="text-sm opacity-80 mt-1">Scan QR, upload QR, or enter Aadhaar manually</p>
+
+            <h2 className="text-xl font-bold">Customer Register</h2>
+            <p className="text-sm opacity-80 mt-1">
+              Scan QR, upload QR, or enter Aadhaar manually
+            </p>
           </div>
 
-          <div className="px-4 -mt-5 relative z-10">
+          <div className="px-4 -mt-4 relative z-10">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="font-bold text-sm">Customer Register</h2>
-                <a href="https://myaadhaar.uidai.gov.in/" target="_blank" rel="noreferrer" className="text-purple-700 text-xs font-semibold">Verify ↗</a>
+                <a
+                  href="https://myaadhaar.uidai.gov.in/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-purple-700 text-xs font-semibold"
+                >
+                  Verify ↗
+                </a>
               </div>
 
               <CustomerStepIndicator />
@@ -1208,7 +1334,9 @@ export default function CustomerRegister() {
                 <FaSearch className="text-gray-400 mr-3" />
                 <input
                   value={maskAadhaar(aadhaar)}
-                  onChange={(e) => setAadhaar(e.target.value.replace(/\D/g, ""))}
+                  onChange={(e) =>
+                    setAadhaar(e.target.value.replace(/\D/g, ""))
+                  }
                   maxLength={14}
                   className="w-full outline-none text-sm bg-transparent"
                   placeholder="Enter Aadhaar"
@@ -1219,7 +1347,11 @@ export default function CustomerRegister() {
                 <FaPhoneAlt className="text-gray-400 mr-3" />
                 <input
                   value={qrPhoneNumber}
-                  onChange={(e) => setQrPhoneNumber(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  onChange={(e) =>
+                    setQrPhoneNumber(
+                      e.target.value.replace(/\D/g, "").slice(0, 10)
+                    )
+                  }
                   maxLength={10}
                   className="w-full outline-none text-sm bg-transparent"
                   placeholder="Phone number for QR registration"
@@ -1244,6 +1376,7 @@ export default function CustomerRegister() {
                   <FaQrcode />
                   Scan QR
                 </button>
+
                 <button
                   type="button"
                   onClick={handleQrUploadClick}
@@ -1269,25 +1402,79 @@ export default function CustomerRegister() {
             </div>
           </div>
 
-          <div className="px-4 mt-6">
+          <div className="px-4 mt-4">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-              <h2 className="text-lg font-bold text-gray-900">Customer Register Methods</h2>
+              <h2 className="text-lg font-bold text-gray-900">
+                Customer Register Methods
+              </h2>
+
               <div className="mt-5 space-y-4">
-                <GuideBox color="green" title="Scan Aadhaar QR" text="Use camera to scan Aadhaar QR." />
-                <GuideBox color="yellow" title="Upload Aadhaar QR" text="Upload QR image from phone/gallery." />
-                <GuideBox color="red" title="Manual Customer Register" text="Enter Aadhaar manually when QR is unavailable." />
+                <GuideBox
+                  color="green"
+                  title="Scan Aadhaar QR"
+                  text="Use camera to scan Aadhaar QR."
+                />
+                <GuideBox
+                  color="yellow"
+                  title="Upload Aadhaar QR"
+                  text="Upload QR image from phone/gallery."
+                />
+                <GuideBox
+                  color="red"
+                  title="Manual Customer Register"
+                  text="Enter Aadhaar manually when QR is unavailable."
+                />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Desktop or Mobile App Bottom Fixed Menu */}
+        {/* Mobile Bottom Fixed Menu */}
         <div className="fixed bottom-0 left-0 w-full bg-white border-t flex justify-around py-3 z-50">
-          <button type="button" onClick={() => navigate("/dealer/dashboard")} className="text-gray-500 flex flex-col items-center text-xs"><FaHome className="text-xl mb-1" />Dashboard</button>
-          <button type="button" onClick={() => navigate("/dealer/customer-register")} className="text-purple-700 flex flex-col items-center text-xs font-semibold"><FaUserFriends className="text-xl mb-1" />Customers</button>
-          <button type="button" onClick={() => navigate("/dealer/customer")} className="text-gray-500 flex flex-col items-center text-xs"><FaRupeeSign className="text-xl mb-1" />Girvi</button>
-          <button type="button" onClick={() => navigate("/dealer/collections")} className="text-gray-500 flex flex-col items-center text-xs"><FaCoins className="text-xl mb-1" />Collections</button>
-          <button type="button" onClick={() => navigate("/dealer/more")} className="text-gray-500 flex flex-col items-center text-xs"><FaEllipsisH className="text-xl mb-1" />More</button>
+          <button
+            type="button"
+            onClick={() => navigate("/dealer/dashboard")}
+            className="text-gray-500 flex flex-col items-center text-xs"
+          >
+            <FaHome className="text-xl mb-1" />
+            Dashboard
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate("/dealer/customer-register")}
+            className="text-purple-700 flex flex-col items-center text-xs font-semibold"
+          >
+            <FaUserFriends className="text-xl mb-1" />
+            Customers
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate("/dealer/customer")}
+            className="text-gray-500 flex flex-col items-center text-xs"
+          >
+            <FaRupeeSign className="text-xl mb-1" />
+            Girvi
+          </button>
+
+          <button
+            type="button"
+            disabled
+            className="text-gray-300 flex flex-col items-center text-xs cursor-not-allowed"
+          >
+            <FaCoins className="text-xl mb-1" />
+            Collections
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate("/dealer/more")}
+            className="text-gray-500 flex flex-col items-center text-xs"
+          >
+            <FaEllipsisH className="text-xl mb-1" />
+            More
+          </button>
         </div>
       </div>
 
@@ -1309,12 +1496,18 @@ export default function CustomerRegister() {
               </button>
             </div>
 
-            <div id="aadhaar-qr-reader" className="w-full min-h-[320px] sm:min-h-[420px] overflow-hidden rounded-xl border bg-black" />
+            <div
+              id="aadhaar-qr-reader"
+              className="w-full min-h-[320px] sm:min-h-[420px] overflow-hidden rounded-xl border bg-black"
+            />
 
-            {scannerError && <p className="text-sm text-red-600 mt-3">{scannerError}</p>}
+            {scannerError && (
+              <p className="text-sm text-red-600 mt-3">{scannerError}</p>
+            )}
 
             <p className="text-xs text-gray-500 mt-3">
-              Back camera only. If Aadhaar QR does not scan automatically, tap Capture & Verify QR.
+              Back camera only. If Aadhaar QR does not scan automatically, tap
+              Capture & Verify QR.
             </p>
 
             <button
@@ -1333,15 +1526,25 @@ export default function CustomerRegister() {
       {popup && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[999] p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center">
-            <div className={`text-5xl mb-3 ${popup.type === "success" ? "text-green-600" : "text-red-600"}`}>
+            <div
+              className={`text-5xl mb-3 ${
+                popup.type === "success" ? "text-green-600" : "text-red-600"
+              }`}
+            >
               {popup.type === "success" ? "✔" : "✖"}
             </div>
-            <h2 className="text-xl font-bold mb-2">{popup.type === "success" ? "Success" : "Error"}</h2>
+            <h2 className="text-xl font-bold mb-2">
+              {popup.type === "success" ? "Success" : "Error"}
+            </h2>
             <p className="text-gray-600 text-sm mb-5">{popup.message}</p>
             <button
               type="button"
               onClick={closePopup}
-              className={`px-5 py-2 rounded-lg text-white font-semibold ${popup.type === "success" ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}`}
+              className={`px-5 py-2 rounded-lg text-white font-semibold ${
+                popup.type === "success"
+                  ? "bg-green-600 hover:bg-green-700"
+                  : "bg-red-600 hover:bg-red-700"
+              }`}
             >
               OK
             </button>
@@ -1366,20 +1569,58 @@ function CustomerStepIndicator() {
   );
 }
 
-function QrStatus({ text, done, active, error }: { text: string; done?: boolean; active?: boolean; error?: boolean }) {
+function QrStatus({
+  text,
+  done,
+  active,
+  error,
+}: {
+  text: string;
+  done?: boolean;
+  active?: boolean;
+  error?: boolean;
+}) {
   return (
     <div className="flex items-center gap-2">
-      <span className={`font-bold ${done ? "text-green-600" : error ? "text-red-600" : active ? "text-purple-600" : "text-gray-400"}`}>
+      <span
+        className={`font-bold ${
+          done
+            ? "text-green-600"
+            : error
+            ? "text-red-600"
+            : active
+            ? "text-purple-600"
+            : "text-gray-400"
+        }`}
+      >
         {done ? "✓" : error ? "✕" : active ? "…" : "•"}
       </span>
-      <span className={`${done ? "text-green-700" : error ? "text-red-700" : active ? "text-purple-700" : "text-gray-600"}`}>
+      <span
+        className={`${
+          done
+            ? "text-green-700"
+            : error
+            ? "text-red-700"
+            : active
+            ? "text-purple-700"
+            : "text-gray-600"
+        }`}
+      >
         {text}
       </span>
     </div>
   );
 }
 
-function GuideBox({ color, title, text }: { color: "green" | "yellow" | "red"; title: string; text: string }) {
+function GuideBox({
+  color,
+  title,
+  text,
+}: {
+  color: "green" | "yellow" | "red";
+  title: string;
+  text: string;
+}) {
   const cls =
     color === "green"
       ? "bg-green-50 border-green-100 text-green-700"

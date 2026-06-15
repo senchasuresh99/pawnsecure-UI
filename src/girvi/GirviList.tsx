@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import DealerSidebar from "../dealer/DealerSidebar";
 import {
   FaArrowLeft,
   FaBox,
@@ -58,6 +59,19 @@ type GirviUpdateForm = {
 
 export default function GirviList() {
   const navigate = useNavigate();
+
+  const query = new URLSearchParams(window.location.search);
+  const isAdminView = query.get("adminView") === "true";
+
+  const todayDate = new Date().toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+
+  const todayDay = new Date().toLocaleDateString("en-IN", {
+    weekday: "long",
+  });
 
   const [girviList, setGirviList] = useState<GirviResponseDTO[]>([]);
   const [filteredList, setFilteredList] = useState<GirviResponseDTO[]>([]);
@@ -438,73 +452,39 @@ export default function GirviList() {
 
   return (
     <div className="min-h-screen bg-[#f4f5f7] font-sans">
-      {/* ================= DESKTOP SIDEBAR & VIEW ================= */}
+      {/* ================= DESKTOP VIEW WITH GLOBAL SIDEBAR ================= */}
       <div className="hidden lg:flex min-h-screen">
-        <aside className="w-72 bg-white border-r border-gray-200 px-5 py-6 fixed left-0 top-0 bottom-0 z-20">
-          <div className="flex items-center gap-3 mb-10 px-2">
-            <div className="w-11 h-11 rounded-xl bg-purple-100 flex items-center justify-center shrink-0">
-              <img
-                src="https://github.com/senchasuresh99/LearningScalare/blob/main/logo1.png?raw=true"
-                alt="PawnSecure"
-                className="w-9 h-9 bg-white rounded-lg p-1 object-contain"
-              />
-            </div>
+        <DealerSidebar isAdminView={isAdminView} />
+
+        <main className="ml-64 flex-1 flex flex-col">
+          {/* Top Header */}
+          <header className="h-16 bg-white border-b border-gray-200 px-8 flex items-center justify-between sticky top-0 z-30 shrink-0">
             <div>
-              <h1 className="text-lg font-bold text-[#4820C5]">PawnSecure</h1>
-              <p className="text-[11px] text-gray-400 font-medium tracking-wide uppercase">
-                Dealer Portal
-              </p>
-            </div>
-          </div>
-
-          <nav className="space-y-1.5">
-            <button
-              onClick={() => navigate("/dealer/dashboard")}
-              className="w-full text-gray-600 px-4 py-3.5 rounded-xl flex items-center gap-3 hover:bg-gray-50 font-semibold text-sm transition"
-            >
-              <FaHome className="text-gray-400 text-lg" /> Dashboard
-            </button>
-
-            <button
-              onClick={() => navigate("/dealer/customer-register")}
-              className="w-full text-gray-600 px-4 py-3.5 rounded-xl flex items-center gap-3 hover:bg-gray-50 font-semibold text-sm transition"
-            >
-              <FaUserFriends className="text-gray-400 text-lg" /> Customers
-            </button>
-
-            <button
-              onClick={() => navigate("/dealer/customer")}
-              className="w-full bg-[#4820C5] text-white px-4 py-3.5 rounded-xl flex items-center gap-3 font-bold text-sm shadow-md shadow-purple-100 transition"
-            >
-              <FaRupeeSign className="text-lg" /> Girvi List
-            </button>
-
-            <button
-              onClick={() => navigate("/dealer/collections")}
-              className="w-full text-gray-600 px-4 py-3.5 rounded-xl flex items-center gap-3 hover:bg-gray-50 font-semibold text-sm transition"
-            >
-              <FaCoins className="text-gray-400 text-lg" /> Collections
-            </button>
-          </nav>
-        </aside>
-
-        <main className="ml-72 flex-1 overflow-x-hidden">
-          <div className="h-20 bg-white border-b border-gray-100 px-8 flex items-center justify-between sticky top-0 z-30">
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">Girvi Records</h2>
-              <p className="text-xs text-gray-400 font-medium">
+              <h2 className="text-lg font-bold text-gray-900">Girvi Records</h2>
+              <p className="text-xs text-gray-500">
                 Manage and review secure customer pledge listings
               </p>
             </div>
-            <button
-              onClick={goToAddGirvi}
-              className="bg-[#4820C5] hover:bg-[#3917a3] text-white px-5 py-3 rounded-xl font-bold text-sm flex items-center gap-2 shadow-sm transition"
-            >
-              <FaPlus /> Add New Girvi
-            </button>
-          </div>
 
-          <div className="p-8 max-w-7xl mx-auto">
+            <div className="flex items-center gap-5">
+              <div className="text-right leading-tight">
+                <p className="text-sm font-semibold text-gray-800">
+                  {todayDate}
+                </p>
+                <p className="text-xs text-gray-400">{todayDay}</p>
+              </div>
+
+              <button
+                onClick={goToAddGirvi}
+                className="bg-[#4820C5] hover:bg-[#3917a3] text-white px-5 py-3 rounded-xl font-bold text-sm flex items-center gap-2 shadow-sm transition"
+              >
+                <FaPlus /> Add New Girvi
+              </button>
+            </div>
+          </header>
+
+          {/* Page Content */}
+          <div className="p-6 xl:p-8 max-w-[1400px] w-full mx-auto flex-1">
             <RecordsPanel
               loading={loading}
               error={error}
@@ -588,8 +568,10 @@ export default function GirviList() {
           />
         </div>
 
+        {/* Mobile Bottom Navigation */}
         <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 flex justify-around py-3 z-50 shadow-xl">
           <button
+            type="button"
             onClick={() => navigate("/dealer/dashboard")}
             className="text-gray-400 flex flex-col items-center text-[11px] font-medium gap-1"
           >
@@ -598,6 +580,7 @@ export default function GirviList() {
           </button>
 
           <button
+            type="button"
             onClick={() => navigate("/dealer/customer-register")}
             className="text-gray-400 flex flex-col items-center text-[11px] font-medium gap-1"
           >
@@ -606,6 +589,7 @@ export default function GirviList() {
           </button>
 
           <button
+            type="button"
             onClick={() => navigate("/dealer/customer")}
             className="text-[#4820C5] flex flex-col items-center text-[11px] font-bold gap-1"
           >
@@ -613,9 +597,12 @@ export default function GirviList() {
             Girvi
           </button>
 
+          {/* Disabled Collections */}
           <button
-            onClick={() => navigate("/dealer/collections")}
-            className="text-gray-400 flex flex-col items-center text-[11px] font-medium gap-1"
+            type="button"
+            disabled
+            title="Collections feature is currently disabled"
+            className="text-gray-300 flex flex-col items-center text-[11px] font-medium gap-1 cursor-not-allowed"
           >
             <FaCoins className="text-xl" />
             Collections
@@ -982,6 +969,7 @@ function MobileRecordsPanel({
                   <FaEdit className="text-xs" />
                   Edit Records
                 </button>
+
                 <button
                   type="button"
                   onClick={() => handleRenewGirvi(item.id)}

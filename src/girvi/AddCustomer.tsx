@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useGirvi } from "./GirviContext";
+import DealerSidebar from "../dealer/DealerSidebar";
 import {
   FaArrowLeft,
   FaSave,
@@ -10,8 +11,12 @@ import {
   FaPhoneAlt,
   FaMapMarkerAlt,
   FaCheckCircle,
+  FaHome,
+  FaUserFriends,
+  FaRupeeSign,
+  FaCoins,
+  FaEllipsisH,
 } from "react-icons/fa";
-import DealerBottomNav from "../dealer/DealerBottomNav";
 
 const API_BASE = "https://pawnsecure-1.onrender.com/api";
 
@@ -40,6 +45,19 @@ export default function AddCustomer() {
   const navigate = useNavigate();
   const location = useLocation();
   const { setCustomer } = useGirvi();
+
+  const query = new URLSearchParams(window.location.search);
+  const isAdminView = query.get("adminView") === "true";
+
+  const todayDate = new Date().toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+
+  const todayDay = new Date().toLocaleDateString("en-IN", {
+    weekday: "long",
+  });
 
   const prefill: any = location.state || {};
 
@@ -334,245 +352,326 @@ export default function AddCustomer() {
   const completedCount = completionItems.filter(Boolean).length;
   const progress = Math.round((completedCount / completionItems.length) * 100);
 
-  return (
-    <div className="min-h-screen bg-[#f4f5f7] pb-32 xl:pb-10">
-      {/* HEADER */}
-      <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-b-[32px] xl:rounded-b-[42px] px-5 xl:px-10 py-6 xl:py-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between mb-6">
-            <button
-              type="button"
-              onClick={() => navigate("/dealer/customer-register")}
-              className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center hover:bg-white/25 transition"
-            >
-              <FaArrowLeft className="text-xl" />
-            </button>
+  function renderFormCard() {
+    return (
+      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 xl:p-8">
+        {/* VERIFIED STATUS */}
+        <div className="bg-green-50 border border-green-100 text-green-700 rounded-2xl px-4 py-3 text-sm font-semibold mb-6 flex items-center gap-2">
+          <FaCheckCircle />
+          Aadhaar details loaded successfully
+        </div>
 
-            <div className="text-center xl:hidden">
-              <h1 className="font-bold text-lg">Register Customer</h1>
-              <p className="text-xs opacity-80">PawnSecure</p>
-            </div>
-
-            <div className="hidden xl:block">
-              <p className="text-sm opacity-80">PawnSecure Dealer Portal</p>
-            </div>
-
-            <div className="w-10" />
+        {/* PROGRESS MOBILE / CONTENT */}
+        <div className="mb-6">
+          <div className="flex justify-between text-xs font-semibold text-gray-500 mb-2">
+            <span>Form Completion</span>
+            <span>{progress}%</span>
           </div>
 
-          <div className="xl:flex xl:items-end xl:justify-between">
-            <div>
-              <p className="hidden xl:block text-sm opacity-80 mb-2">
-                Customer Onboarding
+          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-purple-600 rounded-full transition-all"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+
+        {/* AADHAAR DISPLAY */}
+        <div className="bg-purple-50 border border-purple-100 rounded-2xl p-4 mb-6 flex items-center gap-3">
+          <div className="w-11 h-11 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+            <FaIdCard />
+          </div>
+
+          <div className="min-w-0">
+            <p className="text-xs text-purple-600 font-semibold">
+              Aadhaar Number
+            </p>
+
+            <p className="text-sm font-bold text-purple-800 mt-1 truncate">
+              {aadhaarDisplay}
+            </p>
+
+            {errors.aadhaar && (
+              <p className="text-xs text-red-600 mt-1">{errors.aadhaar}</p>
+            )}
+          </div>
+        </div>
+
+        {/* FORM SECTIONS */}
+        <Section title="Personal Details">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
+              label="Full Name *"
+              value={form.name}
+              error={errors.name}
+              icon={<FaUser />}
+              onChange={(v: string) => update("name", v)}
+            />
+
+            <Input
+              label="Date of Birth *"
+              value={form.dob}
+              error={errors.dob}
+              placeholder="DD-MM-YYYY"
+              onChange={(v: string) => update("dob", v)}
+            />
+
+            <Select
+              label="Gender *"
+              value={form.gender}
+              error={errors.gender}
+              onChange={(v: string) => update("gender", v)}
+            />
+
+            <Input
+              label="Phone Number *"
+              value={form.phone}
+              error={errors.phone}
+              icon={<FaPhoneAlt />}
+              placeholder="Enter customer phone number"
+              onChange={(v: string) =>
+                update("phone", v.replace(/\D/g, "").slice(0, 10))
+              }
+            />
+          </div>
+        </Section>
+
+        <Section title="Address Details">
+          <Textarea
+            label="Address *"
+            value={form.address}
+            error={errors.address}
+            icon={<FaMapMarkerAlt />}
+            onChange={(v: string) => update("address", v)}
+          />
+        </Section>
+
+        <Section title="Customer Photo">
+          <CustomerPhotoUploader
+            photoPreview={photoPreview}
+            error={errors.customerPhoto}
+            onChange={handlePhotoChange}
+          />
+        </Section>
+
+        <button
+          type="button"
+          onClick={saveCustomer}
+          disabled={saving}
+          className="w-full mt-7 bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
+        >
+          <FaSave />
+          {saving ? "Saving Customer..." : "Save Customer"}
+        </button>
+      </div>
+    );
+  }
+
+  function renderPreviewCard() {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+          <h3 className="font-bold text-lg text-gray-900 mb-4">
+            Customer Preview
+          </h3>
+
+          <div className="flex items-center gap-4 mb-5">
+            {photoPreview ? (
+              <img
+                src={photoPreview}
+                alt="Customer"
+                className="w-20 h-20 rounded-2xl object-cover border bg-gray-50"
+              />
+            ) : (
+              <div className="w-20 h-20 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-2xl">
+                {(form.name || "C").charAt(0).toUpperCase()}
+              </div>
+            )}
+
+            <div className="min-w-0">
+              <p className="font-bold text-gray-900 truncate">
+                {form.name || "Customer Name"}
               </p>
-
-              <h2 className="text-2xl xl:text-4xl font-bold">
-                Customer Details
-              </h2>
-
-              <p className="text-sm xl:text-base opacity-80 mt-2 max-w-2xl">
-                Review Aadhaar details, enter contact information, upload
-                customer photo, and save the customer profile.
+              <p className="text-sm text-gray-500 truncate">
+                {aadhaarDisplay}
               </p>
             </div>
+          </div>
 
-            <div className="hidden xl:grid grid-cols-3 gap-4 mt-6 min-w-[430px]">
-              <HeaderStat
-                icon={<FaCheckCircle />}
-                label="Progress"
-                value={`${progress}%`}
-              />
-              <HeaderStat
-                icon={<FaIdCard />}
-                label="Aadhaar"
-                value={aadhaarDisplay}
-              />
-              <HeaderStat
-                icon={<FaPhoneAlt />}
-                label="Phone"
-                value={form.phone || "Pending"}
-              />
-            </div>
+          <div className="space-y-3">
+            <SummaryRow label="DOB" value={form.dob || "—"} />
+            <SummaryRow label="Gender" value={form.gender || "—"} />
+            <SummaryRow label="Phone" value={form.phone || "—"} />
+            <SummaryRow
+              label="Address"
+              value={form.address || "—"}
+              multiline
+            />
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-purple-700 to-indigo-600 text-white rounded-3xl p-6">
+          <h3 className="font-bold text-lg mb-2">Next Step</h3>
+          <p className="text-sm opacity-85">
+            After saving this customer, the dealer can continue to Girvi details
+            and add pledged item information.
+          </p>
+
+          <div className="mt-5 bg-white/10 rounded-2xl p-4">
+            <p className="text-xs opacity-80">Current Step</p>
+            <p className="font-bold mt-1">Customer Registration</p>
           </div>
         </div>
       </div>
+    );
+  }
 
-      {/* MAIN CONTENT */}
-      <div className="max-w-7xl mx-auto px-4 xl:px-8 -mt-6 relative z-10">
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-          {/* LEFT FORM */}
-          <div className="xl:col-span-8">
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 xl:p-8">
-              {/* VERIFIED STATUS */}
-              <div className="bg-green-50 border border-green-100 text-green-700 rounded-2xl px-4 py-3 text-sm font-semibold mb-6 flex items-center gap-2">
-                <FaCheckCircle />
-                Aadhaar details loaded successfully
-              </div>
+  return (
+    <div className="min-h-screen bg-[#f4f5f7] font-sans">
+      {/* ================= DESKTOP VIEW WITH GLOBAL SIDEBAR ================= */}
+      <div className="hidden lg:flex min-h-screen">
+        <DealerSidebar isAdminView={isAdminView} />
 
-              {/* PROGRESS MOBILE */}
-              <div className="xl:hidden mb-6">
-                <div className="flex justify-between text-xs font-semibold text-gray-500 mb-2">
-                  <span>Form Completion</span>
-                  <span>{progress}%</span>
-                </div>
+        <main className="ml-64 flex-1 flex flex-col">
+          <header className="h-16 bg-white border-b border-gray-200 px-8 flex items-center justify-between sticky top-0 z-30 shrink-0">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">
+                Register Customer
+              </h2>
+              <p className="text-xs text-gray-500">
+                Review Aadhaar details, enter contact information, upload photo,
+                and save profile
+              </p>
+            </div>
 
-                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-purple-600 rounded-full transition-all"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-              </div>
+            <div className="text-right leading-tight">
+              <p className="text-sm font-semibold text-gray-800">
+                {todayDate}
+              </p>
+              <p className="text-xs text-gray-400">{todayDay}</p>
+            </div>
+          </header>
 
-              {/* AADHAAR DISPLAY */}
-              <div className="bg-purple-50 border border-purple-100 rounded-2xl p-4 mb-6 flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-                  <FaIdCard />
-                </div>
-
-                <div className="min-w-0">
-                  <p className="text-xs text-purple-600 font-semibold">
-                    Aadhaar Number
+          <div className="p-5 xl:p-6 max-w-[1400px] w-full mx-auto flex-1">
+            {/* Compact Banner */}
+            <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-3xl px-8 py-5 mb-6">
+              <div className="flex items-center justify-between gap-6">
+                <div>
+                  <p className="text-sm opacity-90">Customer Onboarding</p>
+                  <h1 className="text-2xl font-bold mt-1">
+                    Customer Details
+                  </h1>
+                  <p className="text-sm opacity-80 mt-1">
+                    Complete customer profile before continuing to Girvi details.
                   </p>
-
-                  <p className="text-sm font-bold text-purple-800 mt-1 truncate">
-                    {aadhaarDisplay}
-                  </p>
-
-                  {errors.aadhaar && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {errors.aadhaar}
-                    </p>
-                  )}
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => navigate("/dealer/customer-register")}
+                  className="bg-white/20 hover:bg-white/30 text-white px-5 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition"
+                >
+                  <FaArrowLeft /> Back
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-12 gap-6">
+              <div className="col-span-12 xl:col-span-8">
+                {renderFormCard()}
               </div>
 
-              {/* FORM SECTIONS */}
-              <Section title="Personal Details">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input
-                    label="Full Name *"
-                    value={form.name}
-                    error={errors.name}
-                    icon={<FaUser />}
-                    onChange={(v: string) => update("name", v)}
-                  />
+              <div className="hidden xl:block xl:col-span-4">
+                <div className="sticky top-24">{renderPreviewCard()}</div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
 
-                  <Input
-                    label="Date of Birth *"
-                    value={form.dob}
-                    error={errors.dob}
-                    placeholder="DD-MM-YYYY"
-                    onChange={(v: string) => update("dob", v)}
-                  />
-
-                  <Select
-                    label="Gender *"
-                    value={form.gender}
-                    error={errors.gender}
-                    onChange={(v: string) => update("gender", v)}
-                  />
-
-                  <Input
-                    label="Phone Number *"
-                    value={form.phone}
-                    error={errors.phone}
-                    icon={<FaPhoneAlt />}
-                    placeholder="Enter customer phone number"
-                    onChange={(v: string) =>
-                      update("phone", v.replace(/\D/g, "").slice(0, 10))
-                    }
-                  />
-                </div>
-              </Section>
-
-              <Section title="Address Details">
-                <Textarea
-                  label="Address *"
-                  value={form.address}
-                  error={errors.address}
-                  icon={<FaMapMarkerAlt />}
-                  onChange={(v: string) => update("address", v)}
-                />
-              </Section>
-
-              <Section title="Customer Photo">
-                <CustomerPhotoUploader
-                  photoPreview={photoPreview}
-                  error={errors.customerPhoto}
-                  onChange={handlePhotoChange}
-                />
-              </Section>
-
+      {/* ================= MOBILE VIEW ================= */}
+      <div className="lg:hidden pb-32 bg-[#f4f5f7] min-h-screen">
+        <div className="max-w-md mx-auto bg-[#f4f5f7] min-h-screen">
+          <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-b-[28px] px-5 py-5 relative overflow-visible">
+            <div className="flex items-center justify-between mb-4">
               <button
                 type="button"
-                onClick={saveCustomer}
-                disabled={saving}
-                className="w-full mt-7 bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                onClick={() => navigate("/dealer/customer-register")}
+                className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center hover:bg-white/25 transition"
               >
-                <FaSave />
-                {saving ? "Saving Customer..." : "Save Customer"}
+                <FaArrowLeft className="text-xl" />
               </button>
-            </div>
-          </div>
 
-          {/* RIGHT SUMMARY - LAPTOP */}
-          <div className="hidden xl:block xl:col-span-4">
-            <div className="sticky top-6 space-y-6">
-              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
-                <h3 className="font-bold text-lg text-gray-900 mb-4">
-                  Customer Preview
-                </h3>
-
-                <div className="flex items-center gap-4 mb-5">
-                  {photoPreview ? (
-                    <img
-                      src={photoPreview}
-                      alt="Customer"
-                      className="w-20 h-20 rounded-2xl object-cover border bg-gray-50"
-                    />
-                  ) : (
-                    <div className="w-20 h-20 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-2xl">
-                      {(form.name || "C").charAt(0).toUpperCase()}
-                    </div>
-                  )}
-
-                  <div className="min-w-0">
-                    <p className="font-bold text-gray-900 truncate">
-                      {form.name || "Customer Name"}
-                    </p>
-                    <p className="text-sm text-gray-500 truncate">
-                      {aadhaarDisplay}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <SummaryRow label="DOB" value={form.dob || "—"} />
-                  <SummaryRow label="Gender" value={form.gender || "—"} />
-                  <SummaryRow label="Phone" value={form.phone || "—"} />
-                  <SummaryRow
-                    label="Address"
-                    value={form.address || "—"}
-                    multiline
-                  />
-                </div>
+              <div className="text-center">
+                <h1 className="font-bold text-lg">Register Customer</h1>
+                <p className="text-xs opacity-80">PawnSecure</p>
               </div>
 
-              <div className="bg-gradient-to-br from-purple-700 to-indigo-600 text-white rounded-3xl p-6">
-                <h3 className="font-bold text-lg mb-2">Next Step</h3>
-                <p className="text-sm opacity-85">
-                  After saving this customer, the dealer can continue to Girvi
-                  details and add pledged item information.
-                </p>
-
-                <div className="mt-5 bg-white/10 rounded-2xl p-4">
-                  <p className="text-xs opacity-80">Current Step</p>
-                  <p className="font-bold mt-1">Customer Registration</p>
-                </div>
-              </div>
+              <div className="w-10" />
             </div>
+
+            <h2 className="text-xl font-bold">Customer Details</h2>
+            <p className="text-sm opacity-80 mt-1">
+              Save customer profile before Girvi
+            </p>
           </div>
+
+          <div className="px-4 -mt-4 relative z-10">
+            {renderFormCard()}
+          </div>
+
+          <div className="px-4 mt-4">
+            {renderPreviewCard()}
+          </div>
+        </div>
+
+        {/* Mobile Bottom Navigation */}
+        <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 flex justify-around py-3 z-50 shadow-xl">
+          <button
+            type="button"
+            onClick={() => navigate("/dealer/dashboard")}
+            className="text-gray-500 flex flex-col items-center text-xs"
+          >
+            <FaHome className="text-xl mb-1" />
+            Dashboard
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate("/dealer/customer-register")}
+            className="text-purple-700 flex flex-col items-center text-xs font-semibold"
+          >
+            <FaUserFriends className="text-xl mb-1" />
+            Customers
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate("/dealer/customer")}
+            className="text-gray-500 flex flex-col items-center text-xs"
+          >
+            <FaRupeeSign className="text-xl mb-1" />
+            Girvi
+          </button>
+
+          <button
+            type="button"
+            disabled
+            title="Collections feature is currently disabled"
+            className="text-gray-300 flex flex-col items-center text-xs cursor-not-allowed"
+          >
+            <FaCoins className="text-xl mb-1" />
+            Collections
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate("/dealer/more")}
+            className="text-gray-500 flex flex-col items-center text-xs"
+          >
+            <FaEllipsisH className="text-xl mb-1" />
+            More
+          </button>
         </div>
       </div>
 
@@ -608,27 +707,11 @@ export default function AddCustomer() {
           </div>
         </div>
       )}
-
-      <div className="xl:hidden">
-        <DealerBottomNav />
-      </div>
     </div>
   );
 }
 
 /* ---------------- UI HELPERS ---------------- */
-
-function HeaderStat({ icon, label, value }: any) {
-  return (
-    <div className="bg-white/10 rounded-2xl p-4">
-      <div className="flex items-center gap-2 text-white/80 text-xs">
-        {icon}
-        <span>{label}</span>
-      </div>
-      <p className="font-bold mt-2 text-white truncate">{value}</p>
-    </div>
-  );
-}
 
 function Section({ title, children }: any) {
   return (
@@ -840,10 +923,10 @@ function CustomerPhotoUploader({
 
 function SummaryRow({ label, value, multiline }: any) {
   return (
-    <div className="border-b border-gray-100 pb-3">
-      <p className="text-xs text-gray-500 font-semibold">{label}</p>
+    <div className="border-b border-gray-200 py-3">
+      <p className="text-sm font-medium text-gray-500">{label}</p>
       <p
-        className={`text-sm font-bold text-gray-800 mt-1 ${
+        className={`text-sm ${
           multiline ? "break-words" : "truncate"
         }`}
       >
