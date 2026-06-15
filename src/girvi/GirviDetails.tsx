@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 import {
   FaArrowLeft,
   FaArrowRight,
@@ -77,13 +79,13 @@ export default function AddGirvi() {
     { id: 4, label: "Review" },
   ];
 
-  function update(key: string, value: any) {
-    setForm((prev) => ({ ...prev, [key]: value }));
+function update(key: string, value: any) {
+  setForm((prev) => ({ ...prev, [key]: value }));
 
-    if (errors[key]) {
-      setErrors((prev) => ({ ...prev, [key]: "" }));
-    }
+  if (errors[key]) {
+    setErrors((prev) => ({ ...prev, [key]: "" }));
   }
+}
 
   useEffect(() => {
     if (navState?.customerId) {
@@ -248,524 +250,383 @@ function escapeHtml(value: any) {
     .replace(/'/g, "&#039;");
 }
 
-  async function downloadInvoice(invoiceId: number) {
-    if (!savedGirviData) {
-      alert("Invoice data not available. Please try again.");
-      return;
-    }
+function invoicePanelHtml(title: string, rows: [string, any][]) {
+  return `
+    <div style="
+      border:1px solid #eef2f7;
+      border-radius:20px;
+      overflow:hidden;
+      background:#ffffff;
+      margin-bottom:18px;
+    ">
+      <div style="
+        background:#f8fafc;
+        padding:14px 18px;
+        font-size:13px;
+        font-weight:900;
+        text-transform:uppercase;
+        letter-spacing:0.6px;
+        color:#4820C5;
+        border-bottom:1px solid #eef2f7;
+      ">
+        ${escapeHtml(title)}
+      </div>
 
-    setDownloadingInvoice(true);
+      <div style="padding:16px 18px;">
+        ${rows
+          .map(
+            ([label, value]) => `
+              <div style="
+                display:flex;
+                justify-content:space-between;
+                gap:18px;
+                padding:10px 0;
+                border-bottom:1px dashed #e5e7eb;
+                font-size:13px;
+              ">
+                <span style="color:#64748b; font-weight:700; min-width:120px;">
+                  ${escapeHtml(label)}
+                </span>
+                <span style="color:#111827; font-weight:800; text-align:right; word-break:break-word;">
+                  ${escapeHtml(value)}
+                </span>
+              </div>
+            `
+          )
+          .join("")}
+      </div>
+    </div>
+  `;
+}
 
-    try {
-      const invoiceNumber =
-        savedInvoiceNumber || savedGirviData.invoiceNumber || `INV-${invoiceId}`;
+function getInvoiceHtmlForPdf(invoiceId: number) {
+  if (!savedGirviData) return "";
 
-      const dealerName =
-        localStorage.getItem("ps_dealer_name") ||
-        savedGirviData.dealerName ||
-        "PawnSecure Dealer";
+  const invoiceNumber =
+    savedInvoiceNumber || savedGirviData.invoiceNumber || `INV-${invoiceId}`;
 
-      const shopName =
-        savedGirviData.shopName ||
-        savedGirviData.dealerShopName ||
-        dealerName ||
-        "PawnSecure";
+  const dealerName =
+    localStorage.getItem("ps_dealer_name") ||
+    savedGirviData.dealerName ||
+    "PawnSecure Dealer";
 
-      const shopAddress =
-        savedGirviData.shopAddress ||
-        savedGirviData.dealerShopAddress ||
-        "Bangalore, Karnataka";
+  const shopName =
+    savedGirviData.shopName ||
+    savedGirviData.dealerShopName ||
+    dealerName ||
+    "PawnSecure";
 
-      const dealerPhone =
-        savedGirviData.dealerPhone ||
-        localStorage.getItem("ps_dealer_phone") ||
-        "-";
+  const shopAddress =
+    savedGirviData.shopAddress ||
+    savedGirviData.dealerShopAddress ||
+    "Bangalore, Karnataka";
 
-      const customerDisplayName =
-        savedGirviData.customerName || customerName || "Selected Customer";
+  const dealerPhone =
+    savedGirviData.dealerPhone ||
+    localStorage.getItem("ps_dealer_phone") ||
+    "-";
 
-      const customerPhone =
-        savedGirviData.customerPhone ||
-        savedGirviData.phoneNumber ||
-        savedGirviData.customerPhoneNumber ||
-        customer?.phoneNumber ||
-        customer?.phone ||
-        "-";
+  const customerDisplayName =
+    savedGirviData.customerName || customerName || "Selected Customer";
 
-      const customerAddress =
-        savedGirviData.customerAddress ||
-        customer?.customerAddress ||
-        customer?.address ||
-        "-";
+  const customerPhone =
+    savedGirviData.customerPhone ||
+    savedGirviData.phoneNumber ||
+    savedGirviData.customerPhoneNumber ||
+    customer?.phoneNumber ||
+    customer?.phone ||
+    "-";
 
-      const itemName = savedGirviData.itemName || form.itemName;
-      const itemType = savedGirviData.itemType || form.itemType;
-      const weight = savedGirviData.itemWeightGram || form.itemWeightGram;
-      const ratePerGram = savedGirviData.ratePerGram || form.ratePerGram;
+  const customerAddress =
+    savedGirviData.customerAddress ||
+    customer?.customerAddress ||
+    customer?.address ||
+    "-";
 
-      const loanAmount =
-        savedGirviData.loanAmount ||
-        Number(form.itemWeightGram || 0) * Number(form.ratePerGram || 0);
+  const itemName = savedGirviData.itemName || form.itemName || "-";
+  const itemType = savedGirviData.itemType || form.itemType || "-";
+  const weight = savedGirviData.itemWeightGram || form.itemWeightGram || "-";
+  const ratePerGram = savedGirviData.ratePerGram || form.ratePerGram || 0;
 
-      const interestRate = savedGirviData.interestRate || form.interestRate;
-      const girviDate = savedGirviData.girviDate || form.girviDate;
-      const maturityDate = savedGirviData.maturityDate || form.maturityDate;
-      const remarks = savedGirviData.remarks || form.remarks || "-";
+  const loanAmount =
+    savedGirviData.loanAmount ||
+    Number(form.itemWeightGram || 0) * Number(form.ratePerGram || 0);
 
-      const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>${escapeHtml(invoiceNumber)}</title>
-  <style>
-    * {
-      box-sizing: border-box;
-    }
+  const interestRate = savedGirviData.interestRate || form.interestRate || 0;
+  const girviDate = savedGirviData.girviDate || form.girviDate;
+  const maturityDate = savedGirviData.maturityDate || form.maturityDate;
+  const remarks = savedGirviData.remarks || form.remarks || "-";
 
-    body {
-      margin: 0;
-      padding: 0;
-      background: #eef0f6;
-      font-family: Arial, Helvetica, sans-serif;
-      color: #111827;
-    }
-
-    .page {
+  return `
+    <div id="frontend-invoice-pdf" style="
       width: 794px;
       min-height: 1123px;
-      margin: 24px auto;
       background: #ffffff;
-      border-radius: 22px;
-      overflow: hidden;
-      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.15);
-    }
-
-    .hero {
-      background: linear-gradient(135deg, #4820C5, #24106D);
-      color: white;
-      padding: 34px 40px;
-      position: relative;
-    }
-
-    .hero::after {
-      content: "";
-      position: absolute;
-      right: -80px;
-      top: -80px;
-      width: 220px;
-      height: 220px;
-      background: rgba(255,255,255,0.10);
-      border-radius: 50%;
-    }
-
-    .brand-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 24px;
-      position: relative;
-      z-index: 1;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-
-    .logo {
-      width: 58px;
-      height: 58px;
-      background: white;
-      color: #4820C5;
-      border-radius: 18px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 900;
-      font-size: 22px;
-    }
-
-    .brand-title {
-      font-size: 28px;
-      font-weight: 900;
-      letter-spacing: 0.4px;
-      margin: 0;
-    }
-
-    .brand-subtitle {
-      font-size: 12px;
-      opacity: 0.82;
-      margin-top: 4px;
-    }
-
-    .invoice-pill {
-      background: rgba(255,255,255,0.14);
-      border: 1px solid rgba(255,255,255,0.24);
-      padding: 12px 16px;
-      border-radius: 16px;
-      text-align: right;
-      min-width: 230px;
-    }
-
-    .invoice-pill small {
-      display: block;
-      opacity: 0.75;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      margin-bottom: 5px;
-    }
-
-    .invoice-pill strong {
-      display: block;
-      font-size: 15px;
-      word-break: break-word;
-    }
-
-    .content {
-      padding: 34px 40px 40px;
-    }
-
-    .summary {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 14px;
-      margin-bottom: 28px;
-    }
-
-    .summary-card {
-      background: #f8fafc;
-      border: 1px solid #eef2f7;
-      border-radius: 18px;
-      padding: 16px;
-    }
-
-    .summary-card .label {
-      font-size: 11px;
-      color: #64748b;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.7px;
-      margin-bottom: 8px;
-    }
-
-    .summary-card .value {
-      font-size: 18px;
-      font-weight: 900;
+      font-family: Arial, Helvetica, sans-serif;
       color: #111827;
-    }
+      box-sizing: border-box;
+      overflow:hidden;
+    ">
+      <div style="
+        background: linear-gradient(135deg, #4820C5, #24106D);
+        color: white;
+        padding: 34px 40px;
+      ">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:24px;">
+          <div style="display:flex; align-items:center; gap:14px;">
+            <div style="
+              width:58px;
+              height:58px;
+              background:white;
+              color:#4820C5;
+              border-radius:18px;
+              display:flex;
+              align-items:center;
+              justify-content:center;
+              font-weight:900;
+              font-size:22px;
+            ">PS</div>
 
-    .summary-card.primary {
-      background: #ecfdf5;
-      border-color: #bbf7d0;
-    }
+            <div>
+              <h1 style="font-size:28px; font-weight:900; margin:0;">
+                PawnSecure
+              </h1>
+              <div style="font-size:12px; opacity:0.85; margin-top:4px;">
+                Secure Girvi Invoice / Pledge Receipt
+              </div>
+            </div>
+          </div>
 
-    .summary-card.primary .value {
-      color: #15803d;
-    }
+          <div style="
+            background:rgba(255,255,255,0.14);
+            border:1px solid rgba(255,255,255,0.24);
+            padding:12px 16px;
+            border-radius:16px;
+            text-align:right;
+            min-width:230px;
+          ">
+            <div style="font-size:11px; text-transform:uppercase; opacity:0.75; letter-spacing:0.8px;">
+              Invoice Number
+            </div>
+            <strong style="font-size:15px; word-break:break-word;">
+              ${escapeHtml(invoiceNumber)}
+            </strong>
+          </div>
+        </div>
+      </div>
 
-    .section-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 18px;
-      margin-bottom: 22px;
-    }
+      <div style="padding:34px 40px 40px;">
+        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:14px; margin-bottom:28px;">
+          <div style="background:#ecfdf5; border:1px solid #bbf7d0; border-radius:18px; padding:16px;">
+            <div style="font-size:11px; color:#64748b; font-weight:800; text-transform:uppercase; margin-bottom:8px;">
+              Loan Amount
+            </div>
+            <div style="font-size:18px; font-weight:900; color:#15803d;">
+              ${escapeHtml(formatInvoiceCurrency(loanAmount))}
+            </div>
+          </div>
 
-    .panel {
-      border: 1px solid #eef2f7;
-      border-radius: 20px;
-      overflow: hidden;
-      background: #ffffff;
-    }
+          <div style="background:#f8fafc; border:1px solid #eef2f7; border-radius:18px; padding:16px;">
+            <div style="font-size:11px; color:#64748b; font-weight:800; text-transform:uppercase; margin-bottom:8px;">
+              Interest Rate
+            </div>
+            <div style="font-size:18px; font-weight:900;">
+              ${escapeHtml(interestRate)}%
+            </div>
+          </div>
 
-    .panel-title {
-      background: #f8fafc;
-      padding: 14px 18px;
-      font-size: 13px;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      color: #4820C5;
-      border-bottom: 1px solid #eef2f7;
-    }
-
-    .panel-body {
-      padding: 16px 18px;
-    }
-
-    .row {
-      display: flex;
-      justify-content: space-between;
-      gap: 18px;
-      padding: 10px 0;
-      border-bottom: 1px dashed #e5e7eb;
-      font-size: 13px;
-    }
-
-    .row:last-child {
-      border-bottom: 0;
-    }
-
-    .row span:first-child {
-      color: #64748b;
-      font-weight: 700;
-      min-width: 120px;
-    }
-
-    .row span:last-child {
-      color: #111827;
-      font-weight: 800;
-      text-align: right;
-      word-break: break-word;
-    }
-
-    .terms {
-      background: #fff7ed;
-      border: 1px solid #fed7aa;
-      color: #9a3412;
-      padding: 16px 18px;
-      border-radius: 18px;
-      font-size: 12px;
-      line-height: 1.6;
-      margin-bottom: 28px;
-    }
-
-    .terms strong {
-      display: block;
-      font-size: 13px;
-      margin-bottom: 6px;
-    }
-
-    .signature-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 24px;
-      margin-top: 34px;
-    }
-
-    .signature-box {
-      height: 95px;
-      border: 1px dashed #cbd5e1;
-      border-radius: 18px;
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      padding-bottom: 12px;
-      color: #64748b;
-      font-size: 12px;
-      font-weight: 800;
-    }
-
-    .footer {
-      text-align: center;
-      padding: 18px 40px 28px;
-      font-size: 11px;
-      color: #64748b;
-      border-top: 1px solid #eef2f7;
-    }
-
-    .footer strong {
-      color: #4820C5;
-    }
-
-    @media print {
-      body {
-        background: white;
-      }
-
-      .page {
-        width: 100%;
-        min-height: auto;
-        margin: 0;
-        border-radius: 0;
-        box-shadow: none;
-      }
-
-      @page {
-        size: A4;
-        margin: 0;
-      }
-    }
-  </style>
-</head>
-
-<body>
-  <div class="page">
-    <div class="hero">
-      <div class="brand-row">
-        <div class="brand">
-          <div class="logo">PS</div>
-          <div>
-            <h1 class="brand-title">PawnSecure</h1>
-            <div class="brand-subtitle">Secure Girvi Invoice / Pledge Receipt</div>
+          <div style="background:#f8fafc; border:1px solid #eef2f7; border-radius:18px; padding:16px;">
+            <div style="font-size:11px; color:#64748b; font-weight:800; text-transform:uppercase; margin-bottom:8px;">
+              Maturity Date
+            </div>
+            <div style="font-size:18px; font-weight:900;">
+              ${escapeHtml(formatInvoiceDate(maturityDate))}
+            </div>
           </div>
         </div>
 
-        <div class="invoice-pill">
-          <small>Invoice Number</small>
-          <strong>${escapeHtml(invoiceNumber)}</strong>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:18px;">
+          ${invoicePanelHtml("Shop Details", [
+            ["Shop Name", shopName],
+            ["Dealer", dealerName],
+            ["Mobile", dealerPhone],
+            ["Address", shopAddress],
+          ])}
+
+          ${invoicePanelHtml("Customer Details", [
+            ["Name", customerDisplayName],
+            ["Customer ID", savedGirviData.customerId || resolvedCustomerId || "-"],
+            ["Phone", customerPhone],
+            ["Address", customerAddress],
+          ])}
         </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:18px;">
+          ${invoicePanelHtml("Item Details", [
+            ["Item Name", itemName],
+            ["Item Type", itemType],
+            ["Weight", `${weight} gm`],
+            ["Rate / Gram", formatInvoiceCurrency(ratePerGram)],
+          ])}
+
+          ${invoicePanelHtml("Loan Details", [
+            ["Girvi Date", formatInvoiceDate(girviDate)],
+            ["Maturity Date", formatInvoiceDate(maturityDate)],
+            ["Status", savedGirviData.status || "ACTIVE"],
+            ["Remarks", remarks],
+          ])}
+        </div>
+
+        <div style="
+          background:#fff7ed;
+          border:1px solid #fed7aa;
+          color:#9a3412;
+          padding:16px 18px;
+          border-radius:18px;
+          font-size:12px;
+          line-height:1.6;
+          margin-top:4px;
+          margin-bottom:28px;
+        ">
+          <strong style="display:block; font-size:13px; margin-bottom:6px;">
+            Terms &amp; Declaration
+          </strong>
+          This invoice is generated for the pledged item and loan details recorded in PawnSecure.
+          Customer and dealer are advised to verify item details, loan amount, interest rate and maturity date before signing.
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:34px;">
+          <div style="
+            height:95px;
+            border:1px dashed #cbd5e1;
+            border-radius:18px;
+            display:flex;
+            align-items:flex-end;
+            justify-content:center;
+            padding-bottom:12px;
+            color:#64748b;
+            font-size:12px;
+            font-weight:800;
+          ">Customer Signature</div>
+
+          <div style="
+            height:95px;
+            border:1px dashed #cbd5e1;
+            border-radius:18px;
+            display:flex;
+            align-items:flex-end;
+            justify-content:center;
+            padding-bottom:12px;
+            color:#64748b;
+            font-size:12px;
+            font-weight:800;
+          ">Dealer Signature</div>
+        </div>
+      </div>
+
+      <div style="
+        text-align:center;
+        padding:18px 40px 28px;
+        font-size:11px;
+        color:#64748b;
+        border-top:1px solid #eef2f7;
+      ">
+        Generated by <strong style="color:#4820C5;">PawnSecure</strong> • Secure pledge management system
       </div>
     </div>
+  `;
+}
 
-    <div class="content">
-      <div class="summary">
-        <div class="summary-card primary">
-          <div class="label">Loan Amount</div>
-          <div class="value">${escapeHtml(formatInvoiceCurrency(loanAmount))}</div>
-        </div>
+async function generateFrontendInvoicePdfFile(invoiceId: number) {
+  const invoiceNumber =
+    savedInvoiceNumber || savedGirviData?.invoiceNumber || `INV-${invoiceId}`;
 
-        <div class="summary-card">
-          <div class="label">Interest Rate</div>
-          <div class="value">${escapeHtml(interestRate)}%</div>
-        </div>
+  const container = document.createElement("div");
+  container.style.position = "fixed";
+  container.style.left = "-10000px";
+  container.style.top = "0";
+  container.style.background = "#ffffff";
+  container.innerHTML = getInvoiceHtmlForPdf(invoiceId);
 
-        <div class="summary-card">
-          <div class="label">Maturity Date</div>
-          <div class="value">${escapeHtml(formatInvoiceDate(maturityDate))}</div>
-        </div>
-      </div>
+  document.body.appendChild(container);
 
-      <div class="section-grid">
-        <div class="panel">
-          <div class="panel-title">Shop Details</div>
-          <div class="panel-body">
-            <div class="row"><span>Shop Name</span><span>${escapeHtml(shopName)}</span></div>
-            <div class="row"><span>Dealer</span><span>${escapeHtml(dealerName)}</span></div>
-            <div class="row"><span>Mobile</span><span>${escapeHtml(dealerPhone)}</span></div>
-            <div class="row"><span>Address</span><span>${escapeHtml(shopAddress)}</span></div>
-          </div>
-        </div>
+  const invoiceElement = container.querySelector(
+    "#frontend-invoice-pdf"
+  ) as HTMLElement;
 
-        <div class="panel">
-          <div class="panel-title">Customer Details</div>
-          <div class="panel-body">
-            <div class="row"><span>Name</span><span>${escapeHtml(customerDisplayName)}</span></div>
-            <div class="row"><span>Customer ID</span><span>${escapeHtml(savedGirviData.customerId || resolvedCustomerId || "-")}</span></div>
-            <div class="row"><span>Phone</span><span>${escapeHtml(customerPhone)}</span></div>
-            <div class="row"><span>Address</span><span>${escapeHtml(customerAddress)}</span></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="section-grid">
-        <div class="panel">
-          <div class="panel-title">Item Details</div>
-          <div class="panel-body">
-            <div class="row"><span>Item Name</span><span>${escapeHtml(itemName)}</span></div>
-            <div class="row"><span>Item Type</span><span>${escapeHtml(itemType)}</span></div>
-            <div class="row"><span>Weight</span><span>${escapeHtml(weight)} gm</span></div>
-            <div class="row"><span>Rate / Gram</span><span>${escapeHtml(formatInvoiceCurrency(ratePerGram))}</span></div>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-title">Loan Details</div>
-          <div class="panel-body">
-            <div class="row"><span>Girvi Date</span><span>${escapeHtml(formatInvoiceDate(girviDate))}</span></div>
-            <div class="row"><span>Maturity Date</span><span>${escapeHtml(formatInvoiceDate(maturityDate))}</span></div>
-            <div class="row"><span>Status</span><span>${escapeHtml(savedGirviData.status || "ACTIVE")}</span></div>
-            <div class="row"><span>Remarks</span><span>${escapeHtml(remarks)}</span></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="terms">
-        <strong>Terms & Declaration</strong>
-        This invoice is generated for the pledged item and loan details recorded in PawnSecure.
-        Customer and dealer are advised to verify item details, loan amount, interest rate and maturity date before signing.
-      </div>
-
-      <div class="signature-grid">
-        <div class="signature-box">Customer Signature</div>
-        <div class="signature-box">Dealer Signature</div>
-      </div>
-    </div>
-
-    <div class="footer">
-      Generated by <strong>PawnSecure</strong> • Secure pledge management system
-    </div>
-  </div>
-
-  <script>
-    window.onload = function () {
-      setTimeout(function () {
-        window.print();
-      }, 400);
-    };
-  </script>
-</body>
-</html>
-`;
-
-      const printWindow = window.open("", "_blank");
-
-      if (!printWindow) {
-        alert("Popup blocked. Please allow popups to download invoice.");
-        return;
-      }
-
-      printWindow.document.open();
-      printWindow.document.write(html);
-      printWindow.document.close();
-    } catch (err) {
-      console.error("Invoice download failed:", err);
-      alert("Could not generate invoice.");
-    } finally {
-      setDownloadingInvoice(false);
-    }
+  if (!invoiceElement) {
+    document.body.removeChild(container);
+    throw new Error("Invoice template not found.");
   }
 
-  async function sendInvoiceOnWhatsApp(invoiceId: number) {
-  const authToken = localStorage.getItem("ps_token");
-  const currentDealerId = localStorage.getItem("ps_dealer_id");
+  const canvas = await html2canvas(invoiceElement, {
+    scale: 2,
+    useCORS: true,
+    backgroundColor: "#ffffff",
+  });
 
-  if (!authToken) {
-    alert("Session expired. Please login again.");
-    nav("/", { replace: true });
+  const imgData = canvas.toDataURL("image/png");
+
+  const pdf = new jsPDF("p", "mm", "a4");
+  const pdfWidth = pdf.internal.pageSize.getWidth();
+  const pdfHeight = pdf.internal.pageSize.getHeight();
+
+  pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+
+  const blob = pdf.output("blob");
+
+  document.body.removeChild(container);
+
+  return new File([blob], `${invoiceNumber}.pdf`, {
+    type: "application/pdf",
+  });
+}
+
+ async function downloadInvoice(invoiceId: number) {
+  if (!savedGirviData) {
+    alert("Invoice data not available. Please try again.");
+    return;
+  }
+
+  setDownloadingInvoice(true);
+
+  try {
+    const file = await generateFrontendInvoicePdfFile(invoiceId);
+    const url = window.URL.createObjectURL(file);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = file.name;
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error("Invoice download failed:", err);
+    alert("Could not generate invoice PDF.");
+  } finally {
+    setDownloadingInvoice(false);
+  }
+}
+
+async function sendInvoiceOnWhatsApp(invoiceId: number) {
+  if (!savedGirviData) {
+    alert("Invoice data not available. Please try again.");
     return;
   }
 
   setSendingInvoice(true);
 
   try {
-    const res = await fetch(`${API_BASE}/invoices/${invoiceId}/download`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${authToken}`,
-        "X-DEALER-ID": currentDealerId || "",
-      },
-    });
-
-    if (res.status === 401 || res.status === 403) {
-      alert("Session expired or unauthorized. Please login again.");
-      nav("/", { replace: true });
-      return;
-    }
-
-    if (!res.ok) {
-      const message = await res.text();
-      alert(message || "Failed to prepare invoice PDF");
-      return;
-    }
-
-    const blob = await res.blob();
-
-    const invoiceFileName = savedInvoiceNumber
-      ? `${savedInvoiceNumber}.pdf`
-      : `invoice-${invoiceId}.pdf`;
-
-    const file = new File([blob], invoiceFileName, {
-      type: "application/pdf",
-    });
+    const file = await generateFrontendInvoicePdfFile(invoiceId);
 
     const message = `PawnSecure Invoice
 
-Invoice No: ${savedInvoiceNumber || `INV-${invoiceId}`}
-Customer: ${savedGirviData?.customerName || customerName || "-"}
-Loan Amount: ${formatInvoiceCurrency(savedGirviData?.loanAmount || totalValue)}
+Invoice No: ${savedInvoiceNumber || savedGirviData.invoiceNumber || `INV-${invoiceId}`}
+Customer: ${savedGirviData.customerName || customerName || "-"}
+Loan Amount: ${formatInvoiceCurrency(savedGirviData.loanAmount || totalValue)}
 
 Please find attached invoice PDF.`;
 
@@ -782,41 +643,24 @@ Please find attached invoice PDF.`;
         files: [file],
       });
 
-      alert("Invoice PDF shared successfully.");
       return;
     }
 
-    // Fallback: download PDF and open WhatsApp text
-    const pdfUrl = window.URL.createObjectURL(blob);
+    const url = window.URL.createObjectURL(file);
 
     const link = document.createElement("a");
-    link.href = pdfUrl;
-    link.download = invoiceFileName;
+    link.href = url;
+    link.download = file.name;
+
     document.body.appendChild(link);
     link.click();
     link.remove();
 
-    window.URL.revokeObjectURL(pdfUrl);
+    window.URL.revokeObjectURL(url);
 
-    const customerPhone =
-      savedGirviData?.customerPhone ||
-      savedGirviData?.phoneNumber ||
-      savedGirviData?.customerPhoneNumber ||
-      customer?.phoneNumber ||
-      customer?.phone ||
-      "";
-
-    const cleanPhone = String(customerPhone).replace(/\D/g, "");
-
-    const whatsappUrl = cleanPhone
-      ? `https://wa.me/91${cleanPhone.slice(-10)}?text=${encodeURIComponent(
-          message + "\n\nPDF has been downloaded. Please attach it manually."
-        )}`
-      : `https://wa.me/?text=${encodeURIComponent(
-          message + "\n\nPDF has been downloaded. Please attach it manually."
-        )}`;
-
-    window.open(whatsappUrl, "_blank");
+    alert(
+      "PDF downloaded. Your browser does not support direct WhatsApp PDF sharing. Please attach the downloaded PDF manually in WhatsApp."
+    );
   } catch (err) {
     console.error("Invoice PDF share failed:", err);
     alert("Could not share invoice PDF.");
