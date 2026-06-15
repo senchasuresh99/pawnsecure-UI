@@ -719,59 +719,111 @@ function escapeHtml(value: any) {
   }
 
   async function sendInvoiceOnWhatsApp(invoiceId: number) {
-    if (!savedGirviData) {
-      alert("Invoice data not available. Please try again.");
+  const authToken = localStorage.getItem("ps_token");
+  const currentDealerId = localStorage.getItem("ps_dealer_id");
+
+  if (!authToken) {
+    alert("Session expired. Please login again.");
+    nav("/", { replace: true });
+    return;
+  }
+
+  setSendingInvoice(true);
+
+  try {
+    const res = await fetch(`${API_BASE}/invoices/${invoiceId}/download`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        "X-DEALER-ID": currentDealerId || "",
+      },
+    });
+
+    if (res.status === 401 || res.status === 403) {
+      alert("Session expired or unauthorized. Please login again.");
+      nav("/", { replace: true });
       return;
     }
 
-    setSendingInvoice(true);
-
-    try {
-      const customerPhone =
-        savedGirviData.customerPhone ||
-        savedGirviData.phoneNumber ||
-        savedGirviData.customerPhoneNumber ||
-        customer?.phoneNumber ||
-        customer?.phone ||
-        "";
-
-      const cleanPhone = String(customerPhone).replace(/\D/g, "");
-
-      const invoiceNumber =
-        savedInvoiceNumber || savedGirviData.invoiceNumber || `INV-${invoiceId}`;
-
-      const loanAmount =
-        savedGirviData.loanAmount ||
-        Number(form.itemWeightGram || 0) * Number(form.ratePerGram || 0);
-
-      const message = `PawnSecure Invoice
-
-Invoice No: ${invoiceNumber}
-Customer: ${customerName}
-Item: ${form.itemName}
-Weight: ${form.itemWeightGram} gm
-Loan Amount: ${formatInvoiceCurrency(loanAmount)}
-Interest Rate: ${form.interestRate}%
-Girvi Date: ${formatInvoiceDate(form.girviDate)}
-Maturity Date: ${formatInvoiceDate(form.maturityDate)}
-
-Thank you for using PawnSecure.`;
-
-      const whatsappUrl = cleanPhone
-        ? `https://wa.me/91${cleanPhone.slice(-10)}?text=${encodeURIComponent(
-            message
-          )}`
-        : `https://wa.me/?text=${encodeURIComponent(message)}`;
-
-      window.open(whatsappUrl, "_blank");
-    } catch (err) {
-      console.error("WhatsApp invoice failed:", err);
-      alert("Could not open WhatsApp.");
-    } finally {
-      setSendingInvoice(false);
+    if (!res.ok) {
+      const message = await res.text();
+      alert(message || "Failed to prepare invoice PDF");
+      return;
     }
-  }
 
+    const blob = await res.blob();
+
+    const invoiceFileName = savedInvoiceNumber
+      ? `${savedInvoiceNumber}.pdf`
+      : `invoice-${invoiceId}.pdf`;
+
+    const file = new File([blob], invoiceFileName, {
+      type: "application/pdf",
+    });
+
+    const message = `PawnSecure Invoice
+
+Invoice No: ${savedInvoiceNumber || `INV-${invoiceId}`}
+Customer: ${savedGirviData?.customerName || customerName || "-"}
+Loan Amount: ${formatInvoiceCurrency(savedGirviData?.loanAmount || totalValue)}
+
+Please find attached invoice PDF.`;
+
+    const navAny = navigator as any;
+
+    if (
+      navAny.share &&
+      navAny.canShare &&
+      navAny.canShare({ files: [file] })
+    ) {
+      await navAny.share({
+        title: "PawnSecure Invoice",
+        text: message,
+        files: [file],
+      });
+
+      alert("Invoice PDF shared successfully.");
+      return;
+    }
+
+    // Fallback: download PDF and open WhatsApp text
+    const pdfUrl = window.URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = pdfUrl;
+    link.download = invoiceFileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    window.URL.revokeObjectURL(pdfUrl);
+
+    const customerPhone =
+      savedGirviData?.customerPhone ||
+      savedGirviData?.phoneNumber ||
+      savedGirviData?.customerPhoneNumber ||
+      customer?.phoneNumber ||
+      customer?.phone ||
+      "";
+
+    const cleanPhone = String(customerPhone).replace(/\D/g, "");
+
+    const whatsappUrl = cleanPhone
+      ? `https://wa.me/91${cleanPhone.slice(-10)}?text=${encodeURIComponent(
+          message + "\n\nPDF has been downloaded. Please attach it manually."
+        )}`
+      : `https://wa.me/?text=${encodeURIComponent(
+          message + "\n\nPDF has been downloaded. Please attach it manually."
+        )}`;
+
+    window.open(whatsappUrl, "_blank");
+  } catch (err) {
+    console.error("Invoice PDF share failed:", err);
+    alert("Could not share invoice PDF.");
+  } finally {
+    setSendingInvoice(false);
+  }
+}
   function closeInvoicePopupAndGoBack() {
     setShowInvoicePopup(false);
     setSavedInvoiceId(null);
@@ -1406,7 +1458,7 @@ Thank you for using PawnSecure.`;
             className="w-full bg-green-600 hover:bg-green-700 text-white py-3.5 rounded-2xl font-bold disabled:bg-gray-400 transition flex items-center justify-center gap-2 shadow-md shadow-green-100"
           >
             <FaWhatsapp className="text-lg" />
-            {sendingInvoice ? "Opening WhatsApp..." : "Send Invoice on WhatsApp"}
+            {sendingInvoice ? "Preparing PDF..." : "Share PDF on WhatsApp"}
           </button>
 
           <button
