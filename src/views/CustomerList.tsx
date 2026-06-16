@@ -6,47 +6,28 @@ import DealerMobileBottomNav from "../dealer/DealerMobileBottomNav";
 import {
   FaSearch,
   FaUser,
-  FaShieldAlt,
   FaBox,
   FaPlus,
   FaEdit,
   FaTrash,
   FaPhone,
   FaIdCard,
-  FaStar,
   FaFilter,
   FaTimes,
   FaCheckCircle,
-  FaThumbsUp,
-  FaHeart,
 } from "react-icons/fa";
 
 const API_BASE = "https://pawnsecure-1.onrender.com/api";
 
 /* ================= TYPES ================= */
 
-type ReviewResponseDTO = {
-  id?: number;
-  reviewType?: string;
-  comment?: string;
-};
-
 type CustomerResponseDTO = {
   id: number;
   fullName: string;
-  customerAddress?: string;
   phoneNumber?: string;
   kycStatus?: string;
-  fraudStatus?: string;
   aadhaarLastFour?: string;
   maskedAadhaar?: string;
-  reviews?: ReviewResponseDTO[];
-};
-
-type CustomerPageResponse = {
-  content: CustomerResponseDTO[];
-  totalPages: number;
-  totalElements: number;
 };
 
 /* ================= COMPONENT ================= */
@@ -82,32 +63,33 @@ export default function CustomerList() {
 
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
+  /* ✅ Toggle flag */
+  const [onlyMine, setOnlyMine] = useState(true);
+
   /* ✅ Pagination */
   const [page, setPage] = useState(0);
   const [size, setSize] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [totalElements, setTotalElements] = useState(0);
 
-  const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(
-    null
-  );
-
   const [selectedCustomer, setSelectedCustomer] =
     useState<CustomerResponseDTO | null>(null);
-
-  const [detailLoading, setDetailLoading] = useState(false);
 
   /* ✅ Avatar photos */
   const [photoMap, setPhotoMap] = useState<Record<number, string>>({});
 
   useEffect(() => {
     fetchCustomers();
-  }, [page, size]);
+  }, [page, size, onlyMine]);
 
   useEffect(() => {
     customers.forEach((c) => loadCustomerPhoto(c.id));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customers]);
+
+  useEffect(() => {
+    setPage(0);
+  }, [search, onlyMine]);
 
   /* ================= API ================= */
 
@@ -124,15 +106,16 @@ export default function CustomerList() {
     setError("");
 
     try {
-      const res = await fetch(
-        `${API_BASE}/customers/allCustomer?page=${page}&size=${size}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "X-DEALER-ID": currentDealerId,
-          },
-        }
-      );
+      const url = onlyMine
+        ? `${API_BASE}/customers/yourCustomer`
+        : `${API_BASE}/customers/allCustomer`;
+
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-DEALER-ID": currentDealerId,
+        },
+      });
 
       if (!res.ok) {
         const msg = await res.text();
@@ -140,18 +123,11 @@ export default function CustomerList() {
         return;
       }
 
-      const data = await res.json();
+      const data: CustomerResponseDTO[] = await res.json();
 
-      if (Array.isArray(data)) {
-        setCustomers(data);
-        setTotalElements(data.length);
-        setTotalPages(1);
-      } else {
-        const pageData = data as CustomerPageResponse;
-        setCustomers(pageData.content || []);
-        setTotalElements(pageData.totalElements || 0);
-        setTotalPages(pageData.totalPages || 1);
-      }
+      setCustomers(data);
+      setTotalElements(data.length);
+      setTotalPages(Math.max(1, Math.ceil(data.length / size)));
     } catch {
       setError("Server unavailable. Please try again later.");
     } finally {
@@ -159,30 +135,25 @@ export default function CustomerList() {
     }
   }
 
-  async function fetchCustomerById(customerId: number) {
-    const currentDealerId = localStorage.getItem("ps_dealer_id");
+  async function fetchCustomerById(id: number) {
+    const dealerIdFromStorage = localStorage.getItem("ps_dealer_id");
     const token = localStorage.getItem("ps_token");
 
-    if (!currentDealerId || !token) return;
-
-    setDetailLoading(true);
+    if (!dealerIdFromStorage || !token) return;
 
     try {
-      const res = await fetch(`${API_BASE}/customers/${customerId}`, {
+      const res = await fetch(`${API_BASE}/customers/${id}`, {
         headers: {
           Authorization: `Bearer ${token}`,
-          "X-DEALER-ID": currentDealerId,
+          "X-DEALER-ID": dealerIdFromStorage,
         },
       });
 
       if (!res.ok) return;
 
-      const data = await res.json();
-      setSelectedCustomer(data);
-    } catch (err) {
-      console.error("Error loading profile metrics", err);
-    } finally {
-      setDetailLoading(false);
+      setSelectedCustomer(await res.json());
+    } catch {
+      // ignore
     }
   }
 
@@ -214,7 +185,6 @@ export default function CustomerList() {
 
       if (res.ok) {
         setSelectedCustomer(null);
-        setSelectedCustomerId(null);
         fetchCustomers();
       } else {
         alert("Failed to delete customer");
@@ -275,6 +245,11 @@ export default function CustomerList() {
     );
   });
 
+  const paginatedCustomers = filteredCustomers.slice(
+    page * size,
+    page * size + size
+  );
+
   return (
     <div className="min-h-screen bg-[#f4f5f7] font-sans">
       {/* ================= DESKTOP VIEW WITH GLOBAL SIDEBAR ================= */}
@@ -292,9 +267,7 @@ export default function CustomerList() {
             </div>
 
             <div className="text-right leading-tight">
-              <p className="text-sm font-semibold text-gray-800">
-                {todayDate}
-              </p>
+              <p className="text-sm font-semibold text-gray-800">{todayDate}</p>
               <p className="text-xs text-gray-400">{todayDay}</p>
             </div>
           </header>
@@ -318,6 +291,39 @@ export default function CustomerList() {
                   <FaPlus /> Add Customer
                 </button>
               </div>
+            </div>
+
+            {/* Toggle */}
+            <div className="flex gap-3 mb-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setOnlyMine(true);
+                  setPage(0);
+                }}
+                className={`px-4 py-2 rounded-2xl text-sm font-semibold ${
+                  onlyMine
+                    ? "bg-purple-600 text-white"
+                    : "bg-white border border-gray-200 text-gray-700"
+                }`}
+              >
+                My Customers
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setOnlyMine(false);
+                  setPage(0);
+                }}
+                className={`px-4 py-2 rounded-2xl text-sm font-semibold ${
+                  !onlyMine
+                    ? "bg-purple-600 text-white"
+                    : "bg-white border border-gray-200 text-gray-700"
+                }`}
+              >
+                All Customers
+              </button>
             </div>
 
             {/* Search Bar */}
@@ -347,16 +353,15 @@ export default function CustomerList() {
               loading={loading}
               error={error}
               customers={customers}
-              filteredCustomers={filteredCustomers}
+              filteredCustomers={paginatedCustomers}
               photoMap={photoMap}
               kycBadge={kycBadge}
-              setSelectedCustomerId={setSelectedCustomerId}
               fetchCustomerById={fetchCustomerById}
               navigate={navigate}
-              totalElements={totalElements}
+              totalElements={filteredCustomers.length}
               page={page}
               size={size}
-              totalPages={totalPages}
+              totalPages={Math.max(1, Math.ceil(filteredCustomers.length / size))}
               setPage={setPage}
               setSize={setSize}
             />
@@ -428,6 +433,39 @@ export default function CustomerList() {
             </div>
           </div>
 
+          {/* Toggle */}
+          <div className="flex gap-2 mb-4">
+            <button
+              type="button"
+              onClick={() => {
+                setOnlyMine(true);
+                setPage(0);
+              }}
+              className={`flex-1 py-2 rounded-2xl text-sm font-semibold ${
+                onlyMine
+                  ? "bg-purple-600 text-white"
+                  : "bg-white border border-gray-200 text-gray-700"
+              }`}
+            >
+              My
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setOnlyMine(false);
+                setPage(0);
+              }}
+              className={`flex-1 py-2 rounded-2xl text-sm font-semibold ${
+                !onlyMine
+                  ? "bg-purple-600 text-white"
+                  : "bg-white border border-gray-200 text-gray-700"
+              }`}
+            >
+              All
+            </button>
+          </div>
+
           {/* Search Bar */}
           <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 mb-5">
             <div className="flex items-center gap-3">
@@ -454,16 +492,15 @@ export default function CustomerList() {
             loading={loading}
             error={error}
             customers={customers}
-            filteredCustomers={filteredCustomers}
+            filteredCustomers={paginatedCustomers}
             photoMap={photoMap}
             kycBadge={kycBadge}
-            setSelectedCustomerId={setSelectedCustomerId}
             fetchCustomerById={fetchCustomerById}
             navigate={navigate}
-            totalElements={totalElements}
+            totalElements={filteredCustomers.length}
             page={page}
             size={size}
-            totalPages={totalPages}
+            totalPages={Math.max(1, Math.ceil(filteredCustomers.length / size))}
             setPage={setPage}
             setSize={setSize}
           />
@@ -473,184 +510,112 @@ export default function CustomerList() {
       </div>
 
       {/* ================= MODAL DETAILS ================= */}
-      {selectedCustomerId !== null && (
+      {selectedCustomer && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white w-full max-w-[480px] rounded-[32px] p-6 sm:p-8 shadow-2xl relative animate-in fade-in zoom-in duration-200">
             <button
               type="button"
-              onClick={() => {
-                setSelectedCustomer(null);
-                setSelectedCustomerId(null);
-              }}
+              onClick={() => setSelectedCustomer(null)}
               className="absolute top-5 right-5 w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-800 hover:bg-gray-100 transition"
             >
               <FaTimes />
             </button>
 
-            {detailLoading || !selectedCustomer ? (
-              <div className="py-20 text-center">
-                <div className="w-10 h-10 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <div className="text-center mb-6">
+              <div className="relative inline-block">
+                {photoMap[selectedCustomer.id] ? (
+                  <img
+                    src={photoMap[selectedCustomer.id]}
+                    className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md"
+                    alt="Customer"
+                  />
+                ) : (
+                  <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center border-4 border-white shadow-md">
+                    <FaUser className="text-gray-400 text-3xl" />
+                  </div>
+                )}
+
+                <div className="absolute bottom-1 right-1 bg-white rounded-full p-0.5">
+                  <FaCheckCircle className="text-green-500 text-xl" />
+                </div>
               </div>
-            ) : (
-              <>
-                <div className="text-center mb-6">
-                  <div className="relative inline-block">
-                    {photoMap[selectedCustomer.id] ? (
-                      <img
-                        src={photoMap[selectedCustomer.id]}
-                        className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md"
-                        alt="Customer"
-                      />
-                    ) : (
-                      <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center border-4 border-white shadow-md">
-                        <FaUser className="text-gray-400 text-3xl" />
-                      </div>
-                    )}
 
-                    <div className="absolute bottom-1 right-1 bg-white rounded-full p-0.5">
-                      <FaCheckCircle className="text-green-500 text-xl" />
-                    </div>
-                  </div>
+              <h2 className="text-2xl font-bold text-gray-900 mt-3">
+                {selectedCustomer.fullName}
+              </h2>
+            </div>
 
-                  <h2 className="text-2xl font-bold text-gray-900 mt-3">
-                    {selectedCustomer.fullName}
-                  </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+              <InfoCard
+                label="Phone"
+                value={selectedCustomer.phoneNumber || "-"}
+              />
 
-                  <div className="flex items-center justify-center gap-1.5 mt-1">
-                    <FaShieldAlt
-                      className={
-                        selectedCustomer.fraudStatus === "Medium Risk"
-                          ? "text-orange-500"
-                          : "text-green-500"
-                      }
-                    />
+              <InfoCard
+                label="Aadhaar"
+                value={
+                  selectedCustomer.maskedAadhaar ||
+                  (selectedCustomer.aadhaarLastFour
+                    ? `XXXX-XXXX-${selectedCustomer.aadhaarLastFour}`
+                    : "-")
+                }
+              />
 
-                    <span
-                      className={`font-semibold text-sm ${
-                        selectedCustomer.fraudStatus === "Medium Risk"
-                          ? "text-orange-600"
-                          : "text-green-600"
-                      }`}
-                    >
-                      {selectedCustomer.fraudStatus || "Safe Customer"}
-                    </span>
-                  </div>
+              <InfoCard
+                label="KYC Status"
+                value={selectedCustomer.kycStatus || "PENDING"}
+              />
 
-                  <div className="flex items-center justify-center gap-1 mt-2 text-yellow-400 text-sm">
-                    <FaStar />
-                    <FaStar />
-                    <FaStar />
-                    <FaStar />
-                    <FaStar className="text-gray-300" />
+              <InfoCard label="Total Girvi" value="0" />
+              <InfoCard label="Active Loan" value="₹ 0" />
+              <InfoCard label="Since" value="Today" />
+            </div>
 
-                    <span className="text-gray-600 font-semibold ml-1 text-xs">
-                      4.0{" "}
-                      <span className="font-normal opacity-70">
-                        ({selectedCustomer.reviews?.length || 0} Reviews)
-                      </span>
-                    </span>
-                  </div>
-                </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  navigate("/dealer/details", {
+                    state: {
+                      customerId: selectedCustomer.id,
+                      customerName: selectedCustomer.fullName,
+                      returnTo: "/dealer/customers",
+                    },
+                  });
+                }}
+                className="flex-1 min-w-[120px] bg-[#7128E6] hover:bg-[#5b1abf] text-white font-bold py-3.5 rounded-2xl transition shadow-lg shadow-purple-200/50 flex items-center justify-center gap-2 text-sm"
+              >
+                <FaPlus /> New Girvi
+              </button>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
-                  <InfoCard
-                    label="Phone"
-                    value={selectedCustomer.phoneNumber || "-"}
-                  />
+              <button
+                type="button"
+                className="flex-1 min-w-[120px] bg-purple-50 text-purple-700 font-bold py-3.5 rounded-2xl transition flex items-center justify-center gap-2 text-sm hover:bg-purple-100"
+              >
+                <FaBox className="opacity-70" /> View Girvi
+              </button>
+            </div>
 
-                  <InfoCard
-                    label="Aadhaar"
-                    value={selectedCustomer.maskedAadhaar || "-"}
-                  />
+            <div className="flex gap-2 mt-2">
+              <button
+                type="button"
+                onClick={() =>
+                  navigate(`/dealer/edit-customer/${selectedCustomer.id}`)
+                }
+                className="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold py-3 rounded-2xl transition flex items-center justify-center gap-2 text-sm border border-gray-100"
+              >
+                <FaEdit className="text-gray-400" /> Edit Customer
+              </button>
 
-                  <InfoCard
-                    label="KYC Status"
-                    value={selectedCustomer.kycStatus || "PENDING"}
-                  />
-
-                  <InfoCard label="Total Girvi" value="0" />
-                  <InfoCard label="Active Loan" value="₹ 0" />
-                  <InfoCard label="Since" value="Today" />
-                </div>
-
-                <div className="mb-6">
-                  <div className="flex justify-between items-center mb-2">
-                    <h4 className="font-bold text-sm text-gray-900">
-                      Customer Reviews
-                    </h4>
-
-                    <button
-                      type="button"
-                      className="text-purple-700 text-xs font-bold hover:underline"
-                    >
-                      View All
-                    </button>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <div className="flex-1 bg-green-50/50 border border-green-100 rounded-xl p-3 flex justify-between items-center text-sm">
-                      <div className="flex items-center gap-2 text-green-600 font-semibold">
-                        <FaThumbsUp /> Positive
-                      </div>
-                      <span className="font-bold text-green-700">0</span>
-                    </div>
-
-                    <div className="flex-1 bg-red-50/50 border border-red-100 rounded-xl p-3 flex justify-between items-center text-sm">
-                      <div className="flex items-center gap-2 text-red-500 font-semibold">
-                        <FaHeart /> Negative
-                      </div>
-                      <span className="font-bold text-red-600">0</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigate("/dealer/details", {
-                        state: {
-                          customerId: selectedCustomer.id,
-                          customerName: selectedCustomer.fullName,
-                          returnTo: "/dealer/customers",
-                        },
-                      });
-                    }}
-                    className="flex-1 min-w-[120px] bg-[#7128E6] hover:bg-[#5b1abf] text-white font-bold py-3.5 rounded-2xl transition shadow-lg shadow-purple-200/50 flex items-center justify-center gap-2 text-sm"
-                  >
-                    <FaPlus /> New Girvi
-                  </button>
-
-                  <button
-                    type="button"
-                    className="flex-1 min-w-[120px] bg-purple-50 text-purple-700 font-bold py-3.5 rounded-2xl transition flex items-center justify-center gap-2 text-sm hover:bg-purple-100"
-                  >
-                    <FaBox className="opacity-70" /> View Girvi
-                  </button>
-                </div>
-
-                <div className="flex gap-2 mt-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      navigate(`/dealer/edit-customer/${selectedCustomer.id}`)
-                    }
-                    className="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold py-3 rounded-2xl transition flex items-center justify-center gap-2 text-sm border border-gray-100"
-                  >
-                    <FaEdit className="text-gray-400" /> Edit Customer
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => deleteCustomer(selectedCustomer.id)}
-                    className="w-14 bg-red-50 hover:bg-red-100 text-red-600 font-bold py-3 rounded-2xl transition flex items-center justify-center border border-red-100"
-                    title="Delete Customer"
-                  >
-                    <FaTrash />
-                  </button>
-                </div>
-              </>
-            )}
+              <button
+                type="button"
+                onClick={() => deleteCustomer(selectedCustomer.id)}
+                className="w-14 bg-red-50 hover:bg-red-100 text-red-600 font-bold py-3 rounded-2xl transition flex items-center justify-center border border-red-100"
+                title="Delete Customer"
+              >
+                <FaTrash />
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -663,11 +628,9 @@ export default function CustomerList() {
 function CustomerCards({
   loading,
   error,
-  customers,
   filteredCustomers,
   photoMap,
   kycBadge,
-  setSelectedCustomerId,
   fetchCustomerById,
   navigate,
   totalElements,
@@ -691,7 +654,7 @@ function CustomerCards({
         </div>
       )}
 
-      {!loading && !error && customers.length === 0 && <EmptyState />}
+      {!loading && !error && filteredCustomers.length === 0 && <EmptyState />}
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
         {!loading &&
@@ -727,7 +690,10 @@ function CustomerCards({
 
                       <span className="flex items-center gap-2">
                         <FaIdCard className="text-xs" />{" "}
-                        {c.maskedAadhaar || "-"}
+                        {c.maskedAadhaar ||
+                          (c.aadhaarLastFour
+                            ? `XXXX-XXXX-${c.aadhaarLastFour}`
+                            : "-")}
                       </span>
                     </div>
                   </div>
@@ -744,61 +710,10 @@ function CustomerCards({
                 </div>
               </div>
 
-              <div className="bg-gray-50/50 rounded-2xl p-3 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-                <div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <FaShieldAlt
-                      className={
-                        c.fraudStatus === "Medium Risk"
-                          ? "text-orange-500"
-                          : "text-green-500"
-                      }
-                    />
-
-                    <span
-                      className={`font-semibold ${
-                        c.fraudStatus === "Medium Risk"
-                          ? "text-orange-600"
-                          : "text-green-600"
-                      }`}
-                    >
-                      {c.fraudStatus || "Safe Customer"}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1 mt-1 text-yellow-400 text-[10px]">
-                    <FaStar />
-                    <FaStar />
-                    <FaStar />
-                    <FaStar />
-                    <FaStar className="text-gray-300" />
-
-                    <span className="text-gray-500 font-medium ml-1">
-                      4.0 ({c.reviews?.length || 0})
-                    </span>
-                  </div>
-                </div>
-
-                <div className="text-right text-xs">
-                  <p className="text-gray-500 font-medium mb-1">
-                    Active Girvi :{" "}
-                    <span className="font-bold text-gray-900">0</span>
-                  </p>
-
-                  <p className="text-gray-500 font-medium">
-                    Total Loan :{" "}
-                    <span className="font-bold text-gray-900">₹ 0</span>
-                  </p>
-                </div>
-              </div>
-
               <div className="mt-4 flex items-center justify-between">
                 <button
                   type="button"
-                  onClick={() => {
-                    setSelectedCustomerId(c.id);
-                    fetchCustomerById(c.id);
-                  }}
+                  onClick={() => fetchCustomerById(c.id)}
                   className="text-purple-700 font-bold text-sm px-2 hover:underline"
                 >
                   View Details
@@ -847,7 +762,7 @@ function InfoCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-gray-50/70 border border-gray-100 rounded-2xl p-3 w-full">
       <p className="text-[11px] text-gray-500 font-medium mb-1">{label}</p>
-      <p className="font-bold text-gray-900 text-sm truncate">{value}</p>
+      <p className="font-bold text-gray-900 text-sm break-all">{value}</p>
     </div>
   );
 }
