@@ -1,17 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import DealerSidebar from "../dealer/DealerSidebar";
+import DealerMobileBottomNav from "../dealer/DealerMobileBottomNav";
 import {
   Html5Qrcode,
   Html5QrcodeSupportedFormats,
 } from "html5-qrcode";
 
 import {
-  FaHome,
-  FaUserFriends,
-  FaRupeeSign,
-  FaCoins,
-  FaEllipsisH,
   FaArrowLeft,
   FaSearch,
   FaQrcode,
@@ -29,8 +25,15 @@ export default function CustomerReviews() {
   const query = new URLSearchParams(window.location.search);
   const isAdminView = query.get("adminView") === "true";
 
-  const dealerName = localStorage.getItem("ps_dealer_name") || "Dealer";
-  const dealerId = localStorage.getItem("ps_dealer_id") || "";
+  const dealerName =
+    query.get("dealerName") ||
+    localStorage.getItem("ps_dealer_name") ||
+    "Dealer";
+
+  const dealerId =
+    query.get("dealerId") ||
+    localStorage.getItem("ps_dealer_id") ||
+    "";
 
   const todayDate = new Date().toLocaleDateString("en-IN", {
     day: "2-digit",
@@ -143,6 +146,11 @@ export default function CustomerReviews() {
   }
 
   function handleLogout() {
+    if (isAdminView) {
+      navigate("/admin/dashboard", { replace: true });
+      return;
+    }
+
     localStorage.removeItem("ps_token");
     localStorage.removeItem("ps_role");
     localStorage.removeItem("ps_dealer_id");
@@ -553,7 +561,7 @@ export default function CustomerReviews() {
 
   return (
     <div className="min-h-screen bg-[#f4f5f7]">
-      {/* ================= DESKTOP VIEW WITH GLOBAL SIDEBAR ================= */}
+      {/* ================= DESKTOP VIEW ================= */}
       <div className="hidden lg:flex min-h-screen">
         <DealerSidebar isAdminView={isAdminView} />
 
@@ -598,7 +606,7 @@ export default function CustomerReviews() {
                       className="w-full px-4 py-3 text-sm text-red-600 hover:bg-red-50 font-semibold flex items-center gap-2 transition"
                     >
                       <FaSignOutAlt className="text-base" />
-                      <span>Logout</span>
+                      <span>{isAdminView ? "Back to Admin" : "Logout"}</span>
                     </button>
                   </div>
                 )}
@@ -615,7 +623,8 @@ export default function CustomerReviews() {
                     Check Customer Review
                   </h1>
                   <p className="text-sm opacity-80 mt-1">
-                    Search customer records, review dealer feedback and check risk history.
+                    Search customer records, review dealer feedback and check
+                    risk history.
                   </p>
                 </div>
 
@@ -624,10 +633,12 @@ export default function CustomerReviews() {
                     <p className="text-[11px] opacity-80">Search Type</p>
                     <h3 className="font-bold text-sm mt-0.5">Aadhaar</h3>
                   </div>
+
                   <div className="bg-white/10 rounded-2xl px-4 py-3">
                     <p className="text-[11px] opacity-80">Review</p>
                     <h3 className="font-bold text-sm mt-0.5">Dealer Notes</h3>
                   </div>
+
                   <div className="bg-white/10 rounded-2xl px-4 py-3">
                     <p className="text-[11px] opacity-80">Status</p>
                     <h3 className="font-bold text-sm mt-0.5">Secure</h3>
@@ -636,130 +647,140 @@ export default function CustomerReviews() {
               </div>
             </div>
 
-            <div className="grid grid-cols-12 gap-6">
-              <div className="col-span-12 xl:col-span-8 bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
-                <div className="flex justify-between items-start mb-6">
-                  <div>
-                    <h2 className="text-xl font-bold text-gray-900">
-                      Customer Review Search
-                    </h2>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Enter Aadhaar number to check customer review history.
-                    </p>
+            <div className="grid grid-cols-12 gap-6 items-start">
+              <div className="col-span-12 xl:col-span-8 space-y-6">
+                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+                  <div className="flex justify-between items-start mb-6">
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900">
+                        Customer Review Search
+                      </h2>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Enter Aadhaar number to check customer review history.
+                      </p>
+                    </div>
+
+                    <a
+                      href="https://myaadhaar.uidai.gov.in/"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-purple-700 text-sm font-semibold hover:underline"
+                    >
+                      Verify Portal ↗
+                    </a>
                   </div>
 
-                  <a
-                    href="https://myaadhaar.uidai.gov.in/"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-purple-700 text-sm font-semibold hover:underline"
-                  >
-                    Verify Portal ↗
-                  </a>
-                </div>
+                  <div className="grid grid-cols-12 gap-4">
+                    <div className="col-span-12 md:col-span-9 flex items-center border border-gray-200 rounded-2xl px-4 py-4 bg-gray-50 focus-within:ring-2 focus-within:ring-purple-500">
+                      <FaSearch className="text-gray-400 mr-3" />
+                      <input
+                        value={maskAadhaar(aadhaar)}
+                        onChange={(e) =>
+                          setAadhaar(e.target.value.replace(/\D/g, ""))
+                        }
+                        maxLength={14}
+                        className="w-full outline-none text-sm bg-transparent"
+                        placeholder="Enter Aadhaar number"
+                      />
+                    </div>
 
-                <div className="grid grid-cols-12 gap-4">
-                  <div className="col-span-12 md:col-span-9 flex items-center border border-gray-200 rounded-2xl px-4 py-4 bg-gray-50 focus-within:ring-2 focus-within:ring-purple-500">
-                    <FaSearch className="text-gray-400 mr-3" />
-                    <input
-                      value={maskAadhaar(aadhaar)}
-                      onChange={(e) =>
-                        setAadhaar(e.target.value.replace(/\D/g, ""))
-                      }
-                      maxLength={14}
-                      className="w-full outline-none text-sm bg-transparent"
-                      placeholder="Enter Aadhaar number"
-                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setScannerError("");
+                        setShowScanner(true);
+                      }}
+                      className="col-span-12 md:col-span-3 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-2xl font-bold flex items-center justify-center gap-2 py-4"
+                    >
+                      <FaQrcode />
+                      Scan QR
+                    </button>
                   </div>
 
                   <button
                     type="button"
-                    onClick={() => {
-                      setScannerError("");
-                      setShowScanner(true);
-                    }}
-                    className="col-span-12 md:col-span-3 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-2xl font-bold flex items-center justify-center gap-2 py-4"
+                    onClick={searchCustomer}
+                    disabled={loading}
+                    className="mt-5 w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-2xl font-bold disabled:bg-gray-400"
                   >
-                    <FaQrcode />
-                    Scan QR
+                    {loading ? "Checking..." : "Check Customer Review"}
                   </button>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={searchCustomer}
-                  disabled={loading}
-                  className="mt-5 w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-2xl font-bold disabled:bg-gray-400"
-                >
-                  {loading ? "Checking..." : "Check Customer Review"}
-                </button>
+                {customer && (
+                  <div ref={resultRef}>
+                    <CustomerResult
+                      customer={customer}
+                      aadhaar={aadhaar}
+                      maskAadhaar={maskAadhaar}
+                      riskLevel={riskLevel}
+                      setRiskLevel={setRiskLevel}
+                      comment={comment}
+                      setComment={setComment}
+                      submitReview={submitReview}
+                      submitting={submitting}
+                      currentDealerId={dealerId}
+                      currentDealerName={dealerName}
+                      deleteReview={deleteReview}
+                      deletingReviewId={deletingReviewId}
+                      itemPhotoPreview={itemPhotoPreview}
+                      onItemPhotoChange={handleItemPhotoChange}
+                    />
+                  </div>
+                )}
               </div>
 
-              <div className="col-span-12 xl:col-span-4 bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
-                <h2 className="text-xl font-bold text-gray-900">
-                  Safety Review Guide
-                </h2>
+              <div className="col-span-12 xl:col-span-4">
+                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 xl:sticky xl:top-24">
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Safety Review Guide
+                  </h2>
 
-                <div className="mt-5 space-y-4">
-                  <GuideBox
-                    color="green"
-                    title="Safe"
-                    text="Customer has good repayment or transaction history."
-                  />
-                  <GuideBox
-                    color="yellow"
-                    title="Low Risk"
-                    text="Some caution needed based on previous dealer notes."
-                  />
-                  <GuideBox
-                    color="red"
-                    title="High Risk"
-                    text="Serious issue reported by one or more dealers."
-                  />
+                  <div className="mt-5 space-y-4">
+                    <GuideBox
+                      color="green"
+                      title="Safe"
+                      text="Customer has good repayment or transaction history."
+                    />
+                    <GuideBox
+                      color="yellow"
+                      title="Low Risk"
+                      text="Some caution needed based on previous dealer notes."
+                    />
+                    <GuideBox
+                      color="red"
+                      title="High Risk"
+                      text="Serious issue reported by one or more dealers."
+                    />
+                  </div>
                 </div>
               </div>
             </div>
-
-            {customer && (
-              <div ref={resultRef} className="mt-6 max-w-4xl">
-                <CustomerResult
-                  customer={customer}
-                  aadhaar={aadhaar}
-                  maskAadhaar={maskAadhaar}
-                  riskLevel={riskLevel}
-                  setRiskLevel={setRiskLevel}
-                  comment={comment}
-                  setComment={setComment}
-                  submitReview={submitReview}
-                  submitting={submitting}
-                  currentDealerId={dealerId}
-                  currentDealerName={dealerName}
-                  deleteReview={deleteReview}
-                  deletingReviewId={deletingReviewId}
-                  itemPhotoPreview={itemPhotoPreview}
-                  onItemPhotoChange={handleItemPhotoChange}
-                />
-              </div>
-            )}
           </div>
         </main>
       </div>
 
-      {/* ================= MOBILE / TABLET VIEW ================= */}
+      {/* ================= MOBILE VIEW ================= */}
       <div className="lg:hidden pb-32 bg-[#f4f5f7] min-h-screen">
         <div className="max-w-md mx-auto bg-[#f4f5f7] min-h-screen">
           <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-b-[28px] px-5 py-5 relative overflow-visible">
             <div className="flex justify-between items-center mb-4">
               <button
                 type="button"
-                onClick={() => navigate("/dealer/dashboard")}
+                onClick={() =>
+                  isAdminView
+                    ? navigate("/admin/dashboard", { replace: true })
+                    : navigate("/dealer/dashboard")
+                }
               >
                 <FaArrowLeft className="text-xl" />
               </button>
 
               <div className="text-center">
                 <h1 className="font-bold text-lg">Check Review</h1>
-                <p className="text-xs opacity-80">PawnSecure</p>
+                <p className="text-xs opacity-80">
+                  {isAdminView ? "Admin Preview" : "PawnSecure"}
+                </p>
               </div>
 
               <div className="relative">
@@ -779,7 +800,7 @@ export default function CustomerReviews() {
                       className="w-full px-4 py-3 text-sm text-red-600 hover:bg-red-50 font-semibold flex items-center gap-2"
                     >
                       <FaSignOutAlt />
-                      Logout
+                      {isAdminView ? "Back Admin" : "Logout"}
                     </button>
                   </div>
                 )}
@@ -865,7 +886,7 @@ export default function CustomerReviews() {
             </div>
           )}
 
-          <div className="px-4 mt-4">
+          <div className="px-4 mt-5">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
               <h2 className="text-lg font-bold text-gray-900">
                 Safety Review Guide
@@ -892,53 +913,7 @@ export default function CustomerReviews() {
           </div>
         </div>
 
-        <div className="fixed bottom-0 left-0 w-full bg-white border-t flex justify-around py-3 z-50">
-          <button
-            type="button"
-            onClick={() => navigate("/dealer/dashboard")}
-            className="text-gray-500 flex flex-col items-center text-xs"
-          >
-            <FaHome className="text-xl mb-1" />
-            Dashboard
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate("/dealer/customer-search")}
-            className="text-purple-700 flex flex-col items-center text-xs font-semibold"
-          >
-            <FaUserFriends className="text-xl mb-1" />
-            Customers Review
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate("/dealer/customer")}
-            className="text-gray-500 flex flex-col items-center text-xs"
-          >
-            <FaRupeeSign className="text-xl mb-1" />
-            Girvi
-          </button>
-
-          <button
-            type="button"
-            disabled
-            title="Collections feature is currently disabled"
-            className="text-gray-300 flex flex-col items-center text-xs cursor-not-allowed"
-          >
-            <FaCoins className="text-xl mb-1" />
-            Collections
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate("/dealer/more")}
-            className="text-gray-500 flex flex-col items-center text-xs"
-          >
-            <FaEllipsisH className="text-xl mb-1" />
-            More
-          </button>
-        </div>
+        <DealerMobileBottomNav active="customers" isAdminView={isAdminView} />
       </div>
 
       {showScanner && (
@@ -1095,7 +1070,7 @@ function CustomerResult({
   return (
     <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 w-full overflow-hidden">
       <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           {customer.customerPhotoBase64 ? (
             <img
               src={`data:${customer.customerPhotoContentType};base64,${customer.customerPhotoBase64}`}
