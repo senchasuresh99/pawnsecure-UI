@@ -1,17 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import DealerSidebar from "../dealer/DealerSidebar";
+import MobileDealerSidebar from "../dealer/MobileDealerSidebar";
+import DealerMobileBottomNav from "../dealer/DealerMobileBottomNav";
 import {
-  FaArrowLeft,
   FaBox,
-  FaCoins,
   FaEdit,
-  FaHome,
   FaPlus,
   FaRupeeSign,
   FaSearch,
   FaTimes,
-  FaUserFriends,
   FaSyncAlt,
 } from "react-icons/fa";
 
@@ -63,6 +61,14 @@ export default function GirviList() {
   const query = new URLSearchParams(window.location.search);
   const isAdminView = query.get("adminView") === "true";
 
+  const dealerName =
+    query.get("dealerName") ||
+    localStorage.getItem("ps_dealer_name") ||
+    "Dealer";
+
+  const dealerIdForSidebar =
+    query.get("dealerId") || localStorage.getItem("ps_dealer_id") || "-";
+
   const todayDate = new Date().toLocaleDateString("en-IN", {
     day: "2-digit",
     month: "long",
@@ -72,6 +78,8 @@ export default function GirviList() {
   const todayDay = new Date().toLocaleDateString("en-IN", {
     weekday: "long",
   });
+
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
   const [girviList, setGirviList] = useState<GirviResponseDTO[]>([]);
   const [filteredList, setFilteredList] = useState<GirviResponseDTO[]>([]);
@@ -457,7 +465,6 @@ export default function GirviList() {
         <DealerSidebar isAdminView={isAdminView} />
 
         <main className="ml-64 flex-1 flex flex-col">
-          {/* Top Header */}
           <header className="h-16 bg-white border-b border-gray-200 px-8 flex items-center justify-between sticky top-0 z-30 shrink-0">
             <div>
               <h2 className="text-lg font-bold text-gray-900">Girvi Records</h2>
@@ -475,6 +482,7 @@ export default function GirviList() {
               </div>
 
               <button
+                type="button"
                 onClick={goToAddGirvi}
                 className="bg-[#4820C5] hover:bg-[#3917a3] text-white px-5 py-3 rounded-xl font-bold text-sm flex items-center gap-2 shadow-sm transition"
               >
@@ -483,7 +491,6 @@ export default function GirviList() {
             </div>
           </header>
 
-          {/* Page Content */}
           <div className="p-6 xl:p-8 max-w-[1400px] w-full mx-auto flex-1">
             <RecordsPanel
               loading={loading}
@@ -509,44 +516,69 @@ export default function GirviList() {
       </div>
 
       {/* ================= MOBILE VIEW ================= */}
-      <div className="lg:hidden pb-24">
-        <div className="bg-[#4820C5] text-white pt-7 pb-20 px-5 rounded-b-[32px] shadow-sm relative">
-          <div className="flex items-center justify-between mb-5">
+      <div className="lg:hidden min-h-screen bg-[#f4f5f7] pb-32">
+        <MobileDealerSidebar
+          open={showMobileSidebar}
+          onClose={() => setShowMobileSidebar(false)}
+          isAdminView={isAdminView}
+          dealerName={dealerName}
+          dealerId={dealerIdForSidebar}
+        />
+
+        <header className="h-16 bg-white border-b border-gray-200 px-4 flex items-center justify-between sticky top-0 z-30 shrink-0">
+          <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => navigate("/dealer/dashboard")}
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition"
+              onClick={() => {
+                if (isAdminView) {
+                  navigate("/admin/dashboard");
+                  return;
+                }
+
+                setShowMobileSidebar(true);
+              }}
+              className="w-10 h-10 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-xl text-gray-700 active:bg-gray-100"
             >
-              <FaArrowLeft className="text-lg" />
+              {isAdminView ? "←" : "☰"}
             </button>
 
-            <div className="text-center">
-              <h1 className="font-bold text-lg tracking-tight">Girvi Records</h1>
-              <p className="text-[10px] opacity-75 font-semibold tracking-wider uppercase">
-                PawnSecure
+            <div>
+              <h2 className="text-base font-bold text-gray-900">
+                Girvi Records
+              </h2>
+              <p className="text-[11px] text-gray-500">
+                Manage pledge records
               </p>
             </div>
-
-            <button
-              type="button"
-              onClick={goToAddGirvi}
-              className="w-10 h-10 rounded-full bg-white text-[#4820C5] flex items-center justify-center font-bold shadow-md transition"
-            >
-              <FaPlus />
-            </button>
           </div>
 
-          <div className="mt-4">
-            <h2 className="text-2xl font-extrabold tracking-tight">
-              All Active Girvi
-            </h2>
-            <p className="text-xs opacity-80 font-medium mt-1">
-              Total Records Logged: {totalElements}
-            </p>
+          <div className="text-right leading-tight">
+            <p className="text-xs font-semibold text-gray-800">{todayDate}</p>
+            <p className="text-[10px] text-gray-400">{todayDay}</p>
           </div>
-        </div>
+        </header>
 
-        <div className="px-4 -mt-10 relative z-10">
+        <div className="max-w-md mx-auto px-4 pt-4">
+          <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-3xl px-5 py-5 mb-5 shadow-sm">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs opacity-80">Girvi Management</p>
+                <h1 className="text-2xl font-bold mt-1">Girvi Records</h1>
+                <p className="text-sm opacity-80 mt-1">
+                  Total Records : {totalElements}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={goToAddGirvi}
+                className="w-11 h-11 bg-white/20 active:bg-white/30 rounded-2xl flex items-center justify-center transition shrink-0"
+              >
+                <FaPlus />
+              </button>
+            </div>
+          </div>
+
           <MobileRecordsPanel
             loading={loading}
             error={error}
@@ -568,46 +600,7 @@ export default function GirviList() {
           />
         </div>
 
-        {/* Mobile Bottom Navigation */}
-        <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 flex justify-around py-3 z-50 shadow-xl">
-          <button
-            type="button"
-            onClick={() => navigate("/dealer/dashboard")}
-            className="text-gray-400 flex flex-col items-center text-[11px] font-medium gap-1"
-          >
-            <FaHome className="text-xl" />
-            Dashboard
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate("/dealer/customer-register")}
-            className="text-gray-400 flex flex-col items-center text-[11px] font-medium gap-1"
-          >
-            <FaUserFriends className="text-xl" />
-            Customers
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate("/dealer/customer")}
-            className="text-[#4820C5] flex flex-col items-center text-[11px] font-bold gap-1"
-          >
-            <FaRupeeSign className="text-xl" />
-            Girvi
-          </button>
-
-          {/* Disabled Collections */}
-          <button
-            type="button"
-            disabled
-            title="Collections feature is currently disabled"
-            className="text-gray-300 flex flex-col items-center text-[11px] font-medium gap-1 cursor-not-allowed"
-          >
-            <FaCoins className="text-xl" />
-            Collections
-          </button>
-        </div>
+        <DealerMobileBottomNav active="girvi" isAdminView={isAdminView} />
       </div>
 
       {showEditModal && selectedGirvi && (
@@ -825,7 +818,7 @@ function RecordsPanel({
             totalPages={totalPages}
             totalElements={totalElements}
             onPageChange={setPage}
-            onSizeChange={(newSize) => {
+            onSizeChange={(newSize: number) => {
               setSize(newSize);
               setPage(0);
             }}
@@ -990,7 +983,7 @@ function MobileRecordsPanel({
           totalPages={totalPages}
           totalElements={totalElements}
           onPageChange={setPage}
-          onSizeChange={(newSize) => {
+          onSizeChange={(newSize: number) => {
             setSize(newSize);
             setPage(0);
           }}

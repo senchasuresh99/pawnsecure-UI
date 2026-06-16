@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import DealerSidebar from "../dealer/DealerSidebar";
+import MobileDealerSidebar from "../dealer/MobileDealerSidebar";
+import DealerMobileBottomNav from "../dealer/DealerMobileBottomNav";
 import {
   FaSearch,
   FaUser,
   FaShieldAlt,
   FaBox,
-  FaArrowLeft,
   FaPlus,
   FaEdit,
   FaTrash,
@@ -56,6 +57,14 @@ export default function CustomerList() {
   const query = new URLSearchParams(window.location.search);
   const isAdminView = query.get("adminView") === "true";
 
+  const dealerName =
+    query.get("dealerName") ||
+    localStorage.getItem("ps_dealer_name") ||
+    "Dealer";
+
+  const dealerId =
+    query.get("dealerId") || localStorage.getItem("ps_dealer_id") || "-";
+
   const todayDate = new Date().toLocaleDateString("en-IN", {
     day: "2-digit",
     month: "long",
@@ -71,6 +80,8 @@ export default function CustomerList() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+
   /* ✅ Pagination */
   const [page, setPage] = useState(0);
   const [size, setSize] = useState(10);
@@ -80,8 +91,10 @@ export default function CustomerList() {
   const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(
     null
   );
+
   const [selectedCustomer, setSelectedCustomer] =
     useState<CustomerResponseDTO | null>(null);
+
   const [detailLoading, setDetailLoading] = useState(false);
 
   /* ✅ Avatar photos */
@@ -91,13 +104,18 @@ export default function CustomerList() {
     fetchCustomers();
   }, [page, size]);
 
+  useEffect(() => {
+    customers.forEach((c) => loadCustomerPhoto(c.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customers]);
+
   /* ================= API ================= */
 
   async function fetchCustomers() {
-    const dealerId = localStorage.getItem("ps_dealer_id");
+    const currentDealerId = localStorage.getItem("ps_dealer_id");
     const token = localStorage.getItem("ps_token");
 
-    if (!dealerId || !token) {
+    if (!currentDealerId || !token) {
       setError("Session expired. Please login again.");
       return;
     }
@@ -111,7 +129,7 @@ export default function CustomerList() {
         {
           headers: {
             Authorization: `Bearer ${token}`,
-            "X-DEALER-ID": dealerId,
+            "X-DEALER-ID": currentDealerId,
           },
         }
       );
@@ -142,9 +160,10 @@ export default function CustomerList() {
   }
 
   async function fetchCustomerById(customerId: number) {
-    const dealerId = localStorage.getItem("ps_dealer_id");
+    const currentDealerId = localStorage.getItem("ps_dealer_id");
     const token = localStorage.getItem("ps_token");
-    if (!dealerId || !token) return;
+
+    if (!currentDealerId || !token) return;
 
     setDetailLoading(true);
 
@@ -152,7 +171,7 @@ export default function CustomerList() {
       const res = await fetch(`${API_BASE}/customers/${customerId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
-          "X-DEALER-ID": dealerId,
+          "X-DEALER-ID": currentDealerId,
         },
       });
 
@@ -172,13 +191,14 @@ export default function CustomerList() {
       !window.confirm(
         "Are you sure you want to delete this customer? This action cannot be undone."
       )
-    )
+    ) {
       return;
+    }
 
-    const dealerId = localStorage.getItem("ps_dealer_id");
+    const currentDealerId = localStorage.getItem("ps_dealer_id");
     const token = localStorage.getItem("ps_token");
 
-    if (!dealerId || !token) {
+    if (!currentDealerId || !token) {
       alert("Session expired or invalid login. Please login again.");
       return;
     }
@@ -188,7 +208,7 @@ export default function CustomerList() {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
-          "X-DEALER-ID": dealerId,
+          "X-DEALER-ID": currentDealerId,
         },
       });
 
@@ -207,32 +227,34 @@ export default function CustomerList() {
   async function loadCustomerPhoto(customerId: number) {
     if (photoMap[customerId]) return;
 
-    const dealerId = localStorage.getItem("ps_dealer_id");
+    const currentDealerId = localStorage.getItem("ps_dealer_id");
     const token = localStorage.getItem("ps_token");
-    if (!dealerId || !token) return;
+
+    if (!currentDealerId || !token) return;
 
     try {
       const res = await fetch(`${API_BASE}/customers/${customerId}/photo`, {
         headers: {
           Authorization: `Bearer ${token}`,
-          "X-DEALER-ID": dealerId,
+          "X-DEALER-ID": currentDealerId,
         },
       });
 
       if (!res.ok) return;
 
       const blob = await res.blob();
+      if (!blob || blob.size === 0) return;
+
       const url = URL.createObjectURL(blob);
 
-      setPhotoMap((prev) => ({ ...prev, [customerId]: url }));
+      setPhotoMap((prev) => ({
+        ...prev,
+        [customerId]: url,
+      }));
     } catch {
       // ignore image error
     }
   }
-
-  useEffect(() => {
-    customers.forEach((c) => loadCustomerPhoto(c.id));
-  }, [customers]);
 
   function kycBadge(status?: string) {
     return status === "VERIFIED"
@@ -242,6 +264,7 @@ export default function CustomerList() {
 
   const filteredCustomers = customers.filter((c) => {
     const q = search.toLowerCase().trim();
+
     if (!q) return true;
 
     return (
@@ -288,6 +311,7 @@ export default function CustomerList() {
                 </div>
 
                 <button
+                  type="button"
                   onClick={() => navigate("/dealer/customer-register")}
                   className="bg-white/20 hover:bg-white/30 text-white px-5 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition"
                 >
@@ -309,7 +333,10 @@ export default function CustomerList() {
                   />
                 </div>
 
-                <button className="bg-gray-50 px-4 py-3 rounded-2xl border border-gray-100 text-gray-500 hover:text-purple-600 transition">
+                <button
+                  type="button"
+                  className="bg-gray-50 px-4 py-3 rounded-2xl border border-gray-100 text-gray-500 hover:text-purple-600 transition"
+                >
                   <FaFilter />
                 </button>
               </div>
@@ -338,55 +365,91 @@ export default function CustomerList() {
       </div>
 
       {/* ================= MOBILE VIEW ================= */}
-      <div className="lg:hidden min-h-screen bg-[#f4f5f7] pb-20">
-        {/* Header */}
-        <div className="bg-[#2D1B69] text-white pt-8 pb-20 px-4 rounded-b-[40px] shadow-md relative">
-          <div className="max-w-5xl mx-auto">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={() => navigate("/dealer/dashboard")}
-                  className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition"
-                >
-                  <FaArrowLeft className="text-xl" />
-                </button>
+      <div className="lg:hidden min-h-screen bg-[#f4f5f7] pb-32">
+        <MobileDealerSidebar
+          open={showMobileSidebar}
+          onClose={() => setShowMobileSidebar(false)}
+          isAdminView={isAdminView}
+          dealerName={dealerName}
+          dealerId={dealerId}
+        />
 
-                <div>
-                  <h1 className="text-2xl font-bold">Customers</h1>
-                  <p className="text-sm text-gray-300">
-                    Total Records : {totalElements}
-                  </p>
-                </div>
+        {/* Mobile White Header */}
+        <header className="h-16 bg-white border-b border-gray-200 px-4 flex items-center justify-between sticky top-0 z-30 shrink-0">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                if (isAdminView) {
+                  navigate("/admin/dashboard");
+                  return;
+                }
+
+                setShowMobileSidebar(true);
+              }}
+              className="w-10 h-10 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-xl text-gray-700 active:bg-gray-100"
+            >
+              {isAdminView ? "←" : "☰"}
+            </button>
+
+            <div>
+              <h2 className="text-base font-bold text-gray-900">Customers</h2>
+              <p className="text-[11px] text-gray-500">
+                Manage customer records
+              </p>
+            </div>
+          </div>
+
+          <div className="text-right leading-tight">
+            <p className="text-xs font-semibold text-gray-800">{todayDate}</p>
+            <p className="text-[10px] text-gray-400">{todayDay}</p>
+          </div>
+        </header>
+
+        <div className="max-w-md mx-auto px-4 pt-4">
+          {/* Purple Page Banner */}
+          <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-3xl px-5 py-5 mb-5 shadow-sm">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs opacity-80">Customer Management</p>
+                <h1 className="text-2xl font-bold mt-1">Customers</h1>
+                <p className="text-sm opacity-80 mt-1">
+                  Total Records : {totalElements}
+                </p>
               </div>
 
               <button
+                type="button"
                 onClick={() => navigate("/dealer/customer-register")}
-                className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition"
+                className="w-11 h-11 bg-white/20 active:bg-white/30 rounded-2xl flex items-center justify-center transition shrink-0"
               >
                 <FaPlus />
               </button>
             </div>
           </div>
-        </div>
 
-        {/* Floating Search Bar */}
-        <div className="max-w-5xl mx-auto px-4 -mt-8 relative z-10 flex gap-3">
-          <div className="flex-1 bg-white rounded-2xl shadow-sm px-4 py-3 flex items-center border border-gray-100">
-            <FaSearch className="text-gray-400 mr-3" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full outline-none text-sm text-gray-700 bg-transparent"
-              placeholder="Search by name, phone or Aadhaar"
-            />
+          {/* Search Bar */}
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 mb-5">
+            <div className="flex items-center gap-3">
+              <div className="flex-1 bg-gray-50 rounded-2xl px-4 py-3 flex items-center border border-gray-100">
+                <FaSearch className="text-gray-400 mr-3" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full outline-none text-sm text-gray-700 bg-transparent"
+                  placeholder="Search by name, phone or Aadhaar"
+                />
+              </div>
+
+              <button
+                type="button"
+                className="bg-gray-50 px-4 py-3 rounded-2xl border border-gray-100 text-gray-500 active:bg-gray-100 transition"
+              >
+                <FaFilter />
+              </button>
+            </div>
           </div>
 
-          <button className="bg-white px-4 py-3 rounded-2xl shadow-sm border border-gray-100 text-gray-500 hover:text-purple-600 transition">
-            <FaFilter />
-          </button>
-        </div>
-
-        <div className="max-w-5xl mx-auto px-4 mt-6">
           <CustomerCards
             loading={loading}
             error={error}
@@ -405,13 +468,16 @@ export default function CustomerList() {
             setSize={setSize}
           />
         </div>
+
+        <DealerMobileBottomNav active="customers" isAdminView={isAdminView} />
       </div>
 
       {/* ================= MODAL DETAILS ================= */}
       {selectedCustomerId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white w-full max-w-[480px] rounded-[32px] p-6 sm:p-8 shadow-2xl relative animate-in fade-in zoom-in duration-200">
             <button
+              type="button"
               onClick={() => {
                 setSelectedCustomer(null);
                 setSelectedCustomerId(null);
@@ -433,7 +499,7 @@ export default function CustomerList() {
                       <img
                         src={photoMap[selectedCustomer.id]}
                         className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md"
-                        alt=""
+                        alt="Customer"
                       />
                     ) : (
                       <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center border-4 border-white shadow-md">
@@ -458,6 +524,7 @@ export default function CustomerList() {
                           : "text-green-500"
                       }
                     />
+
                     <span
                       className={`font-semibold text-sm ${
                         selectedCustomer.fraudStatus === "Medium Risk"
@@ -475,6 +542,7 @@ export default function CustomerList() {
                     <FaStar />
                     <FaStar />
                     <FaStar className="text-gray-300" />
+
                     <span className="text-gray-600 font-semibold ml-1 text-xs">
                       4.0{" "}
                       <span className="font-normal opacity-70">
@@ -489,14 +557,17 @@ export default function CustomerList() {
                     label="Phone"
                     value={selectedCustomer.phoneNumber || "-"}
                   />
+
                   <InfoCard
                     label="Aadhaar"
                     value={selectedCustomer.maskedAadhaar || "-"}
                   />
+
                   <InfoCard
                     label="KYC Status"
                     value={selectedCustomer.kycStatus || "PENDING"}
                   />
+
                   <InfoCard label="Total Girvi" value="0" />
                   <InfoCard label="Active Loan" value="₹ 0" />
                   <InfoCard label="Since" value="Today" />
@@ -507,7 +578,11 @@ export default function CustomerList() {
                     <h4 className="font-bold text-sm text-gray-900">
                       Customer Reviews
                     </h4>
-                    <button className="text-purple-700 text-xs font-bold hover:underline">
+
+                    <button
+                      type="button"
+                      className="text-purple-700 text-xs font-bold hover:underline"
+                    >
                       View All
                     </button>
                   </div>
@@ -531,6 +606,7 @@ export default function CustomerList() {
 
                 <div className="flex flex-wrap gap-2">
                   <button
+                    type="button"
                     onClick={() => {
                       navigate("/dealer/details", {
                         state: {
@@ -545,13 +621,17 @@ export default function CustomerList() {
                     <FaPlus /> New Girvi
                   </button>
 
-                  <button className="flex-1 min-w-[120px] bg-purple-50 text-purple-700 font-bold py-3.5 rounded-2xl transition flex items-center justify-center gap-2 text-sm hover:bg-purple-100">
+                  <button
+                    type="button"
+                    className="flex-1 min-w-[120px] bg-purple-50 text-purple-700 font-bold py-3.5 rounded-2xl transition flex items-center justify-center gap-2 text-sm hover:bg-purple-100"
+                  >
                     <FaBox className="opacity-70" /> View Girvi
                   </button>
                 </div>
 
                 <div className="flex gap-2 mt-2">
                   <button
+                    type="button"
                     onClick={() =>
                       navigate(`/dealer/edit-customer/${selectedCustomer.id}`)
                     }
@@ -561,6 +641,7 @@ export default function CustomerList() {
                   </button>
 
                   <button
+                    type="button"
                     onClick={() => deleteCustomer(selectedCustomer.id)}
                     className="w-14 bg-red-50 hover:bg-red-100 text-red-600 font-bold py-3 rounded-2xl transition flex items-center justify-center border border-red-100"
                     title="Delete Customer"
@@ -643,6 +724,7 @@ function CustomerCards({
                       <span className="flex items-center gap-2">
                         <FaPhone className="text-xs" /> {c.phoneNumber || "-"}
                       </span>
+
                       <span className="flex items-center gap-2">
                         <FaIdCard className="text-xs" />{" "}
                         {c.maskedAadhaar || "-"}
@@ -672,6 +754,7 @@ function CustomerCards({
                           : "text-green-500"
                       }
                     />
+
                     <span
                       className={`font-semibold ${
                         c.fraudStatus === "Medium Risk"
@@ -689,6 +772,7 @@ function CustomerCards({
                     <FaStar />
                     <FaStar />
                     <FaStar className="text-gray-300" />
+
                     <span className="text-gray-500 font-medium ml-1">
                       4.0 ({c.reviews?.length || 0})
                     </span>
@@ -700,6 +784,7 @@ function CustomerCards({
                     Active Girvi :{" "}
                     <span className="font-bold text-gray-900">0</span>
                   </p>
+
                   <p className="text-gray-500 font-medium">
                     Total Loan :{" "}
                     <span className="font-bold text-gray-900">₹ 0</span>
@@ -709,6 +794,7 @@ function CustomerCards({
 
               <div className="mt-4 flex items-center justify-between">
                 <button
+                  type="button"
                   onClick={() => {
                     setSelectedCustomerId(c.id);
                     fetchCustomerById(c.id);
@@ -719,6 +805,7 @@ function CustomerCards({
                 </button>
 
                 <button
+                  type="button"
                   onClick={() =>
                     navigate("/dealer/details", {
                       state: {
@@ -771,7 +858,9 @@ function EmptyState() {
       <div className="w-20 h-20 rounded-full bg-white shadow-sm flex items-center justify-center mx-auto text-3xl mb-4 text-purple-200">
         <FaBox />
       </div>
+
       <h3 className="font-bold text-gray-800 text-lg">No Customers Found</h3>
+
       <p className="text-sm text-gray-500 mt-2 max-w-xs mx-auto">
         You haven't registered any customers yet or no match found for your
         search.
@@ -812,6 +901,7 @@ function Pagination({
 
         <div className="flex bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
           <button
+            type="button"
             onClick={() => onPageChange(page - 1)}
             disabled={page === 0}
             className="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-40 border-r border-gray-200 transition"
@@ -824,6 +914,7 @@ function Pagination({
           </span>
 
           <button
+            type="button"
             onClick={() => onPageChange(page + 1)}
             disabled={page >= totalPages - 1}
             className="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-40 border-l border-gray-200 transition"

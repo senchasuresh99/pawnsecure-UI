@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGirvi } from "../girvi/GirviContext";
 import DealerSidebar from "../dealer/DealerSidebar";
+import MobileDealerSidebar from "../dealer/MobileDealerSidebar";
 import {
   Html5Qrcode,
   Html5QrcodeSupportedFormats,
@@ -63,6 +64,13 @@ export default function CustomerRegister() {
     query.get("dealerName") ||
     localStorage.getItem("ps_dealer_name") ||
     "Dealer";
+
+  const dealerIdForSidebar =
+  query.get("dealerId") ||
+  localStorage.getItem("ps_dealer_id") ||
+  "-";
+
+const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
   const todayDate = new Date().toLocaleDateString("en-IN", {
     day: "2-digit",
@@ -1267,216 +1275,252 @@ export default function CustomerRegister() {
         </main>
       </div>
 
-      {/* ================= MOBILE / TABLET VIEW ================= */}
-      <div className="lg:hidden pb-32 bg-[#f4f5f7] min-h-screen">
-        <div className="max-w-md mx-auto bg-[#f4f5f7] min-h-screen">
-          <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-b-[28px] px-5 py-5 relative overflow-visible">
-            <div className="flex justify-between items-center mb-4">
-              <button
-                type="button"
-                onClick={() => navigate("/dealer/dashboard")}
-              >
-                <FaArrowLeft className="text-xl" />
-              </button>
+{/* ================= MOBILE / TABLET VIEW ================= */}
+<div className="lg:hidden pb-32 bg-[#f4f5f7] min-h-screen">
+  <MobileDealerSidebar
+    open={showMobileSidebar}
+    onClose={() => setShowMobileSidebar(false)}
+    isAdminView={isAdminView}
+    dealerName={dealerName}
+    dealerId={dealerIdForSidebar}
+  />
 
-              <div className="text-center">
-                <h1 className="font-bold text-lg">Customer Register</h1>
-                <p className="text-xs opacity-80">PawnSecure</p>
-              </div>
+  <div className="max-w-md mx-auto bg-[#f4f5f7] min-h-screen">
+    {/* Mobile Header */}
+    <header className="h-16 bg-white border-b border-gray-200 px-4 flex items-center justify-between sticky top-0 z-30 shrink-0">
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => {
+            if (isAdminView) {
+              navigate("/admin/dashboard", { replace: true });
+              return;
+            }
 
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowProfileMenu(!showProfileMenu)}
-                  className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center font-bold"
-                >
-                  {getInitials(dealerName)}
-                </button>
+            setShowMobileSidebar(true);
+          }}
+          className="w-10 h-10 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-xl text-gray-700 active:bg-gray-100"
+        >
+          {isAdminView ? "←" : "☰"}
+        </button>
 
-                {showProfileMenu && (
-                  <div className="absolute right-0 mt-2 w-44 bg-white rounded-xl shadow-lg border z-50 overflow-hidden text-left">
-                    <button
-                      type="button"
-                      onClick={handleLogout}
-                      className="w-full px-4 py-3 text-sm text-red-600 hover:bg-red-50 font-semibold flex items-center gap-2"
-                    >
-                      <FaSignOutAlt />
-                      Logout
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
+        <div>
+          <h2 className="text-base font-bold text-gray-900">
+            Customer Register
+          </h2>
+          <p className="text-[11px] text-gray-500">
+            Aadhaar QR or manual register
+          </p>
+        </div>
+      </div>
 
-            <h2 className="text-xl font-bold">Customer Register</h2>
+      <div className="text-right leading-tight">
+        <p className="text-xs font-semibold text-gray-800">{todayDate}</p>
+        <p className="text-[10px] text-gray-400">{todayDay}</p>
+      </div>
+    </header>
+
+    {/* Purple Banner */}
+    <div className="px-4 pt-4">
+      <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-3xl px-5 py-5 mb-5 shadow-sm">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs opacity-80">Dealer Portal</p>
+            <h1 className="text-2xl font-bold mt-1">Customer Register</h1>
             <p className="text-sm opacity-80 mt-1">
               Scan QR, upload QR, or enter Aadhaar manually
             </p>
           </div>
 
-          <div className="px-4 -mt-4 relative z-10">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="font-bold text-sm">Customer Register</h2>
-                <a
-                  href="https://myaadhaar.uidai.gov.in/"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-purple-700 text-xs font-semibold"
-                >
-                  Verify ↗
-                </a>
-              </div>
-
-              <CustomerStepIndicator />
-
-              <div className="flex items-center border rounded-xl px-4 py-3 bg-gray-50 mt-4">
-                <FaSearch className="text-gray-400 mr-3" />
-                <input
-                  value={maskAadhaar(aadhaar)}
-                  onChange={(e) =>
-                    setAadhaar(e.target.value.replace(/\D/g, ""))
-                  }
-                  maxLength={14}
-                  className="w-full outline-none text-sm bg-transparent"
-                  placeholder="Enter Aadhaar"
-                />
-              </div>
-
-              <div className="flex items-center border rounded-xl px-4 py-3 bg-gray-50 mt-3">
-                <FaPhoneAlt className="text-gray-400 mr-3" />
-                <input
-                  value={qrPhoneNumber}
-                  onChange={(e) =>
-                    setQrPhoneNumber(
-                      e.target.value.replace(/\D/g, "").slice(0, 10)
-                    )
-                  }
-                  maxLength={10}
-                  className="w-full outline-none text-sm bg-transparent"
-                  placeholder="Phone number for QR registration"
-                />
-              </div>
-
-              <div className="mt-3">
-                <CustomerPhotoUploadCard />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 mt-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!validateQrScanBeforeOpen()) return;
-                    setScannerError("");
-                    setShowScanner(true);
-                  }}
-                  disabled={uploadingQR}
-                  className="bg-purple-100 text-purple-700 py-3 rounded-xl font-bold flex items-center justify-center gap-2 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  <FaQrcode />
-                  Scan QR
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleQrUploadClick}
-                  disabled={uploadingQR}
-                  className="bg-gray-100 text-gray-700 py-3 rounded-xl font-bold flex items-center justify-center gap-2 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  <FaUpload />
-                  {uploadingQR ? "Saving..." : "Upload QR"}
-                </button>
-              </div>
-
-              <QrUploadProgress />
-              <QrCustomerPreviewCard />
-
-              <button
-                type="button"
-                onClick={handleManualRegister}
-                disabled={loading || !!qrPreviewData}
-                className="mt-3 w-full bg-purple-600 text-white py-3 rounded-xl font-bold disabled:bg-gray-400"
-              >
-                {loading ? "Checking..." : "Manual Customer Register"}
-              </button>
-            </div>
-          </div>
-
-          <div className="px-4 mt-4">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-              <h2 className="text-lg font-bold text-gray-900">
-                Customer Register Methods
-              </h2>
-
-              <div className="mt-5 space-y-4">
-                <GuideBox
-                  color="green"
-                  title="Scan Aadhaar QR"
-                  text="Use camera to scan Aadhaar QR."
-                />
-                <GuideBox
-                  color="yellow"
-                  title="Upload Aadhaar QR"
-                  text="Upload QR image from phone/gallery."
-                />
-                <GuideBox
-                  color="red"
-                  title="Manual Customer Register"
-                  text="Enter Aadhaar manually when QR is unavailable."
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile Bottom Fixed Menu */}
-        <div className="fixed bottom-0 left-0 w-full bg-white border-t flex justify-around py-3 z-50">
           <button
             type="button"
             onClick={() => navigate("/dealer/dashboard")}
-            className="text-gray-500 flex flex-col items-center text-xs"
+            className="w-11 h-11 bg-white/20 active:bg-white/30 rounded-2xl flex items-center justify-center transition shrink-0"
+            title="Back"
           >
-            <FaHome className="text-xl mb-1" />
-            Dashboard
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate("/dealer/customer-register")}
-            className="text-purple-700 flex flex-col items-center text-xs font-semibold"
-          >
-            <FaUserFriends className="text-xl mb-1" />
-            Customers
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate("/dealer/customer")}
-            className="text-gray-500 flex flex-col items-center text-xs"
-          >
-            <FaRupeeSign className="text-xl mb-1" />
-            Girvi
-          </button>
-
-          <button
-            type="button"
-            disabled
-            className="text-gray-300 flex flex-col items-center text-xs cursor-not-allowed"
-          >
-            <FaCoins className="text-xl mb-1" />
-            Collections
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate("/dealer/more")}
-            className="text-gray-500 flex flex-col items-center text-xs"
-          >
-            <FaEllipsisH className="text-xl mb-1" />
-            More
+            <FaArrowLeft />
           </button>
         </div>
       </div>
+    </div>
+
+    <div className="px-4 relative z-10">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="font-bold text-sm">Customer Register</h2>
+          <a
+            href="https://myaadhaar.uidai.gov.in/"
+            target="_blank"
+            rel="noreferrer"
+            className="text-purple-700 text-xs font-semibold"
+          >
+            Verify ↗
+          </a>
+        </div>
+
+        <CustomerStepIndicator />
+
+        <div className="flex items-center border rounded-xl px-4 py-3 bg-gray-50 mt-4">
+          <FaSearch className="text-gray-400 mr-3" />
+          <input
+            value={maskAadhaar(aadhaar)}
+            onChange={(e) =>
+              setAadhaar(e.target.value.replace(/\D/g, ""))
+            }
+            maxLength={14}
+            className="w-full outline-none text-sm bg-transparent"
+            placeholder="Enter Aadhaar"
+          />
+        </div>
+
+        <div className="flex items-center border rounded-xl px-4 py-3 bg-gray-50 mt-3">
+          <FaPhoneAlt className="text-gray-400 mr-3" />
+          <input
+            value={qrPhoneNumber}
+            onChange={(e) =>
+              setQrPhoneNumber(
+                e.target.value.replace(/\D/g, "").slice(0, 10)
+              )
+            }
+            maxLength={10}
+            className="w-full outline-none text-sm bg-transparent"
+            placeholder="Phone number for QR registration"
+          />
+        </div>
+
+        <div className="mt-3">
+          <CustomerPhotoUploadCard />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mt-3">
+          <button
+            type="button"
+            onClick={() => {
+              if (!validateQrScanBeforeOpen()) return;
+              setScannerError("");
+              setShowScanner(true);
+            }}
+            disabled={uploadingQR}
+            className="bg-purple-100 text-purple-700 py-3 rounded-xl font-bold flex items-center justify-center gap-2 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <FaQrcode />
+            Scan QR
+          </button>
+
+          <button
+            type="button"
+            onClick={handleQrUploadClick}
+            disabled={uploadingQR}
+            className="bg-gray-100 text-gray-700 py-3 rounded-xl font-bold flex items-center justify-center gap-2 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <FaUpload />
+            {uploadingQR ? "Saving..." : "Upload QR"}
+          </button>
+        </div>
+
+        <QrUploadProgress />
+        <QrCustomerPreviewCard />
+
+        <button
+          type="button"
+          onClick={handleManualRegister}
+          disabled={loading || !!qrPreviewData}
+          className="mt-3 w-full bg-purple-600 text-white py-3 rounded-xl font-bold disabled:bg-gray-400"
+        >
+          {loading ? "Checking..." : "Manual Customer Register"}
+        </button>
+      </div>
+    </div>
+
+    <div className="px-4 mt-4">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <h2 className="text-lg font-bold text-gray-900">
+          Customer Register Methods
+        </h2>
+
+        <div className="mt-5 space-y-4">
+          <GuideBox
+            color="green"
+            title="Scan Aadhaar QR"
+            text="Use camera to scan Aadhaar QR."
+          />
+          <GuideBox
+            color="yellow"
+            title="Upload Aadhaar QR"
+            text="Upload QR image from phone/gallery."
+          />
+          <GuideBox
+            color="red"
+            title="Manual Customer Register"
+            text="Enter Aadhaar manually when QR is unavailable."
+          />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* Mobile Bottom Fixed Menu */}
+  {!isAdminView && (
+    <div className="fixed bottom-0 left-0 w-full bg-white border-t flex justify-around py-3 z-50">
+      <button
+        type="button"
+        onClick={() => navigate("/dealer/dashboard")}
+        className="text-gray-500 flex flex-col items-center text-xs"
+      >
+        <FaHome className="text-xl mb-1" />
+        Dashboard
+      </button>
+
+      <button
+        type="button"
+        onClick={() => navigate("/dealer/customer-register")}
+        className="text-purple-700 flex flex-col items-center text-xs font-semibold"
+      >
+        <FaUserFriends className="text-xl mb-1" />
+        Customers
+      </button>
+
+      <button
+        type="button"
+        onClick={() => navigate("/dealer/customer")}
+        className="text-gray-500 flex flex-col items-center text-xs"
+      >
+        <FaRupeeSign className="text-xl mb-1" />
+        Girvi
+      </button>
+
+      <button
+        type="button"
+        disabled
+        className="text-gray-300 flex flex-col items-center text-xs cursor-not-allowed"
+      >
+        <FaCoins className="text-xl mb-1" />
+        Collections
+      </button>
+
+      <button
+        type="button"
+        onClick={() => navigate("/dealer/more")}
+        className="text-gray-500 flex flex-col items-center text-xs"
+      >
+        <FaEllipsisH className="text-xl mb-1" />
+        More
+      </button>
+    </div>
+  )}
+
+  {isAdminView && (
+    <div className="fixed bottom-0 left-0 w-full bg-white border-t p-3 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-50">
+      <button
+        type="button"
+        onClick={() => navigate("/admin/dashboard", { replace: true })}
+        className="w-full bg-purple-600 active:bg-purple-700 text-white py-3 rounded-xl font-bold transition"
+      >
+        Back to Admin Dashboard
+      </button>
+    </div>
+  )}
+</div>
 
       {/* ================= SCANNER MODAL CONTAINER ================= */}
       {showScanner && (

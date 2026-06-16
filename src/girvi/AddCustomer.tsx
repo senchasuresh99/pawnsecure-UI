@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useGirvi } from "./GirviContext";
 import DealerSidebar from "../dealer/DealerSidebar";
+import MobileDealerSidebar from "../dealer/MobileDealerSidebar";
 import {
   FaArrowLeft,
   FaSave,
@@ -48,6 +49,18 @@ export default function AddCustomer() {
 
   const query = new URLSearchParams(window.location.search);
   const isAdminView = query.get("adminView") === "true";
+
+  const dealerName =
+  query.get("dealerName") ||
+  localStorage.getItem("ps_dealer_name") ||
+  "Dealer";
+
+const dealerIdForSidebar =
+  query.get("dealerId") ||
+  localStorage.getItem("ps_dealer_id") ||
+  "-";
+
+const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
   const todayDate = new Date().toLocaleDateString("en-IN", {
     day: "2-digit",
@@ -589,91 +602,147 @@ export default function AddCustomer() {
         </main>
       </div>
 
-      {/* ================= MOBILE VIEW ================= */}
-      <div className="lg:hidden pb-32 bg-[#f4f5f7] min-h-screen">
-        <div className="max-w-md mx-auto bg-[#f4f5f7] min-h-screen">
-          <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-b-[28px] px-5 py-5 relative overflow-visible">
-            <div className="flex items-center justify-between mb-4">
-              <button
-                type="button"
-                onClick={() => navigate("/dealer/customer-register")}
-                className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center hover:bg-white/25 transition"
-              >
-                <FaArrowLeft className="text-xl" />
-              </button>
+{/* ================= MOBILE VIEW ================= */}
+<div className="lg:hidden pb-32 bg-[#f4f5f7] min-h-screen">
+  <MobileDealerSidebar
+    open={showMobileSidebar}
+    onClose={() => setShowMobileSidebar(false)}
+    isAdminView={isAdminView}
+    dealerName={dealerName}
+    dealerId={dealerIdForSidebar}
+  />
 
-              <div className="text-center">
-                <h1 className="font-bold text-lg">Register Customer</h1>
-                <p className="text-xs opacity-80">PawnSecure</p>
-              </div>
+  <div className="max-w-md mx-auto bg-[#f4f5f7] min-h-screen">
+    {/* Mobile Header */}
+    <header className="h-16 bg-white border-b border-gray-200 px-4 flex items-center justify-between sticky top-0 z-30 shrink-0">
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => {
+            if (isAdminView) {
+              navigate("/admin/dashboard", { replace: true });
+              return;
+            }
 
-              <div className="w-10" />
-            </div>
+            setShowMobileSidebar(true);
+          }}
+          className="w-10 h-10 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-xl text-gray-700 active:bg-gray-100"
+        >
+          {isAdminView ? "←" : "☰"}
+        </button>
 
-            <h2 className="text-xl font-bold">Customer Details</h2>
+        <div>
+          <h2 className="text-base font-bold text-gray-900">
+            Register Customer
+          </h2>
+          <p className="text-[11px] text-gray-500">
+            Save profile before Girvi
+          </p>
+        </div>
+      </div>
+
+      <div className="text-right leading-tight">
+        <p className="text-xs font-semibold text-gray-800">{todayDate}</p>
+        <p className="text-[10px] text-gray-400">{todayDay}</p>
+      </div>
+    </header>
+
+    {/* Purple Banner */}
+    <div className="px-4 pt-4">
+      <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-3xl px-5 py-5 mb-5 shadow-sm">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs opacity-80">Customer Onboarding</p>
+            <h1 className="text-2xl font-bold mt-1">Customer Details</h1>
             <p className="text-sm opacity-80 mt-1">
-              Save customer profile before Girvi
+              Complete customer profile before continuing to Girvi details.
             </p>
           </div>
-
-          <div className="px-4 -mt-4 relative z-10">
-            {renderFormCard()}
-          </div>
-
-          <div className="px-4 mt-4">
-            {renderPreviewCard()}
-          </div>
-        </div>
-
-        {/* Mobile Bottom Navigation */}
-        <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 flex justify-around py-3 z-50 shadow-xl">
-          <button
-            type="button"
-            onClick={() => navigate("/dealer/dashboard")}
-            className="text-gray-500 flex flex-col items-center text-xs"
-          >
-            <FaHome className="text-xl mb-1" />
-            Dashboard
-          </button>
 
           <button
             type="button"
             onClick={() => navigate("/dealer/customer-register")}
-            className="text-purple-700 flex flex-col items-center text-xs font-semibold"
+            className="w-11 h-11 bg-white/20 active:bg-white/30 rounded-2xl flex items-center justify-center transition shrink-0"
+            title="Back"
           >
-            <FaUserFriends className="text-xl mb-1" />
-            Customers
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate("/dealer/customer")}
-            className="text-gray-500 flex flex-col items-center text-xs"
-          >
-            <FaRupeeSign className="text-xl mb-1" />
-            Girvi
-          </button>
-
-          <button
-            type="button"
-            disabled
-            title="Collections feature is currently disabled"
-            className="text-gray-300 flex flex-col items-center text-xs cursor-not-allowed"
-          >
-            <FaCoins className="text-xl mb-1" />
-            Collections
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate("/dealer/more")}
-            className="text-gray-500 flex flex-col items-center text-xs"
-          >
-            <FaEllipsisH className="text-xl mb-1" />
-            More
+            <FaArrowLeft />
           </button>
         </div>
       </div>
+    </div>
+
+    <div className="px-4 relative z-10">
+      {renderFormCard()}
+    </div>
+
+    <div className="px-4 mt-4">
+      {renderPreviewCard()}
+    </div>
+  </div>
+
+  {/* Mobile Bottom Navigation */}
+  {!isAdminView && (
+    <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 flex justify-around py-3 z-50 shadow-xl">
+      <button
+        type="button"
+        onClick={() => navigate("/dealer/dashboard")}
+        className="text-gray-500 flex flex-col items-center text-xs"
+      >
+        <FaHome className="text-xl mb-1" />
+        Dashboard
+      </button>
+
+      <button
+        type="button"
+        onClick={() => navigate("/dealer/customer-register")}
+        className="text-purple-700 flex flex-col items-center text-xs font-semibold"
+      >
+        <FaUserFriends className="text-xl mb-1" />
+        Customers
+      </button>
+
+      <button
+        type="button"
+        onClick={() => navigate("/dealer/customer")}
+        className="text-gray-500 flex flex-col items-center text-xs"
+      >
+        <FaRupeeSign className="text-xl mb-1" />
+        Girvi
+      </button>
+
+      <button
+        type="button"
+        disabled
+        title="Collections feature is currently disabled"
+        className="text-gray-300 flex flex-col items-center text-xs cursor-not-allowed"
+      >
+        <FaCoins className="text-xl mb-1" />
+        Collections
+      </button>
+
+      <button
+        type="button"
+        onClick={() => navigate("/dealer/more")}
+        className="text-gray-500 flex flex-col items-center text-xs"
+      >
+        <FaEllipsisH className="text-xl mb-1" />
+        More
+      </button>
+    </div>
+  )}
+
+  {isAdminView && (
+    <div className="fixed bottom-0 left-0 w-full bg-white border-t p-3 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-50">
+      <button
+        type="button"
+        onClick={() => navigate("/admin/dashboard", { replace: true })}
+        className="w-full bg-purple-600 active:bg-purple-700 text-white py-3 rounded-xl font-bold transition"
+      >
+        Back to Admin Dashboard
+      </button>
+    </div>
+  )}
+</div>
 
       {/* POPUP */}
       {popup && (

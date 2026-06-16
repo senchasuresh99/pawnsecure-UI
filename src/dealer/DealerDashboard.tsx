@@ -1,17 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import DealerSidebar from "../dealer/DealerSidebar";
+import MobileDealerSidebar from "../dealer/MobileDealerSidebar";
+import DealerMobileBottomNav from "../dealer/DealerMobileBottomNav";
 import {
   FaRupeeSign,
   FaUserFriends,
   FaUserPlus,
   FaCalendarAlt,
   FaClock,
-  FaPlus,
-  FaUserCheck,
-  FaBox,
-  FaEllipsisH,
-  FaHome,
   FaCoins,
   FaSyncAlt,
   FaArrowUp,
@@ -19,49 +16,46 @@ import {
   FaGem,
   FaSignOutAlt,
   FaEye,
+  FaUserCheck,
 } from "react-icons/fa";
 
-const metalRates = [
-  {
-    title: "GOLD 24K (999)",
-    value: "₹ 9,875",
-    unit: "/gram",
-    change: "+45 (0.46%) Today",
-    isUp: true,
-    cardBg: "bg-[#fffbeb] border-[#fde68a]",
-    iconBg: "bg-[#fef3c7] text-[#b45309]",
-    icon: <FaCoins />,
-  },
-  {
-    title: "GOLD 22K (916)",
-    value: "₹ 9,050",
-    unit: "/gram",
-    change: "+40 (0.44%) Today",
-    isUp: true,
-    cardBg: "bg-[#fffdf5] border-[#fef08a]",
-    iconBg: "bg-[#fef9c3] text-[#a16207]",
-    icon: <FaGem />,
-  },
-  {
-    title: "SILVER",
-    value: "₹ 112",
-    unit: "/gram",
-    change: "-1 (0.88%) Today",
-    isUp: false,
-    cardBg: "bg-[#f8fafc] border-[#e2e8f0]",
-    iconBg: "bg-[#f1f5f9] text-[#475569]",
-    icon: <FaCoins />,
-  },
-];
+const API_BASE = "https://pawnsecure-1.onrender.com/api";
 
-const actions = [
+type ActionItem = {
+  icon: ReactNode;
+  label: string;
+  color: string;
+  bg: string;
+  path: string;
+  state?: any;
+};
+
+type StatItem = {
+  title: string;
+  value: string;
+  subtitle: string;
+  icon: ReactNode;
+  iconBg: string;
+  cardBg: string;
+  path?: string;
+};
+
+type MetalRateApiResponse = {
+  city: string;
+  rateDate: string;
+  gold24kRate: number;
+  gold22kRate: number;
+  silverRate: number;
+};
+
+const actions: ActionItem[] = [
   {
-  icon: <FaEye />,
-  label: "View Girvi",
-  color: "text-purple-600",
-  bg: "bg-purple-100",
-  path: "/dealer/customer",
-},
+    icon: <FaEye />,
+    label: "View Girvi",
+    color: "text-purple-600",
+    bg: "bg-purple-100",
+    path: "/dealer/customer",
+  },
   {
     icon: <FaUserPlus />,
     label: "Register Customer",
@@ -136,12 +130,11 @@ export default function DealerDashboard() {
     "Dealer";
 
   const dealerId =
-    query.get("dealerId") ||
-    localStorage.getItem("ps_dealer_id") ||
-    "-";
+    query.get("dealerId") || localStorage.getItem("ps_dealer_id") || "-";
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
   const [metrics, setMetrics] = useState({
     todayPledges: "₹0",
@@ -153,6 +146,51 @@ export default function DealerDashboard() {
   const [activeCustomerCount, setActiveCustomerCount] =
     useState<number | string>("...");
 
+  const [metalRateData, setMetalRateData] =
+    useState<MetalRateApiResponse | null>(null);
+
+  const [metalRateLoading, setMetalRateLoading] = useState(false);
+  const [metalRateError, setMetalRateError] = useState("");
+
+  async function fetchTodayMetalRates() {
+    if (!dealerId || dealerId === "-") return;
+
+    try {
+      setMetalRateLoading(true);
+      setMetalRateError("");
+
+      const token = localStorage.getItem("ps_token");
+
+      const res = await fetch(`${API_BASE}/dashboard/metal-rates`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-DEALER-ID": dealerId,
+        },
+      });
+
+      if (!res.ok) {
+        const msg = await res.text();
+
+        console.warn("Failed to load metal rates:", msg);
+
+        setMetalRateData(null);
+        setMetalRateError(msg || "Today's metal rates not found");
+        return;
+      }
+
+      const data: MetalRateApiResponse = await res.json();
+
+      setMetalRateData(data);
+    } catch (err) {
+      console.error("Failed to fetch metal rates", err);
+      setMetalRateData(null);
+      setMetalRateError("Unable to load metal rates");
+    } finally {
+      setMetalRateLoading(false);
+    }
+  }
+
   useEffect(() => {
     async function fetchDashboardSummary() {
       if (!dealerId || dealerId === "-") return;
@@ -160,16 +198,13 @@ export default function DealerDashboard() {
       try {
         const token = localStorage.getItem("ps_token");
 
-        const res = await fetch(
-          `https://pawnsecure-1.onrender.com/api/dealer/dashboard-summary`,
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "X-DEALER-ID": dealerId,
-            },
-          }
-        );
+        const res = await fetch(`${API_BASE}/dealer/dashboard-summary`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "X-DEALER-ID": dealerId,
+          },
+        });
 
         if (res.ok) {
           const data = await res.json();
@@ -193,7 +228,7 @@ export default function DealerDashboard() {
         const token = localStorage.getItem("ps_token");
 
         const res = await fetch(
-          `https://pawnsecure-1.onrender.com/api/customers/allCustomer?page=0&size=1`,
+          `${API_BASE}/customers/allCustomer?page=0&size=1`,
           {
             method: "GET",
             headers: {
@@ -222,6 +257,7 @@ export default function DealerDashboard() {
 
     fetchDashboardSummary();
     fetchCustomerCount();
+    fetchTodayMetalRates();
 
     const timer = setInterval(() => {
       setCurrentDate(new Date());
@@ -230,7 +266,7 @@ export default function DealerDashboard() {
     return () => clearInterval(timer);
   }, [dealerId]);
 
-  const stats = [
+  const stats: StatItem[] = [
     {
       title: "Today's Girvi",
       value: metrics.todayPledges,
@@ -263,6 +299,57 @@ export default function DealerDashboard() {
       icon: <FaClock />,
       iconBg: "bg-red-500",
       cardBg: "bg-red-50",
+    },
+  ];
+
+  const metalRates = [
+    {
+      title: "GOLD 24K (999)",
+      value: metalRateLoading
+        ? "Loading..."
+        : metalRateData
+        ? `₹ ${metalRateData.gold24kRate.toLocaleString("en-IN")}`
+        : "₹ 0",
+      unit: "/gram",
+      change: metalRateData
+        ? `Updated: ${metalRateData.rateDate}`
+        : metalRateError || "Today's rate not available",
+      isUp: !!metalRateData,
+      cardBg: "bg-[#fffbeb] border-[#fde68a]",
+      iconBg: "bg-[#fef3c7] text-[#b45309]",
+      icon: <FaCoins />,
+    },
+    {
+      title: "GOLD 22K (916)",
+      value: metalRateLoading
+        ? "Loading..."
+        : metalRateData
+        ? `₹ ${metalRateData.gold22kRate.toLocaleString("en-IN")}`
+        : "₹ 0",
+      unit: "/gram",
+      change: metalRateData
+        ? `Updated: ${metalRateData.rateDate}`
+        : metalRateError || "Today's rate not available",
+      isUp: !!metalRateData,
+      cardBg: "bg-[#fffdf5] border-[#fef08a]",
+      iconBg: "bg-[#fef9c3] text-[#a16207]",
+      icon: <FaGem />,
+    },
+    {
+      title: "SILVER",
+      value: metalRateLoading
+        ? "Loading..."
+        : metalRateData
+        ? `₹ ${metalRateData.silverRate.toLocaleString("en-IN")}`
+        : "₹ 0",
+      unit: "/gram",
+      change: metalRateData
+        ? `Updated: ${metalRateData.rateDate}`
+        : metalRateError || "Today's rate not available",
+      isUp: !!metalRateData,
+      cardBg: "bg-[#f8fafc] border-[#e2e8f0]",
+      iconBg: "bg-[#f1f5f9] text-[#475569]",
+      icon: <FaCoins />,
     },
   ];
 
@@ -316,10 +403,20 @@ export default function DealerDashboard() {
 
   function handleActionNavigation(path: string, state?: any) {
     if (isAdminView) return;
-    navigate(path, state ? { state } : undefined);
+
+    if (state) {
+      navigate(path, { state });
+      return;
+    }
+
+    navigate(path);
   }
 
   const dealerIdDisplay = getDealerIdDisplay(dealerId);
+
+  const mobileActions = actions.filter(
+    (item) => item.label !== "Due Collections"
+  );
 
   return (
     <div className="min-h-screen bg-[#f4f5f7]">
@@ -456,7 +553,7 @@ export default function DealerDashboard() {
               })}
             </div>
 
-            {/* Compact Quick Actions */}
+            {/* Desktop Quick Actions */}
             <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm mb-5">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-gray-900">
@@ -489,6 +586,7 @@ export default function DealerDashboard() {
                     >
                       {item.icon}
                     </div>
+
                     <p className="text-xs font-semibold text-gray-800 leading-tight">
                       {item.label}
                     </p>
@@ -497,7 +595,7 @@ export default function DealerDashboard() {
               </div>
             </div>
 
-            {/* Compact Live Metal Rates */}
+            {/* Desktop Live Metal Rates */}
             <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm mb-5">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
@@ -510,10 +608,24 @@ export default function DealerDashboard() {
                   </span>
                 </div>
 
-                <div className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer hover:text-purple-600 transition">
-                  <FaSyncAlt className="text-[10px] animate-spin-slow" />
-                  <span>Updated: 10:35 AM</span>
-                </div>
+                <button
+                  type="button"
+                  onClick={fetchTodayMetalRates}
+                  className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer hover:text-purple-600 transition"
+                >
+                  <FaSyncAlt
+                    className={`text-[10px] ${
+                      metalRateLoading ? "animate-spin" : ""
+                    }`}
+                  />
+                  <span>
+                    {metalRateData
+                      ? `Updated: ${metalRateData.rateDate}`
+                      : metalRateLoading
+                      ? "Loading rates..."
+                      : "Rates unavailable"}
+                  </span>
+                </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -562,7 +674,7 @@ export default function DealerDashboard() {
               </div>
             </div>
 
-            {/* Activities */}
+            {/* Desktop Activities */}
             <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm">
               <div className="flex justify-between items-center mb-5">
                 <h2 className="text-xl font-bold text-gray-900">
@@ -609,18 +721,30 @@ export default function DealerDashboard() {
       </div>
 
       {/* ================= MOBILE VIEW ================= */}
-      <div className="lg:hidden">
-        <div className="max-w-md mx-auto px-0 pb-24">
+      <div className="lg:hidden min-h-screen bg-[#f4f5f7]">
+        <MobileDealerSidebar
+          open={showMobileSidebar}
+          onClose={() => setShowMobileSidebar(false)}
+          isAdminView={isAdminView}
+          dealerName={dealerName}
+          dealerId={dealerId}
+        />
+
+        <div className="max-w-md mx-auto px-0 pb-32">
           <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-b-[28px] px-5 py-5 relative overflow-visible shadow-md">
             <div className="flex justify-between items-start">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3 mb-4">
                   <button
-                    onClick={() =>
-                      isAdminView
-                        ? navigate("/admin/dashboard")
-                        : navigate("/dealer/dashboard")
-                    }
+                    type="button"
+                    onClick={() => {
+                      if (isAdminView) {
+                        navigate("/admin/dashboard");
+                        return;
+                      }
+
+                      setShowMobileSidebar(true);
+                    }}
                     className="text-2xl hover:bg-white/10 p-1 rounded-lg transition"
                   >
                     {isAdminView ? "←" : "☰"}
@@ -753,7 +877,7 @@ export default function DealerDashboard() {
             })}
           </div>
 
-          <div className="mt-4 px-4">
+          <div className="mt-5 px-4">
             <div className="flex justify-between items-center mb-3">
               <h2 className="text-lg font-bold text-gray-900">
                 Quick Actions
@@ -766,25 +890,25 @@ export default function DealerDashboard() {
               </div>
             )}
 
-            <div className="flex gap-3 overflow-x-auto pb-2">
-              {actions.map((item, index) => (
+            <div className="grid grid-cols-2 gap-3">
+              {mobileActions.map((item, index) => (
                 <button
                   key={index}
                   onClick={() => handleActionNavigation(item.path, item.state)}
                   disabled={isAdminView}
-                  className={`bg-white rounded-xl min-w-[92px] min-h-[82px] p-2 border border-gray-100 shadow-sm flex flex-col items-center justify-center text-center ${
+                  className={`bg-white rounded-2xl min-h-[92px] p-3 border border-gray-100 shadow-sm flex flex-col items-center justify-center text-center transition ${
                     isAdminView
                       ? "opacity-50 cursor-not-allowed"
-                      : "active:bg-gray-50"
+                      : "active:bg-gray-50 hover:border-purple-200"
                   }`}
                 >
                   <div
-                    className={`${item.bg} ${item.color} w-9 h-9 rounded-full flex items-center justify-center text-sm mb-2 shrink-0`}
+                    className={`${item.bg} ${item.color} w-10 h-10 rounded-full flex items-center justify-center text-base mb-2 shrink-0`}
                   >
                     {item.icon}
                   </div>
 
-                  <p className="text-[10px] font-semibold text-gray-800 leading-tight">
+                  <p className="text-[11px] font-semibold text-gray-800 leading-tight">
                     {item.label}
                   </p>
                 </button>
@@ -804,7 +928,22 @@ export default function DealerDashboard() {
                 </span>
               </div>
 
-              <span className="text-[10px] text-gray-400">10:35 AM</span>
+              <button
+                type="button"
+                onClick={fetchTodayMetalRates}
+                className="text-[10px] text-gray-400 flex items-center gap-1"
+              >
+                <FaSyncAlt
+                  className={`text-[9px] ${
+                    metalRateLoading ? "animate-spin" : ""
+                  }`}
+                />
+                {metalRateData
+                  ? metalRateData.rateDate
+                  : metalRateLoading
+                  ? "Loading..."
+                  : "Unavailable"}
+              </button>
             </div>
 
             <div className="flex flex-col gap-3 pb-2">
@@ -839,7 +978,7 @@ export default function DealerDashboard() {
                           rate.isUp ? "text-green-600" : "text-red-500"
                         }`}
                       >
-                        {rate.isUp ? "▲" : "▼"} {rate.change.split(" ")[0]}
+                        {rate.isUp ? "▲" : "▼"} {rate.change}
                       </p>
                     </div>
                   </div>
@@ -875,9 +1014,7 @@ export default function DealerDashboard() {
                       <p className="font-semibold text-sm text-gray-900">
                         {item.title}
                       </p>
-                      <p className="text-[11px] text-gray-500">
-                        {item.name}
-                      </p>
+                      <p className="text-[11px] text-gray-500">{item.name}</p>
                     </div>
                   </div>
 
@@ -893,64 +1030,7 @@ export default function DealerDashboard() {
           </div>
         </div>
 
-        {!isAdminView && (
-          <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 flex justify-around py-2 px-1 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-50">
-            <button
-              onClick={() => navigate("/dealer/dashboard")}
-              className="text-purple-700 flex flex-col items-center text-[10px] font-semibold w-16"
-            >
-              <FaHome className="text-xl mb-1" />
-              Home
-            </button>
-
-            <button
-              onClick={() =>
-                navigate("/dealer/customer-search", {
-                  state: { mode: "CUSTOMER_REVIEW" },
-                })
-              }
-              className="text-gray-500 hover:text-gray-900 flex flex-col items-center text-[10px] font-medium w-16 text-center"
-            >
-              <FaUserFriends className="text-xl mb-1" />
-              Customers
-            </button>
-
-            <button
-              onClick={() => navigate("/dealer/new-girvi")}
-              className="text-gray-500 hover:text-gray-900 flex flex-col items-center text-[10px] font-medium w-16"
-            >
-              <FaRupeeSign className="text-xl mb-1" />
-              Girvi
-            </button>
-
-            <button
-              onClick={() => navigate("/dealer/collections")}
-              className="text-gray-500 hover:text-gray-900 flex flex-col items-center text-[10px] font-medium w-16"
-            >
-              <FaCoins className="text-xl mb-1" />
-              Collect
-            </button>
-
-            <button
-              onClick={() => navigate("/dealer/more")}
-              className="text-gray-500 hover:text-gray-900 flex flex-col items-center text-[10px] font-medium w-16"
-            >
-              <FaEllipsisH className="text-xl mb-1" />
-              More
-            </button>
-          </div>
-        )}
-
-        {isAdminView && (
-          <div className="fixed bottom-0 left-0 w-full bg-white border-t p-3 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-50">
-            <button
-              onClick={() => navigate("/admin/dashboard", { replace: true })}
-              className="w-full bg-purple-600 active:bg-purple-700 text-white py-3 rounded-xl font-bold transition"
-            >
-              Back to Admin Dashboard
-            </button>
-          </div>
-        )}
+        <DealerMobileBottomNav active="home" isAdminView={isAdminView} />
       </div>
     </div>
   );

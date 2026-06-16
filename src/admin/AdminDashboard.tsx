@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  FaBell,
   FaChartBar,
   FaCoins,
   FaHome,
@@ -26,6 +25,61 @@ type Dealer = {
   subscriptionEnd?: string;
 };
 
+type MetalRateForm = {
+  city: string;
+  rateDate: string;
+  gold24kRate: string;
+  gold22kRate: string;
+  silverRate: string;
+};
+
+type MetalRateResponse = {
+  city: string;
+  rateDate: string;
+  gold24kRate: number;
+  gold22kRate: number;
+  silverRate: number;
+};
+
+const INDIAN_STATES = [
+  "Andhra Pradesh",
+  "Arunachal Pradesh",
+  "Assam",
+  "Bihar",
+  "Chhattisgarh",
+  "Goa",
+  "Gujarat",
+  "Haryana",
+  "Himachal Pradesh",
+  "Jharkhand",
+  "Karnataka",
+  "Kerala",
+  "Madhya Pradesh",
+  "Maharashtra",
+  "Manipur",
+  "Meghalaya",
+  "Mizoram",
+  "Nagaland",
+  "Odisha",
+  "Punjab",
+  "Rajasthan",
+  "Sikkim",
+  "Tamil Nadu",
+  "Telangana",
+  "Tripura",
+  "Uttar Pradesh",
+  "Uttarakhand",
+  "West Bengal",
+  "Andaman and Nicobar Islands",
+  "Chandigarh",
+  "Dadra and Nagar Haveli and Daman and Diu",
+  "Delhi",
+  "Jammu and Kashmir",
+  "Ladakh",
+  "Lakshadweep",
+  "Puducherry",
+];
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
 
@@ -41,6 +95,20 @@ export default function AdminDashboard() {
     type: "success" as "success" | "error",
     message: "",
   });
+
+  const todayIsoDate = new Date().toISOString().slice(0, 10);
+
+  const [metalRateForm, setMetalRateForm] = useState<MetalRateForm>({
+    city: "Karnataka",
+    rateDate: todayIsoDate,
+    gold24kRate: "",
+    gold22kRate: "",
+    silverRate: "",
+  });
+
+  const [metalRateLoading, setMetalRateLoading] = useState(false);
+  const [latestMetalRate, setLatestMetalRate] =
+    useState<MetalRateResponse | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("ps_token");
@@ -88,9 +156,9 @@ export default function AdminDashboard() {
 
   function openDealerDashboard(dealer: Dealer) {
     navigate(
-      `/dealer/dashboard?adminView=true&dealerId=${dealer.id}&dealerName=${encodeURIComponent(
-        dealer.shopName
-      )}`
+      `/dealer/dashboard?adminView=true&dealerId=${
+        dealer.id
+      }&dealerName=${encodeURIComponent(dealer.shopName)}`
     );
   }
 
@@ -224,11 +292,169 @@ export default function AdminDashboard() {
     }
   }
 
+  function updateMetalRateField(key: keyof MetalRateForm, value: string) {
+    setMetalRateForm((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  }
+
+  async function saveMetalRates() {
+    if (!metalRateForm.city.trim()) {
+      setPopup({
+        show: true,
+        type: "error",
+        message: "Please select state",
+      });
+      return;
+    }
+
+    if (!metalRateForm.rateDate) {
+      setPopup({
+        show: true,
+        type: "error",
+        message: "Rate date is required",
+      });
+      return;
+    }
+
+    if (!metalRateForm.gold24kRate || Number(metalRateForm.gold24kRate) <= 0) {
+      setPopup({
+        show: true,
+        type: "error",
+        message: "Enter valid Gold 24K rate",
+      });
+      return;
+    }
+
+    if (!metalRateForm.gold22kRate || Number(metalRateForm.gold22kRate) <= 0) {
+      setPopup({
+        show: true,
+        type: "error",
+        message: "Enter valid Gold 22K rate",
+      });
+      return;
+    }
+
+    if (!metalRateForm.silverRate || Number(metalRateForm.silverRate) <= 0) {
+      setPopup({
+        show: true,
+        type: "error",
+        message: "Enter valid Silver rate",
+      });
+      return;
+    }
+
+    setMetalRateLoading(true);
+
+    try {
+      const res = await fetch(`${API_BASE}/admin/metal-rates`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("ps_token")}`,
+        },
+        body: JSON.stringify({
+          city: metalRateForm.city.trim(),
+          rateDate: metalRateForm.rateDate,
+          gold24kRate: Number(metalRateForm.gold24kRate),
+          gold22kRate: Number(metalRateForm.gold22kRate),
+          silverRate: Number(metalRateForm.silverRate),
+        }),
+      });
+
+      if (!res.ok) {
+        const msg = await res.text();
+
+        setPopup({
+          show: true,
+          type: "error",
+          message: msg || "Failed to save metal rates",
+        });
+        return;
+      }
+
+      const data: MetalRateResponse = await res.json();
+
+      setLatestMetalRate(data);
+
+      setPopup({
+        show: true,
+        type: "success",
+        message: "Metal rates saved successfully ✅",
+      });
+    } catch {
+      setPopup({
+        show: true,
+        type: "error",
+        message: "Server error while saving metal rates",
+      });
+    } finally {
+      setMetalRateLoading(false);
+    }
+  }
+
+  async function loadLatestMetalRate() {
+    if (!metalRateForm.city.trim()) {
+      setPopup({
+        show: true,
+        type: "error",
+        message: "Select state to load latest rates",
+      });
+      return;
+    }
+
+    setMetalRateLoading(true);
+
+    try {
+      const res = await fetch(
+        `${API_BASE}/admin/metal-rates/latest?city=${encodeURIComponent(
+          metalRateForm.city.trim()
+        )}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("ps_token")}`,
+          },
+        }
+      );
+
+      if (!res.ok) {
+        const msg = await res.text();
+
+        setPopup({
+          show: true,
+          type: "error",
+          message: msg || "Latest metal rates not found",
+        });
+        return;
+      }
+
+      const data: MetalRateResponse = await res.json();
+
+      setLatestMetalRate(data);
+
+      setMetalRateForm({
+        city: data.city || "",
+        rateDate: data.rateDate || todayIsoDate,
+        gold24kRate: String(data.gold24kRate || ""),
+        gold22kRate: String(data.gold22kRate || ""),
+        silverRate: String(data.silverRate || ""),
+      });
+    } catch {
+      setPopup({
+        show: true,
+        type: "error",
+        message: "Server error while loading latest metal rates",
+      });
+    } finally {
+      setMetalRateLoading(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#f4f5f7] overflow-x-hidden">
       {/* ================= DESKTOP VIEW ================= */}
       <div className="hidden lg:flex min-h-screen">
-        {/* SIDEBAR */}
         <aside className="w-64 bg-white border-r border-gray-200 px-5 py-6 fixed left-0 top-0 bottom-0 z-40">
           <div className="flex items-center gap-3 mb-10">
             <div className="w-12 h-12 rounded-2xl bg-purple-100 flex items-center justify-center shrink-0">
@@ -273,9 +499,7 @@ export default function AdminDashboard() {
           </nav>
         </aside>
 
-        {/* MAIN */}
         <main className="ml-64 w-[calc(100vw-16rem)] min-w-0 overflow-x-hidden">
-          {/* TOPBAR */}
           <div className="h-16 bg-white border-b border-gray-200 px-5 xl:px-8 flex items-center justify-between sticky top-0 z-30">
             <div className="min-w-0">
               <h2 className="text-lg font-bold text-gray-900 truncate">
@@ -287,13 +511,6 @@ export default function AdminDashboard() {
             </div>
 
             <div className="flex items-center gap-5 shrink-0">
-              {/* <div className="relative">
-                <FaBell className="text-purple-700 text-xl" />
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] rounded-full px-1">
-                  {stats.pending}
-                </span>
-              </div> */}
-
               <div className="relative">
                 <button
                   onClick={() => setShowProfileMenu(!showProfileMenu)}
@@ -323,19 +540,15 @@ export default function AdminDashboard() {
           </div>
 
           <div className="p-5 xl:p-8">
-            {/* HERO */}
             <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-2xl p-5 mb-5">
               <p className="text-sm opacity-90">Welcome Admin 👋</p>
-              <h1 className="text-2xl font-bold mt-1">
-                Manage Dealers
-              </h1>
+              <h1 className="text-2xl font-bold mt-1">Manage Dealers</h1>
               <p className="text-sm opacity-80 mt-2">
                 Approve dealer accounts, renew subscriptions and send
                 announcements.
               </p>
             </div>
 
-            {/* STATS - EXTRA COMPACT */}
             <div className="grid grid-cols-5 gap-3 mb-5">
               <StatCard
                 icon={<FaStore />}
@@ -373,7 +586,6 @@ export default function AdminDashboard() {
               />
             </div>
 
-            {/* DEALERS LIST CARD */}
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
               <div className="p-5 xl:p-6 border-b flex items-center justify-between gap-4">
                 <div className="min-w-0">
@@ -400,7 +612,6 @@ export default function AdminDashboard() {
                 <div className="p-8 text-gray-500">No dealers found</div>
               ) : (
                 <div className="p-4 xl:p-5 space-y-3">
-                  {/* DESKTOP LIST HEADER */}
                   <div className="hidden xl:grid grid-cols-12 gap-4 bg-purple-50 text-purple-700 text-xs uppercase font-bold px-4 py-3 rounded-2xl">
                     <div className="col-span-3">Shop Name</div>
                     <div className="col-span-2">GST Number</div>
@@ -426,7 +637,6 @@ export default function AdminDashboard() {
                         key={dealer.id}
                         className="border border-gray-100 rounded-2xl px-4 py-4 hover:bg-gray-50 transition"
                       >
-                        {/* LAPTOP / DESKTOP ROW */}
                         <div className="hidden xl:grid grid-cols-12 gap-4 items-center">
                           <div className="col-span-3 min-w-0">
                             <p className="font-bold text-gray-900 truncate">
@@ -494,7 +704,6 @@ export default function AdminDashboard() {
                           </div>
                         </div>
 
-                        {/* TABLET / SMALL LAPTOP ROW */}
                         <div className="xl:hidden">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
@@ -556,13 +765,22 @@ export default function AdminDashboard() {
                 </div>
               )}
             </div>
+
+            <MetalRateCard
+              metalRateForm={metalRateForm}
+              latestMetalRate={latestMetalRate}
+              metalRateLoading={metalRateLoading}
+              updateMetalRateField={updateMetalRateField}
+              loadLatestMetalRate={loadLatestMetalRate}
+              saveMetalRates={saveMetalRates}
+              isMobile={false}
+            />
           </div>
         </main>
       </div>
 
       {/* ================= MOBILE VIEW ================= */}
       <div className="lg:hidden pb-24">
-        {/* MOBILE HEADER */}
         <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-b-[32px] px-5 py-8">
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-3 min-w-0">
@@ -590,7 +808,6 @@ export default function AdminDashboard() {
           <h2 className="text-2xl font-bold mt-1">Manage Dealers</h2>
         </div>
 
-        {/* MOBILE STATS */}
         <div className="grid grid-cols-2 gap-3 -mt-6 relative z-10 px-4">
           <StatCard
             icon={<FaStore />}
@@ -628,7 +845,6 @@ export default function AdminDashboard() {
           />
         </div>
 
-        {/* MOBILE ACTION */}
         <div className="px-4 mt-7">
           <button
             onClick={() => setNotifyModal(true)}
@@ -639,7 +855,16 @@ export default function AdminDashboard() {
           </button>
         </div>
 
-        {/* MOBILE DEALER CARDS */}
+        <MetalRateCard
+          metalRateForm={metalRateForm}
+          latestMetalRate={latestMetalRate}
+          metalRateLoading={metalRateLoading}
+          updateMetalRateField={updateMetalRateField}
+          loadLatestMetalRate={loadLatestMetalRate}
+          saveMetalRates={saveMetalRates}
+          isMobile
+        />
+
         <div className="px-4 mt-6 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-gray-900">Dealer List</h2>
@@ -735,7 +960,6 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* NOTIFICATION MODAL */}
       {notifyModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[999] p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
@@ -776,7 +1000,6 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* POPUP */}
       {popup.show && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[999] p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl">
@@ -811,7 +1034,199 @@ export default function AdminDashboard() {
   );
 }
 
-/* ================= REUSABLE COMPONENTS ================= */
+function MetalRateCard({
+  metalRateForm,
+  latestMetalRate,
+  metalRateLoading,
+  updateMetalRateField,
+  loadLatestMetalRate,
+  saveMetalRates,
+  isMobile,
+}: {
+  metalRateForm: MetalRateForm;
+  latestMetalRate: MetalRateResponse | null;
+  metalRateLoading: boolean;
+  updateMetalRateField: (key: keyof MetalRateForm, value: string) => void;
+  loadLatestMetalRate: () => void;
+  saveMetalRates: () => void;
+  isMobile: boolean;
+}) {
+  if (isMobile) {
+    return (
+      <div className="px-4 mt-6">
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">Metal Rates</h2>
+              <p className="text-xs text-gray-500">Update state-wise rates</p>
+            </div>
+
+            <button
+              type="button"
+              onClick={loadLatestMetalRate}
+              disabled={metalRateLoading}
+              className="w-10 h-10 rounded-xl bg-gray-100 text-gray-600 flex items-center justify-center disabled:opacity-60"
+            >
+              <FaSyncAlt />
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            <MetalRateSelect
+              label="State"
+              value={metalRateForm.city}
+              onChange={(v) => updateMetalRateField("city", v)}
+            />
+
+            <MetalRateInput
+              label="Rate Date"
+              type="date"
+              value={metalRateForm.rateDate}
+              onChange={(v) => updateMetalRateField("rateDate", v)}
+            />
+
+            <MetalRateInput
+              label="Gold 24K Rate"
+              type="number"
+              value={metalRateForm.gold24kRate}
+              onChange={(v) => updateMetalRateField("gold24kRate", v)}
+            />
+
+            <MetalRateInput
+              label="Gold 22K Rate"
+              type="number"
+              value={metalRateForm.gold22kRate}
+              onChange={(v) => updateMetalRateField("gold22kRate", v)}
+            />
+
+            <MetalRateInput
+              label="Silver Rate"
+              type="number"
+              value={metalRateForm.silverRate}
+              onChange={(v) => updateMetalRateField("silverRate", v)}
+            />
+
+            {latestMetalRate && (
+              <div className="bg-purple-50 border border-purple-100 rounded-xl p-3 text-xs text-purple-700">
+                <p className="font-bold">
+                  Latest: {latestMetalRate.city} - {latestMetalRate.rateDate}
+                </p>
+                <p className="mt-1">
+                  24K ₹{latestMetalRate.gold24kRate} | 22K ₹
+                  {latestMetalRate.gold22kRate} | Silver ₹
+                  {latestMetalRate.silverRate}
+                </p>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={saveMetalRates}
+              disabled={metalRateLoading}
+              className="w-full bg-purple-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 disabled:bg-gray-400"
+            >
+              <FaCoins />
+              {metalRateLoading ? "Saving..." : "Save Rates"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden mt-6">
+      <div className="p-5 xl:p-6 border-b flex items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">
+            Update Metal Rates
+          </h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Admin can update state-wise gold and silver rates
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={loadLatestMetalRate}
+          disabled={metalRateLoading}
+          className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-2 disabled:opacity-60"
+        >
+          <FaSyncAlt />
+          Load Latest
+        </button>
+      </div>
+
+      <div className="p-5 xl:p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+          <MetalRateSelect
+            label="State"
+            value={metalRateForm.city}
+            onChange={(v) => updateMetalRateField("city", v)}
+          />
+
+          <MetalRateInput
+            label="Rate Date"
+            type="date"
+            value={metalRateForm.rateDate}
+            onChange={(v) => updateMetalRateField("rateDate", v)}
+          />
+
+          <MetalRateInput
+            label="Gold 24K Rate"
+            type="number"
+            value={metalRateForm.gold24kRate}
+            onChange={(v) => updateMetalRateField("gold24kRate", v)}
+          />
+
+          <MetalRateInput
+            label="Gold 22K Rate"
+            type="number"
+            value={metalRateForm.gold22kRate}
+            onChange={(v) => updateMetalRateField("gold22kRate", v)}
+          />
+
+          <MetalRateInput
+            label="Silver Rate"
+            type="number"
+            value={metalRateForm.silverRate}
+            onChange={(v) => updateMetalRateField("silverRate", v)}
+          />
+        </div>
+
+        <div className="mt-5 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+          {latestMetalRate ? (
+            <div className="bg-purple-50 border border-purple-100 rounded-2xl px-4 py-3 text-sm">
+              <p className="font-bold text-purple-800">
+                Latest Saved Rate: {latestMetalRate.city} -{" "}
+                {latestMetalRate.rateDate}
+              </p>
+              <p className="text-purple-700 mt-1">
+                24K ₹{latestMetalRate.gold24kRate} | 22K ₹
+                {latestMetalRate.gold22kRate} | Silver ₹
+                {latestMetalRate.silverRate}
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">
+              Select state, enter rates and click Save Rates.
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={saveMetalRates}
+            disabled={metalRateLoading}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:bg-gray-400"
+          >
+            <FaCoins />
+            {metalRateLoading ? "Saving..." : "Save Rates"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function StatCard({
   icon,
@@ -840,6 +1255,65 @@ function StatCard({
           <h2 className="text-base font-bold leading-tight mt-1">{value}</h2>
         </div>
       </div>
+    </div>
+  );
+}
+
+function MetalRateSelect({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-bold text-gray-500 mb-1.5">
+        {label}
+      </label>
+
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none bg-gray-50 focus:bg-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+      >
+        <option value="">Select State</option>
+        {INDIAN_STATES.map((state) => (
+          <option key={state} value={state}>
+            {state}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function MetalRateInput({
+  label,
+  value,
+  onChange,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-bold text-gray-500 mb-1.5">
+        {label}
+      </label>
+
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none bg-gray-50 focus:bg-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+        placeholder={label}
+      />
     </div>
   );
 }

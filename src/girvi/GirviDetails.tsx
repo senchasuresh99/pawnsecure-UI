@@ -17,9 +17,12 @@ import {
   FaFileInvoice,
 } from "react-icons/fa";
 import DealerSidebar from "../dealer/DealerSidebar";
+import MobileDealerSidebar from "../dealer/MobileDealerSidebar";
 import { useGirvi } from "./GirviContext";
 
 const API_BASE = "https://pawnsecure-1.onrender.com/api";
+const LOGO_URL =
+  "https://raw.githubusercontent.com/senchasuresh99/LearningScalare/main/logo1.png";
 
 export default function AddGirvi() {
   const nav = useNavigate();
@@ -30,6 +33,16 @@ export default function AddGirvi() {
 
   const query = new URLSearchParams(window.location.search);
   const isAdminView = query.get("adminView") === "true";
+
+  const dealerName =
+    query.get("dealerName") ||
+    localStorage.getItem("ps_dealer_name") ||
+    "Dealer";
+
+  const dealerIdForSidebar =
+    query.get("dealerId") || localStorage.getItem("ps_dealer_id") || "-";
+
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
   const todayDate = new Date().toLocaleDateString("en-IN", {
     day: "2-digit",
@@ -60,6 +73,7 @@ export default function AddGirvi() {
   const [savedGirviData, setSavedGirviData] = useState<any>(null);
   const [sendingInvoice, setSendingInvoice] = useState(false);
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
+  const [invoiceLogoDataUrl, setInvoiceLogoDataUrl] = useState("");
 
   const [form, setForm] = useState({
     itemName: "",
@@ -79,39 +93,24 @@ export default function AddGirvi() {
     { id: 4, label: "Review" },
   ];
 
-  function update(key: string, value: any) {
-  setForm((prev) => {
-    const next = {
-      ...prev,
-      [key]: value,
-    };
+  useEffect(() => {
+    let active = true;
 
-    if (
-      key === "girviDate" &&
-      next.maturityDate &&
-      value &&
-      new Date(next.maturityDate) < new Date(value)
-    ) {
-      next.maturityDate = "";
+    async function loadInvoiceLogo() {
+      const dataUrl = await imageUrlToDataUrl(LOGO_URL);
+
+      if (active) {
+        setInvoiceLogoDataUrl(dataUrl);
+      }
     }
 
-    return next;
-  });
+    loadInvoiceLogo();
 
-  if (errors[key]) {
-    setErrors((prev) => ({
-      ...prev,
-      [key]: "",
-    }));
-  }
+    return () => {
+      active = false;
+    };
+  }, []);
 
-  if (key === "girviDate" && errors.maturityDate) {
-    setErrors((prev) => ({
-      ...prev,
-      maturityDate: "",
-    }));
-  }
-}
   useEffect(() => {
     if (navState?.customerId) {
       const incomingId = String(navState.customerId);
@@ -197,6 +196,40 @@ export default function AddGirvi() {
   const totalValue =
     Number(form.itemWeightGram || 0) * Number(form.ratePerGram || 0);
 
+  function update(key: string, value: any) {
+    setForm((prev) => {
+      const next = {
+        ...prev,
+        [key]: value,
+      };
+
+      if (
+        key === "girviDate" &&
+        next.maturityDate &&
+        value &&
+        new Date(next.maturityDate) < new Date(value)
+      ) {
+        next.maturityDate = "";
+      }
+
+      return next;
+    });
+
+    if (errors[key]) {
+      setErrors((prev) => ({
+        ...prev,
+        [key]: "",
+      }));
+    }
+
+    if (key === "girviDate" && errors.maturityDate) {
+      setErrors((prev) => ({
+        ...prev,
+        maturityDate: "",
+      }));
+    }
+  }
+
   function handlePhotoChange(file: File | null) {
     if (photoPreview) {
       URL.revokeObjectURL(photoPreview);
@@ -223,60 +256,58 @@ export default function AddGirvi() {
     setErrors((prev) => ({ ...prev, photo: "" }));
   }
 
-function validateStep(step: number) {
-  const newErrors: Record<string, string> = {};
-  const customerId =
-    resolvedCustomerId || localStorage.getItem("ps_customer_id");
+  function validateStep(step: number) {
+    const newErrors: Record<string, string> = {};
+    const customerId =
+      resolvedCustomerId || localStorage.getItem("ps_customer_id");
 
-  if (step === 1) {
-    if (!customerId) {
-      newErrors.customer =
-        "Customer not selected. Please go back and select a customer.";
-    }
-  }
-
-  if (step === 2) {
-    if (!form.itemName.trim()) {
-      newErrors.itemName = "Please enter item name";
-    }
-
-    if (!form.itemWeightGram || Number(form.itemWeightGram) <= 0) {
-      newErrors.itemWeightGram = "Enter valid weight";
-    }
-
-    if (!form.ratePerGram || Number(form.ratePerGram) <= 0) {
-      newErrors.ratePerGram = "Enter valid rate";
-    }
-  }
-
-  if (step === 3) {
-    if (form.interestRate === "" || Number(form.interestRate) < 0) {
-      newErrors.interestRate = "Enter valid interest rate";
-    }
-
-    if (!form.girviDate) {
-      newErrors.girviDate = "Select girvi date";
-    }
-
-    if (!form.maturityDate) {
-      newErrors.maturityDate = "Select maturity date";
-    }
-
-    // Maturity Date should not be less than Girvi Date
-    if (form.girviDate && form.maturityDate) {
-      const girviDateObj = new Date(form.girviDate);
-      const maturityDateObj = new Date(form.maturityDate);
-
-      if (maturityDateObj < girviDateObj) {
-        newErrors.maturityDate =
-          "Maturity date cannot be before Girvi date";
+    if (step === 1) {
+      if (!customerId) {
+        newErrors.customer =
+          "Customer not selected. Please go back and select a customer.";
       }
     }
-  }
 
-  setErrors(newErrors);
-  return Object.keys(newErrors).length === 0;
-}
+    if (step === 2) {
+      if (!form.itemName.trim()) {
+        newErrors.itemName = "Please enter item name";
+      }
+
+      if (!form.itemWeightGram || Number(form.itemWeightGram) <= 0) {
+        newErrors.itemWeightGram = "Enter valid weight";
+      }
+
+      if (!form.ratePerGram || Number(form.ratePerGram) <= 0) {
+        newErrors.ratePerGram = "Enter valid rate";
+      }
+    }
+
+    if (step === 3) {
+      if (form.interestRate === "" || Number(form.interestRate) < 0) {
+        newErrors.interestRate = "Enter valid interest rate";
+      }
+
+      if (!form.girviDate) {
+        newErrors.girviDate = "Select girvi date";
+      }
+
+      if (!form.maturityDate) {
+        newErrors.maturityDate = "Select maturity date";
+      }
+
+      if (form.girviDate && form.maturityDate) {
+        const girviDateObj = new Date(form.girviDate);
+        const maturityDateObj = new Date(form.maturityDate);
+
+        if (maturityDateObj < girviDateObj) {
+          newErrors.maturityDate = "Maturity date cannot be before Girvi date";
+        }
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }
 
   function nextStep() {
     if (validateStep(currentStep)) {
@@ -328,6 +359,53 @@ function validateStep(step: number) {
     }
 
     return "";
+  }
+
+  async function imageUrlToDataUrl(url: string): Promise<string> {
+    try {
+      const res = await fetch(url, {
+        mode: "cors",
+        cache: "force-cache",
+      });
+
+      if (!res.ok) return "";
+
+      const blob = await res.blob();
+
+      return await new Promise((resolve) => {
+        const reader = new FileReader();
+
+        reader.onloadend = () => {
+          resolve(String(reader.result || ""));
+        };
+
+        reader.onerror = () => {
+          resolve("");
+        };
+
+        reader.readAsDataURL(blob);
+      });
+    } catch (err) {
+      console.warn("Logo load failed:", err);
+      return "";
+    }
+  }
+
+  function waitForImagesToLoad(element: HTMLElement) {
+    const images = Array.from(element.querySelectorAll("img"));
+
+    return Promise.all(
+      images.map((img) => {
+        if (img.complete && img.naturalWidth > 0) {
+          return Promise.resolve(true);
+        }
+
+        return new Promise((resolve) => {
+          img.onload = () => resolve(true);
+          img.onerror = () => resolve(false);
+        });
+      })
+    );
   }
 
   async function fetchInvoiceDetailsForFrontend(invoiceId: number) {
@@ -558,6 +636,10 @@ function validateStep(step: number) {
     const maturityDate = savedGirviData.maturityDate || form.maturityDate;
     const remarks = savedGirviData.remarks || form.remarks || "-";
 
+    const logoHtml = invoiceLogoDataUrl
+      ? `<img src="${invoiceLogoDataUrl}" alt="PawnSecure" style="width:44px;height:44px;object-fit:contain;display:block;" />`
+      : "PS";
+
     return `
       <div id="frontend-invoice-pdf" style="
         width:794px;
@@ -586,7 +668,10 @@ function validateStep(step: number) {
                 justify-content:center;
                 font-weight:900;
                 font-size:22px;
-              ">PS</div>
+                overflow:hidden;
+              ">
+                ${logoHtml}
+              </div>
 
               <div>
                 <h1 style="font-size:28px; font-weight:900; margin:0;">
@@ -764,9 +849,12 @@ function validateStep(step: number) {
       throw new Error("Invoice template not found.");
     }
 
+    await waitForImagesToLoad(invoiceElement);
+
     const canvas = await html2canvas(invoiceElement, {
       scale: 2,
       useCORS: true,
+      allowTaint: false,
       backgroundColor: "#ffffff",
     });
 
@@ -996,9 +1084,6 @@ Please find attached invoice PDF.`;
         invoiceId,
         invoiceNumber,
       });
-
-      console.log("BACKEND INVOICE DETAILS:", invoiceDetails);
-      console.log("FINAL FRONTEND INVOICE DATA:", invoiceDataForFrontend);
 
       setSavedGirviData(invoiceDataForFrontend);
       setSavedInvoiceId(Number(invoiceId));
@@ -1242,13 +1327,13 @@ Please find attached invoice PDF.`;
                 />
 
                 <Input
-  label="Maturity Date *"
-  type="date"
-  value={form.maturityDate}
-  min={form.girviDate || undefined}
-  onChange={(v: any) => update("maturityDate", v)}
-  error={errors.maturityDate}
-/>
+                  label="Maturity Date *"
+                  type="date"
+                  value={form.maturityDate}
+                  min={form.girviDate || undefined}
+                  onChange={(v: any) => update("maturityDate", v)}
+                  error={errors.maturityDate}
+                />
               </div>
             </div>
           </div>
@@ -1276,10 +1361,7 @@ Please find attached invoice PDF.`;
                     value={`${form.interestRate}%`}
                   />
                   <ReviewRow label="Girvi Date" value={form.girviDate} />
-                  <ReviewRow
-                    label="Maturity Date"
-                    value={form.maturityDate}
-                  />
+                  <ReviewRow label="Maturity Date" value={form.maturityDate} />
                 </div>
 
                 <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-200">
@@ -1390,77 +1472,125 @@ Please find attached invoice PDF.`;
         </main>
       </div>
 
-      <div className="lg:hidden pb-24">
-        <div className="bg-[#4820C5] text-white pt-7 pb-20 px-5 rounded-b-[32px] shadow-sm relative">
-          <div className="flex items-center justify-between mb-5">
+      <div className="lg:hidden min-h-screen bg-[#f4f5f7] pb-24">
+        <MobileDealerSidebar
+          open={showMobileSidebar}
+          onClose={() => setShowMobileSidebar(false)}
+          isAdminView={isAdminView}
+          dealerName={dealerName}
+          dealerId={dealerIdForSidebar}
+        />
+
+        <header className="h-16 bg-white border-b border-gray-200 px-4 flex items-center justify-between sticky top-0 z-30 shrink-0">
+          <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => nav(returnTo)}
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition"
+              onClick={() => {
+                if (isAdminView) {
+                  nav("/admin/dashboard", { replace: true });
+                  return;
+                }
+
+                setShowMobileSidebar(true);
+              }}
+              className="w-10 h-10 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-xl text-gray-700 active:bg-gray-100"
             >
-              <FaArrowLeft className="text-lg" />
+              {isAdminView ? "←" : "☰"}
             </button>
 
-            <div className="text-center">
-              <h1 className="font-bold text-lg tracking-tight">Add New Girvi</h1>
-              <p className="text-[10px] opacity-75 font-semibold tracking-wider uppercase">
-                PawnSecure
+            <div>
+              <h2 className="text-base font-bold text-gray-900">
+                Add New Girvi
+              </h2>
+              <p className="text-[11px] text-gray-500">
+                Customer, item, loan and review
               </p>
             </div>
-
-            <div className="w-10 h-10"></div>
           </div>
 
-          <div className="mt-4">
-            <h2 className="text-2xl font-extrabold tracking-tight">
-              Add New Girvi
-            </h2>
-            <p className="text-xs opacity-80 font-medium mt-1">
-              Customer, item, loan and review details
-            </p>
+          <div className="text-right leading-tight">
+            <p className="text-xs font-semibold text-gray-800">{todayDate}</p>
+            <p className="text-[10px] text-gray-400">{todayDay}</p>
           </div>
+        </header>
+
+        <div className="max-w-md mx-auto px-4 pt-4">
+          <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-3xl px-5 py-5 mb-5 shadow-sm">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs opacity-80">Girvi Flow</p>
+                <h1 className="text-2xl font-bold mt-1">Add New Girvi</h1>
+                <p className="text-sm opacity-80 mt-1">
+                  Create a secure pledge record for selected customer
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => nav(returnTo)}
+                className="w-11 h-11 bg-white/20 active:bg-white/30 rounded-2xl flex items-center justify-center transition shrink-0"
+                title="Back"
+              >
+                <FaArrowLeft />
+              </button>
+            </div>
+          </div>
+
+          <div className="relative z-10">{renderWizardCard()}</div>
         </div>
 
-        <div className="px-4 -mt-10 relative z-10">{renderWizardCard()}</div>
+        {!isAdminView && (
+          <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 flex justify-around py-3 z-50 shadow-xl">
+            <button
+              type="button"
+              onClick={() => nav("/dealer/dashboard")}
+              className="text-gray-400 flex flex-col items-center text-[11px] font-medium gap-1"
+            >
+              <FaHome className="text-xl" />
+              Dashboard
+            </button>
 
-        <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 flex justify-around py-3 z-50 shadow-xl">
-          <button
-            type="button"
-            onClick={() => nav("/dealer/dashboard")}
-            className="text-gray-400 flex flex-col items-center text-[11px] font-medium gap-1"
-          >
-            <FaHome className="text-xl" />
-            Dashboard
-          </button>
+            <button
+              type="button"
+              onClick={() => nav("/dealer/customer-register")}
+              className="text-gray-400 flex flex-col items-center text-[11px] font-medium gap-1"
+            >
+              <FaUserFriends className="text-xl" />
+              Customers
+            </button>
 
-          <button
-            type="button"
-            onClick={() => nav("/dealer/customer-register")}
-            className="text-gray-400 flex flex-col items-center text-[11px] font-medium gap-1"
-          >
-            <FaUserFriends className="text-xl" />
-            Customers
-          </button>
+            <button
+              type="button"
+              onClick={() => nav("/dealer/customer")}
+              className="text-[#4820C5] flex flex-col items-center text-[11px] font-bold gap-1"
+            >
+              <FaRupeeSign className="text-xl" />
+              Girvi
+            </button>
 
-          <button
-            type="button"
-            onClick={() => nav("/dealer/customer")}
-            className="text-[#4820C5] flex flex-col items-center text-[11px] font-bold gap-1"
-          >
-            <FaRupeeSign className="text-xl" />
-            Girvi
-          </button>
+            <button
+              type="button"
+              disabled
+              title="Collections feature is currently disabled"
+              className="text-gray-300 flex flex-col items-center text-[11px] font-medium gap-1 cursor-not-allowed"
+            >
+              <FaCoins className="text-xl" />
+              Collections
+            </button>
+          </div>
+        )}
 
-          <button
-            type="button"
-            disabled
-            title="Collections feature is currently disabled"
-            className="text-gray-300 flex flex-col items-center text-[11px] font-medium gap-1 cursor-not-allowed"
-          >
-            <FaCoins className="text-xl" />
-            Collections
-          </button>
-        </div>
+        {isAdminView && (
+          <div className="fixed bottom-0 left-0 w-full bg-white border-t p-3 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-50">
+            <button
+              type="button"
+              onClick={() => nav("/admin/dashboard", { replace: true })}
+              className="w-full bg-purple-600 active:bg-purple-700 text-white py-3 rounded-xl font-bold transition"
+            >
+              Back to Admin Dashboard
+            </button>
+          </div>
+        )}
       </div>
 
       {showInvoicePopup && savedInvoiceId && (
@@ -1646,10 +1776,6 @@ function ItemSummaryCard({
             }`}
           >
             {type}
-          </span>
-
-          <span className="px-2.5 py-1 md:px-3 md:py-1.5 rounded-full bg-green-100 text-green-700 text-[10px] md:text-xs font-bold">
-            22K (916)
           </span>
         </div>
 
