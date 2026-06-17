@@ -24,11 +24,26 @@ const API_BASE = "https://pawnsecure-1.onrender.com/api";
 type CustomerResponseDTO = {
   id: number;
   fullName: string;
+  customerAddress?: string;
   phoneNumber?: string;
   kycStatus?: string;
   aadhaarLastFour?: string;
   maskedAadhaar?: string;
 };
+
+/* ================= HELPERS ================= */
+
+function formatAadhaar(c: CustomerResponseDTO) {
+  if (c.maskedAadhaar && /\d{4}$/.test(c.maskedAadhaar)) {
+    return c.maskedAadhaar;
+  }
+
+  if (c.aadhaarLastFour && /^\d{4}$/.test(c.aadhaarLastFour)) {
+    return `XXXX-XXXX-${c.aadhaarLastFour}`;
+  }
+
+  return "XXXX-XXXX-****";
+}
 
 /* ================= COMPONENT ================= */
 
@@ -69,7 +84,6 @@ export default function CustomerList() {
   /* ✅ Pagination */
   const [page, setPage] = useState(0);
   const [size, setSize] = useState(10);
-  const [totalPages, setTotalPages] = useState(1);
   const [totalElements, setTotalElements] = useState(0);
 
   const [selectedCustomer, setSelectedCustomer] =
@@ -80,12 +94,15 @@ export default function CustomerList() {
 
   useEffect(() => {
     fetchCustomers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, size, onlyMine]);
 
   useEffect(() => {
+    setPhotoMap({});
     customers.forEach((c) => loadCustomerPhoto(c.id));
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customers]);
+  }, [customers, onlyMine]);
 
   useEffect(() => {
     setPage(0);
@@ -127,7 +144,6 @@ export default function CustomerList() {
 
       setCustomers(data);
       setTotalElements(data.length);
-      setTotalPages(Math.max(1, Math.ceil(data.length / size)));
     } catch {
       setError("Server unavailable. Please try again later.");
     } finally {
@@ -135,11 +151,19 @@ export default function CustomerList() {
     }
   }
 
-  async function fetchCustomerById(id: number) {
+  async function fetchCustomerById(
+    id: number,
+    fallbackCustomer?: CustomerResponseDTO
+  ) {
     const dealerIdFromStorage = localStorage.getItem("ps_dealer_id");
     const token = localStorage.getItem("ps_token");
 
-    if (!dealerIdFromStorage || !token) return;
+    if (!dealerIdFromStorage || !token) {
+      if (fallbackCustomer) {
+        setSelectedCustomer(fallbackCustomer);
+      }
+      return;
+    }
 
     try {
       const res = await fetch(`${API_BASE}/customers/${id}`, {
@@ -149,11 +173,35 @@ export default function CustomerList() {
         },
       });
 
-      if (!res.ok) return;
+      if (!res.ok) {
+        if (fallbackCustomer) {
+          setSelectedCustomer(fallbackCustomer);
+        }
+        return;
+      }
 
-      setSelectedCustomer(await res.json());
+      const data: CustomerResponseDTO = await res.json();
+
+      setSelectedCustomer(data);
+
+      /* ✅ update card/list also with correct details from details API */
+      setCustomers((prev) =>
+        prev.map((c) =>
+          c.id === data.id
+            ? {
+                ...c,
+                ...data,
+                customerAddress: data.customerAddress || c.customerAddress,
+                maskedAadhaar: data.maskedAadhaar || c.maskedAadhaar,
+                aadhaarLastFour: data.aadhaarLastFour || c.aadhaarLastFour,
+              }
+            : c
+        )
+      );
     } catch {
-      // ignore
+      if (fallbackCustomer) {
+        setSelectedCustomer(fallbackCustomer);
+      }
     }
   }
 
@@ -195,15 +243,17 @@ export default function CustomerList() {
   }
 
   async function loadCustomerPhoto(customerId: number) {
-    if (photoMap[customerId]) return;
-
     const currentDealerId = localStorage.getItem("ps_dealer_id");
     const token = localStorage.getItem("ps_token");
 
     if (!currentDealerId || !token) return;
 
     try {
-      const res = await fetch(`${API_BASE}/customers/${customerId}/photo`, {
+      const photoUrl = onlyMine
+        ? `${API_BASE}/customers/${customerId}/photo`
+        : `${API_BASE}/customers/${customerId}/photo/all`;
+
+      const res = await fetch(photoUrl, {
         headers: {
           Authorization: `Bearer ${token}`,
           "X-DEALER-ID": currentDealerId,
@@ -240,10 +290,17 @@ export default function CustomerList() {
     return (
       c.fullName?.toLowerCase().includes(q) ||
       c.phoneNumber?.includes(q) ||
+      c.customerAddress?.toLowerCase().includes(q) ||
       c.aadhaarLastFour?.includes(q) ||
-      c.maskedAadhaar?.includes(q)
+      c.maskedAadhaar?.toLowerCase().includes(q) ||
+      formatAadhaar(c).toLowerCase().includes(q)
     );
   });
+
+  const calculatedTotalPages = Math.max(
+    1,
+    Math.ceil(filteredCustomers.length / size)
+  );
 
   const paginatedCustomers = filteredCustomers.slice(
     page * size,
@@ -267,7 +324,9 @@ export default function CustomerList() {
             </div>
 
             <div className="text-right leading-tight">
-              <p className="text-sm font-semibold text-gray-800">{todayDate}</p>
+              <p className="text-sm font-semibold text-gray-800">
+                {todayDate}
+              </p>
               <p className="text-xs text-gray-400">{todayDay}</p>
             </div>
           </header>
@@ -279,7 +338,7 @@ export default function CustomerList() {
                 <div>
                   <h1 className="text-3xl font-bold">Customers</h1>
                   <p className="text-sm opacity-80 mt-1">
-                    Total Records : {totalElements}
+                    Total Records : {filteredCustomers.length}
                   </p>
                 </div>
 
@@ -335,7 +394,7 @@ export default function CustomerList() {
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="w-full outline-none text-sm text-gray-700 bg-transparent"
-                    placeholder="Search by name, phone or Aadhaar"
+                    placeholder="Search by name, phone, address or Aadhaar"
                   />
                 </div>
 
@@ -352,7 +411,6 @@ export default function CustomerList() {
             <CustomerCards
               loading={loading}
               error={error}
-              customers={customers}
               filteredCustomers={paginatedCustomers}
               photoMap={photoMap}
               kycBadge={kycBadge}
@@ -361,7 +419,7 @@ export default function CustomerList() {
               totalElements={filteredCustomers.length}
               page={page}
               size={size}
-              totalPages={Math.max(1, Math.ceil(filteredCustomers.length / size))}
+              totalPages={calculatedTotalPages}
               setPage={setPage}
               setSize={setSize}
             />
@@ -419,7 +477,7 @@ export default function CustomerList() {
                 <p className="text-xs opacity-80">Customer Management</p>
                 <h1 className="text-2xl font-bold mt-1">Customers</h1>
                 <p className="text-sm opacity-80 mt-1">
-                  Total Records : {totalElements}
+                  Total Records : {filteredCustomers.length}
                 </p>
               </div>
 
@@ -447,7 +505,7 @@ export default function CustomerList() {
                   : "bg-white border border-gray-200 text-gray-700"
               }`}
             >
-              My
+              My Customers
             </button>
 
             <button
@@ -475,7 +533,7 @@ export default function CustomerList() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="w-full outline-none text-sm text-gray-700 bg-transparent"
-                  placeholder="Search by name, phone or Aadhaar"
+                  placeholder="Search by name, phone, address or Aadhaar"
                 />
               </div>
 
@@ -491,7 +549,6 @@ export default function CustomerList() {
           <CustomerCards
             loading={loading}
             error={error}
-            customers={customers}
             filteredCustomers={paginatedCustomers}
             photoMap={photoMap}
             kycBadge={kycBadge}
@@ -500,7 +557,7 @@ export default function CustomerList() {
             totalElements={filteredCustomers.length}
             page={page}
             size={size}
-            totalPages={Math.max(1, Math.ceil(filteredCustomers.length / size))}
+            totalPages={calculatedTotalPages}
             setPage={setPage}
             setSize={setSize}
           />
@@ -512,7 +569,7 @@ export default function CustomerList() {
       {/* ================= MODAL DETAILS ================= */}
       {selectedCustomer && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white w-full max-w-[480px] rounded-[32px] p-6 sm:p-8 shadow-2xl relative animate-in fade-in zoom-in duration-200">
+          <div className="bg-white w-full max-w-[520px] rounded-[32px] p-6 sm:p-8 shadow-2xl relative animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
             <button
               type="button"
               onClick={() => setSelectedCustomer(null)}
@@ -553,18 +610,20 @@ export default function CustomerList() {
 
               <InfoCard
                 label="Aadhaar"
-                value={
-                  selectedCustomer.maskedAadhaar ||
-                  (selectedCustomer.aadhaarLastFour
-                    ? `XXXX-XXXX-${selectedCustomer.aadhaarLastFour}`
-                    : "-")
-                }
+                value={formatAadhaar(selectedCustomer)}
               />
 
               <InfoCard
                 label="KYC Status"
                 value={selectedCustomer.kycStatus || "PENDING"}
               />
+
+              <div className="col-span-2 sm:col-span-3">
+                <InfoCard
+                  label="Address"
+                  value={selectedCustomer.customerAddress || "-"}
+                />
+              </div>
 
               <InfoCard label="Total Girvi" value="0" />
               <InfoCard label="Active Loan" value="₹ 0" />
@@ -689,11 +748,7 @@ function CustomerCards({
                       </span>
 
                       <span className="flex items-center gap-2">
-                        <FaIdCard className="text-xs" />{" "}
-                        {c.maskedAadhaar ||
-                          (c.aadhaarLastFour
-                            ? `XXXX-XXXX-${c.aadhaarLastFour}`
-                            : "-")}
+                        <FaIdCard className="text-xs" /> {formatAadhaar(c)}
                       </span>
                     </div>
                   </div>
@@ -713,7 +768,7 @@ function CustomerCards({
               <div className="mt-4 flex items-center justify-between">
                 <button
                   type="button"
-                  onClick={() => fetchCustomerById(c.id)}
+                  onClick={() => fetchCustomerById(c.id, c)}
                   className="text-purple-700 font-bold text-sm px-2 hover:underline"
                 >
                   View Details
@@ -756,13 +811,15 @@ function CustomerCards({
   );
 }
 
-/* ================= HELPERS ================= */
+/* ================= UI HELPERS ================= */
 
 function InfoCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-gray-50/70 border border-gray-100 rounded-2xl p-3 w-full">
       <p className="text-[11px] text-gray-500 font-medium mb-1">{label}</p>
-      <p className="font-bold text-gray-900 text-sm break-all">{value}</p>
+      <p className="font-bold text-gray-900 text-sm break-words whitespace-pre-wrap">
+        {value}
+      </p>
     </div>
   );
 }
