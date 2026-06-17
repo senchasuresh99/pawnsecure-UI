@@ -21,6 +21,14 @@ import {
 
 const API_BASE = "https://pawnsecure-1.onrender.com/api";
 
+/* ✅ GIRVI DASHBOARD API PATHS */
+const DUE_TODAY_LIST_API = "/girvi/due-today";
+const OVERDUE_LIST_API = "/girvi/overdue";
+
+const DUE_TODAY_COUNT_API = `${API_BASE}/girvi/due-today/count`;
+const OVERDUE_COUNT_API = `${API_BASE}/girvi/overdue/count`;
+const TODAY_GIRVI_SUMMARY_API = `${API_BASE}/girvi/today/summary`;
+
 type ActionItem = {
   icon: ReactNode;
   label: string;
@@ -38,6 +46,7 @@ type StatItem = {
   iconBg: string;
   cardBg: string;
   path?: string;
+  state?: any;
 };
 
 type MetalRateApiResponse = {
@@ -46,6 +55,11 @@ type MetalRateApiResponse = {
   gold24kRate: number;
   gold22kRate: number;
   silverRate: number;
+};
+
+type TodayGirviSummaryResponse = {
+  count: number;
+  totalAmount: number | string;
 };
 
 const actions: ActionItem[] = [
@@ -191,90 +205,136 @@ export default function DealerDashboard() {
     }
   }
 
-  useEffect(() => {
-    async function fetchDashboardSummary() {
-      if (!dealerId || dealerId === "-") return;
+  async function fetchGirviDueAndOverdueCounts() {
+    if (!dealerId || dealerId === "-") return;
 
-      try {
-        const token = localStorage.getItem("ps_token");
+    const token = localStorage.getItem("ps_token");
 
-        const res = await fetch(`${API_BASE}/dealer/dashboard-summary`, {
+    if (!token) return;
+
+    try {
+      const [dueTodayRes, overdueRes] = await Promise.all([
+        fetch(DUE_TODAY_COUNT_API, {
           method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
             "X-DEALER-ID": dealerId,
           },
-        });
+        }),
+        fetch(OVERDUE_COUNT_API, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "X-DEALER-ID": dealerId,
+          },
+        }),
+      ]);
 
-        if (res.ok) {
-          const data = await res.json();
+      const dueTodayCount = dueTodayRes.ok ? await dueTodayRes.json() : 0;
+      const overdueCount = overdueRes.ok ? await overdueRes.json() : 0;
 
-          setMetrics({
-            todayPledges: data.todayPledges || "₹0",
-            dueToday: data.dueToday || 0,
-            overdueAccounts: data.overdueAccounts || 0,
-            totalLoanValue: data.totalLoanValue || "₹0",
-          });
-        }
-      } catch (err) {
-        console.error("Failed to load dashboard statistics data", err);
-      }
+      setMetrics((prev) => ({
+        ...prev,
+        dueToday: Number(dueTodayCount) || 0,
+        overdueAccounts: Number(overdueCount) || 0,
+      }));
+    } catch (err) {
+      console.error("Failed to load due/overdue girvi counts", err);
+
+      setMetrics((prev) => ({
+        ...prev,
+        dueToday: 0,
+        overdueAccounts: 0,
+      }));
     }
+  }
 
-    async function fetchCustomerCount() {
-      if (!dealerId || dealerId === "-") return;
+ useEffect(() => {
+  async function fetchDashboardSummary() {
+    if (!dealerId || dealerId === "-") return;
 
-      try {
-        const token = localStorage.getItem("ps_token");
+    try {
+      const token = localStorage.getItem("ps_token");
 
-        const res = await fetch(
-          `${API_BASE}/customers/allCustomer?page=0&size=1`,
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "X-DEALER-ID": dealerId,
-            },
-          }
-        );
+      const res = await fetch(`${API_BASE}/dealer/dashboard-summary`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-DEALER-ID": dealerId,
+        },
+      });
 
-        if (res.ok) {
-          const data = await res.json();
+      if (res.ok) {
+        const data = await res.json();
 
-          if (Array.isArray(data)) {
-            setActiveCustomerCount(data.length);
-          } else {
-            setActiveCustomerCount(data.totalElements || 0);
-          }
+        // ✅ Do NOT update todayPledges here
+        // Today's Girvi amount comes from /girvi/today/summary
+        setMetrics((prev) => ({
+          ...prev,
+          totalLoanValue: data.totalLoanValue || "₹0",
+        }));
+      }
+    } catch (err) {
+      console.error("Failed to load dashboard statistics data", err);
+    }
+  }
+
+  async function fetchCustomerCount() {
+    if (!dealerId || dealerId === "-") return;
+
+    try {
+      const token = localStorage.getItem("ps_token");
+
+      const res = await fetch(`${API_BASE}/customers/allCustomer?page=0&size=1`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-DEALER-ID": dealerId,
+        },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+
+        if (Array.isArray(data)) {
+          setActiveCustomerCount(data.length);
         } else {
-          setActiveCustomerCount(0);
+          setActiveCustomerCount(data.totalElements || 0);
         }
-      } catch (err) {
-        console.error("Failed to load true customer count", err);
+      } else {
         setActiveCustomerCount(0);
       }
+    } catch (err) {
+      console.error("Failed to load true customer count", err);
+      setActiveCustomerCount(0);
     }
+  }
 
-    fetchDashboardSummary();
-    fetchCustomerCount();
-    fetchTodayMetalRates();
+  fetchDashboardSummary();
+  fetchCustomerCount();
+  fetchTodayMetalRates();
+  fetchGirviDueAndOverdueCounts();
 
-    const timer = setInterval(() => {
-      setCurrentDate(new Date());
-    }, 60000);
+  // ✅ This was missing
+  fetchTodayGirviSummary();
 
-    return () => clearInterval(timer);
-  }, [dealerId]);
+  const timer = setInterval(() => {
+    setCurrentDate(new Date());
+  }, 60000);
+
+  return () => clearInterval(timer);
+}, [dealerId]);
 
   const stats: StatItem[] = [
     {
-      title: "Today's Girvi",
-      value: metrics.todayPledges,
-      subtitle: "Dynamic Transactions",
-      icon: <FaRupeeSign />,
-      iconBg: "bg-purple-600",
-      cardBg: "bg-white",
-    },
+  title: "Today's Girvi",
+  value: metrics.todayPledges,
+  subtitle: "Dynamic Transactions",
+  icon: <FaRupeeSign />,
+  iconBg: "bg-purple-600",
+  cardBg: "bg-white",
+  path: "/dealer/today-girvi",
+},
     {
       title: "Active Customers",
       value: activeCustomerCount.toString(),
@@ -284,22 +344,24 @@ export default function DealerDashboard() {
       cardBg: "bg-white",
       path: "/dealer/customers",
     },
-    {
-      title: "Due Today",
-      value: metrics.dueToday.toString(),
-      subtitle: "Pending actions",
-      icon: <FaCalendarAlt />,
-      iconBg: "bg-orange-500",
-      cardBg: "bg-orange-50",
-    },
-    {
-      title: "Overdue Accounts",
-      value: metrics.overdueAccounts.toString(),
-      subtitle: "Immediate collection",
-      icon: <FaClock />,
-      iconBg: "bg-red-500",
-      cardBg: "bg-red-50",
-    },
+{
+  title: "Due Today",
+  value: metrics.dueToday.toString(),
+  subtitle: "Pending actions",
+  icon: <FaCalendarAlt />,
+  iconBg: "bg-orange-500",
+  cardBg: "bg-orange-50",
+  path: "/dealer/due-today",
+},
+{
+  title: "Overdue Accounts",
+  value: metrics.overdueAccounts.toString(),
+  subtitle: "Immediate collection",
+  icon: <FaClock />,
+  iconBg: "bg-red-500",
+  cardBg: "bg-red-50",
+  path: "/dealer/overdue-accounts",
+},
   ];
 
   const metalRates = [
@@ -412,6 +474,53 @@ export default function DealerDashboard() {
     navigate(path);
   }
 
+async function fetchTodayGirviSummary() {
+  if (!dealerId || dealerId === "-") return;
+
+  const token = localStorage.getItem("ps_token");
+
+  if (!token) return;
+
+  try {
+    const res = await fetch(TODAY_GIRVI_SUMMARY_API, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "X-DEALER-ID": dealerId,
+      },
+    });
+
+    if (!res.ok) {
+      const msg = await res.text();
+      console.warn("Failed to load today's girvi summary:", msg);
+
+      setMetrics((prev) => ({
+        ...prev,
+        todayPledges: "₹0",
+      }));
+      return;
+    }
+
+    const data: TodayGirviSummaryResponse = await res.json();
+
+    console.log("Today's Girvi Summary:", data);
+
+    const totalAmount = Number(data.totalAmount || 0);
+
+    setMetrics((prev) => ({
+      ...prev,
+      todayPledges: `₹${totalAmount.toLocaleString("en-IN")}`,
+    }));
+  } catch (err) {
+    console.error("Failed to load today's girvi summary", err);
+
+    setMetrics((prev) => ({
+      ...prev,
+      todayPledges: "₹0",
+    }));
+  }
+}
+
   const dealerIdDisplay = getDealerIdDisplay(dealerId);
 
   const mobileActions = actions.filter(
@@ -519,7 +628,9 @@ export default function DealerDashboard() {
                   <div
                     key={index}
                     onClick={() =>
-                      isClickable ? navigate(item.path!) : undefined
+                      isClickable
+                        ? navigate(item.path!, { state: item.state })
+                        : undefined
                     }
                     className={`${item.cardBg} rounded-2xl p-4 shadow-sm border border-gray-100 transition ${
                       isClickable
@@ -837,7 +948,9 @@ export default function DealerDashboard() {
                 <div
                   key={index}
                   onClick={() =>
-                    isClickable ? navigate(item.path!) : undefined
+                    isClickable
+                      ? navigate(item.path!, { state: item.state })
+                      : undefined
                   }
                   className={`${item.cardBg} rounded-2xl p-3 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[100px] transition ${
                     isClickable

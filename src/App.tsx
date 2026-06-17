@@ -22,10 +22,16 @@ import { GirviProvider } from "./girvi/GirviContext";
 import CustomerRegister from "./views/CustomerRegister";
 import GirviList from "./girvi/GirviList";
 import CustomerList from "./views/CustomerList";
+import DueTodayGirvi from "./girvi/DueTodayGirvi";
+import OverdueAccounts from "./girvi/OverdueAccounts";
+import TodayGirvi from "./girvi/TodayGirvi";
+
+/* ✅ EDIT CUSTOMER */
+import EditCustomer from "./views/EditCustomer";
 
 export default function App() {
   return (
-    <GirviProvider>  {/* ✅ THIS FIXES YOUR BLANK SCREEN */}
+    <GirviProvider>
       <Routes>
         {/* ✅ AUTH */}
         <Route path="/" element={<AuthView />} />
@@ -39,7 +45,7 @@ export default function App() {
         <Route path="/dealer/dashboard" element={<DealerDashboard />} />
         <Route path="/dealer/customer-search" element={<CustomerReviews />} />
 
-        {/* ✅ ✅ GIRVI FLOW */}
+        {/* ✅ GIRVI FLOW */}
         <Route path="/dealer/customer" element={<GirviList />} />
         <Route path="/dealer/customer-details" element={<CustomerDetails />} />
         <Route path="/dealer/details" element={<GirviDetails />} />
@@ -47,8 +53,14 @@ export default function App() {
         <Route path="/dealer/review" element={<LockerReview />} />
         <Route path="/dealer/success" element={<GirviSuccess />} />
         <Route path="/dealer/add-customer" element={<AddCustomer />} />
+        <Route path="/dealer/due-today" element={<DueTodayGirvi />} />
+        <Route path="/dealer/overdue-accounts" element={<OverdueAccounts />} />
+        <Route path="/dealer/today-girvi" element={<TodayGirvi />} />
+
+        {/* ✅ CUSTOMER MODULE */}
         <Route path="/dealer/customer-register" element={<CustomerRegister />} />
         <Route path="/dealer/customers" element={<CustomerList />} />
+        <Route path="/dealer/edit-customer/:id" element={<EditCustomer />} />
       </Routes>
     </GirviProvider>
   );

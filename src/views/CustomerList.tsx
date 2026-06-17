@@ -18,6 +18,7 @@ import {
 } from "react-icons/fa";
 
 const API_BASE = "https://pawnsecure-1.onrender.com/api";
+const REVIEW_API = `${API_BASE}/reviews`;
 
 /* ================= TYPES ================= */
 
@@ -29,6 +30,16 @@ type CustomerResponseDTO = {
   kycStatus?: string;
   aadhaarLastFour?: string;
   maskedAadhaar?: string;
+};
+
+type ReviewResponseDTO = {
+  id?: number;
+  reviewType?: string;
+  comment?: string;
+  reviewText?: string;
+  rating?: number;
+  createdAt?: string;
+  reviewerName?: string;
 };
 
 /* ================= HELPERS ================= */
@@ -43,6 +54,20 @@ function formatAadhaar(c: CustomerResponseDTO) {
   }
 
   return "XXXX-XXXX-****";
+}
+
+function formatReviewDate(date?: string) {
+  if (!date) return "";
+
+  try {
+    return new Date(date).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return "";
+  }
 }
 
 /* ================= COMPONENT ================= */
@@ -78,10 +103,8 @@ export default function CustomerList() {
 
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
-  /* ✅ Toggle flag */
   const [onlyMine, setOnlyMine] = useState(true);
 
-  /* ✅ Pagination */
   const [page, setPage] = useState(0);
   const [size, setSize] = useState(10);
   const [totalElements, setTotalElements] = useState(0);
@@ -89,8 +112,12 @@ export default function CustomerList() {
   const [selectedCustomer, setSelectedCustomer] =
     useState<CustomerResponseDTO | null>(null);
 
-  /* ✅ Avatar photos */
   const [photoMap, setPhotoMap] = useState<Record<number, string>>({});
+
+  /* ✅ Reviews */
+  const [reviews, setReviews] = useState<ReviewResponseDTO[]>([]);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewError, setReviewError] = useState("");
 
   useEffect(() => {
     fetchCustomers();
@@ -151,6 +178,38 @@ export default function CustomerList() {
     }
   }
 
+  async function fetchCustomerReviews(customerId: number) {
+    const currentDealerId = localStorage.getItem("ps_dealer_id");
+    const token = localStorage.getItem("ps_token");
+
+    if (!currentDealerId || !token) return;
+
+    setReviewLoading(true);
+    setReviewError("");
+    setReviews([]);
+
+    try {
+      const res = await fetch(`${REVIEW_API}/${customerId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-DEALER-ID": currentDealerId,
+        },
+      });
+
+      if (!res.ok) {
+        setReviewError("Failed to load customer reviews");
+        return;
+      }
+
+      const data: ReviewResponseDTO[] = await res.json();
+      setReviews(Array.isArray(data) ? data : []);
+    } catch {
+      setReviewError("Unable to load customer reviews");
+    } finally {
+      setReviewLoading(false);
+    }
+  }
+
   async function fetchCustomerById(
     id: number,
     fallbackCustomer?: CustomerResponseDTO
@@ -161,6 +220,7 @@ export default function CustomerList() {
     if (!dealerIdFromStorage || !token) {
       if (fallbackCustomer) {
         setSelectedCustomer(fallbackCustomer);
+        fetchCustomerReviews(id);
       }
       return;
     }
@@ -176,6 +236,7 @@ export default function CustomerList() {
       if (!res.ok) {
         if (fallbackCustomer) {
           setSelectedCustomer(fallbackCustomer);
+          fetchCustomerReviews(id);
         }
         return;
       }
@@ -183,8 +244,8 @@ export default function CustomerList() {
       const data: CustomerResponseDTO = await res.json();
 
       setSelectedCustomer(data);
+      fetchCustomerReviews(id);
 
-      /* ✅ update card/list also with correct details from details API */
       setCustomers((prev) =>
         prev.map((c) =>
           c.id === data.id
@@ -201,6 +262,7 @@ export default function CustomerList() {
     } catch {
       if (fallbackCustomer) {
         setSelectedCustomer(fallbackCustomer);
+        fetchCustomerReviews(id);
       }
     }
   }
@@ -233,6 +295,8 @@ export default function CustomerList() {
 
       if (res.ok) {
         setSelectedCustomer(null);
+        setReviews([]);
+        setReviewError("");
         fetchCustomers();
       } else {
         alert("Failed to delete customer");
@@ -276,6 +340,12 @@ export default function CustomerList() {
     }
   }
 
+  function closeModal() {
+    setSelectedCustomer(null);
+    setReviews([]);
+    setReviewError("");
+  }
+
   function kycBadge(status?: string) {
     return status === "VERIFIED"
       ? "bg-green-50 text-green-600 border-green-200"
@@ -314,7 +384,6 @@ export default function CustomerList() {
         <DealerSidebar isAdminView={isAdminView} />
 
         <main className="ml-64 flex-1 flex flex-col">
-          {/* Top Header */}
           <header className="h-16 bg-white border-b border-gray-200 px-8 flex items-center justify-between sticky top-0 z-30 shrink-0">
             <div>
               <h2 className="text-lg font-bold text-gray-900">Customers</h2>
@@ -332,7 +401,6 @@ export default function CustomerList() {
           </header>
 
           <div className="p-6 xl:p-8 max-w-[1400px] w-full mx-auto flex-1">
-            {/* Purple Page Banner */}
             <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-3xl px-8 py-6 mb-8">
               <div className="flex items-center justify-between gap-6">
                 <div>
@@ -352,7 +420,6 @@ export default function CustomerList() {
               </div>
             </div>
 
-            {/* Toggle */}
             <div className="flex gap-3 mb-6">
               <button
                 type="button"
@@ -385,7 +452,6 @@ export default function CustomerList() {
               </button>
             </div>
 
-            {/* Search Bar */}
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-5 mb-6">
               <div className="flex items-center gap-3">
                 <div className="flex-1 bg-gray-50 rounded-2xl px-4 py-3 flex items-center border border-gray-100">
@@ -407,7 +473,6 @@ export default function CustomerList() {
               </div>
             </div>
 
-            {/* Customer List */}
             <CustomerCards
               loading={loading}
               error={error}
@@ -437,7 +502,6 @@ export default function CustomerList() {
           dealerId={dealerId}
         />
 
-        {/* Mobile White Header */}
         <header className="h-16 bg-white border-b border-gray-200 px-4 flex items-center justify-between sticky top-0 z-30 shrink-0">
           <div className="flex items-center gap-3">
             <button
@@ -470,7 +534,6 @@ export default function CustomerList() {
         </header>
 
         <div className="max-w-md mx-auto px-4 pt-4">
-          {/* Purple Page Banner */}
           <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-3xl px-5 py-5 mb-5 shadow-sm">
             <div className="flex items-center justify-between gap-4">
               <div>
@@ -491,7 +554,6 @@ export default function CustomerList() {
             </div>
           </div>
 
-          {/* Toggle */}
           <div className="flex gap-2 mb-4">
             <button
               type="button"
@@ -524,7 +586,6 @@ export default function CustomerList() {
             </button>
           </div>
 
-          {/* Search Bar */}
           <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 mb-5">
             <div className="flex items-center gap-3">
               <div className="flex-1 bg-gray-50 rounded-2xl px-4 py-3 flex items-center border border-gray-100">
@@ -569,10 +630,10 @@ export default function CustomerList() {
       {/* ================= MODAL DETAILS ================= */}
       {selectedCustomer && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white w-full max-w-[520px] rounded-[32px] p-6 sm:p-8 shadow-2xl relative animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white w-full max-w-[560px] rounded-[32px] p-6 sm:p-8 shadow-2xl relative animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
             <button
               type="button"
-              onClick={() => setSelectedCustomer(null)}
+              onClick={closeModal}
               className="absolute top-5 right-5 w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-800 hover:bg-gray-100 transition"
             >
               <FaTimes />
@@ -618,6 +679,8 @@ export default function CustomerList() {
                 value={selectedCustomer.kycStatus || "PENDING"}
               />
 
+              <InfoCard label="Reviews" value={`${reviews.length}`} />
+
               <div className="col-span-2 sm:col-span-3">
                 <InfoCard
                   label="Address"
@@ -628,6 +691,76 @@ export default function CustomerList() {
               <InfoCard label="Total Girvi" value="0" />
               <InfoCard label="Active Loan" value="₹ 0" />
               <InfoCard label="Since" value="Today" />
+            </div>
+
+            {/* ================= REVIEWS SECTION ================= */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-bold text-sm text-gray-900">
+                  Customer Reviews
+                </h4>
+
+                <span className="text-xs font-semibold text-gray-500">
+                  {reviews.length} Reviews
+                </span>
+              </div>
+
+              {reviewLoading && (
+                <p className="text-sm text-gray-500 font-semibold">
+                  Loading reviews...
+                </p>
+              )}
+
+              {reviewError && (
+                <div className="bg-red-50 text-red-600 border border-red-100 rounded-xl px-4 py-3 text-sm font-semibold">
+                  {reviewError}
+                </div>
+              )}
+
+              {!reviewLoading && !reviewError && reviews.length === 0 && (
+                <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 text-sm text-gray-500 font-semibold">
+                  No reviews found for this customer.
+                </div>
+              )}
+
+              {!reviewLoading && !reviewError && reviews.length > 0 && (
+                <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
+                  {reviews.map((r, index) => (
+                    <div
+                      key={r.id || index}
+                      className="bg-gray-50 border border-gray-100 rounded-2xl p-4"
+                    >
+                      <div className="flex items-center justify-between mb-1 gap-2">
+                        <p className="text-sm font-bold text-gray-900">
+                          {r.reviewType || "Review"}
+                        </p>
+
+                        {r.createdAt && (
+                          <span className="text-[10px] text-gray-400 font-semibold shrink-0">
+                            {formatReviewDate(r.createdAt)}
+                          </span>
+                        )}
+                      </div>
+
+                      {typeof r.rating === "number" && (
+                        <p className="text-xs text-purple-600 font-bold mb-1">
+                          Rating: {r.rating}
+                        </p>
+                      )}
+
+                      {r.reviewerName && (
+                        <p className="text-xs text-gray-400 font-semibold mb-1">
+                          By: {r.reviewerName}
+                        </p>
+                      )}
+
+                      <p className="text-sm text-gray-600 break-words whitespace-pre-wrap">
+                        {r.comment || r.reviewText || "-"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -649,6 +782,15 @@ export default function CustomerList() {
 
               <button
                 type="button"
+                onClick={() =>
+                  navigate("/dealer/customer", {
+                    state: {
+                      customerId: selectedCustomer.id,
+                      customerName: selectedCustomer.fullName,
+                      returnTo: "/dealer/customers",
+                    },
+                  })
+                }
                 className="flex-1 min-w-[120px] bg-purple-50 text-purple-700 font-bold py-3.5 rounded-2xl transition flex items-center justify-center gap-2 text-sm hover:bg-purple-100"
               >
                 <FaBox className="opacity-70" /> View Girvi
@@ -666,14 +808,16 @@ export default function CustomerList() {
                 <FaEdit className="text-gray-400" /> Edit Customer
               </button>
 
-              <button
-                type="button"
-                onClick={() => deleteCustomer(selectedCustomer.id)}
-                className="w-14 bg-red-50 hover:bg-red-100 text-red-600 font-bold py-3 rounded-2xl transition flex items-center justify-center border border-red-100"
-                title="Delete Customer"
-              >
-                <FaTrash />
-              </button>
+              {onlyMine && (
+                <button
+                  type="button"
+                  onClick={() => deleteCustomer(selectedCustomer.id)}
+                  className="w-14 bg-red-50 hover:bg-red-100 text-red-600 font-bold py-3 rounded-2xl transition flex items-center justify-center border border-red-100"
+                  title="Delete Customer"
+                >
+                  <FaTrash />
+                </button>
+              )}
             </div>
           </div>
         </div>
