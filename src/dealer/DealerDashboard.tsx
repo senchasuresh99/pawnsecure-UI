@@ -22,12 +22,10 @@ import {
 const API_BASE = "https://pawnsecure-1.onrender.com/api";
 
 /* ✅ GIRVI DASHBOARD API PATHS */
-const DUE_TODAY_LIST_API = "/girvi/due-today";
-const OVERDUE_LIST_API = "/girvi/overdue";
-
 const DUE_TODAY_COUNT_API = `${API_BASE}/girvi/due-today/count`;
 const OVERDUE_COUNT_API = `${API_BASE}/girvi/overdue/count`;
 const TODAY_GIRVI_SUMMARY_API = `${API_BASE}/girvi/today/summary`;
+const TODAY_GIRVI_LIST_API = `${API_BASE}/girvi/today`;
 
 type ActionItem = {
   icon: ReactNode;
@@ -60,6 +58,16 @@ type MetalRateApiResponse = {
 type TodayGirviSummaryResponse = {
   count: number;
   totalAmount: number | string;
+};
+
+type TodayActivityItem = {
+  title: string;
+  name: string;
+  amount: string;
+  time: string;
+  icon: ReactNode;
+  bg: string;
+  color: string;
 };
 
 const actions: ActionItem[] = [
@@ -102,36 +110,6 @@ const actions: ActionItem[] = [
   },
 ];
 
-const activities = [
-  {
-    title: "New Girvi Created",
-    name: "Ramesh Kumar",
-    amount: "₹65,000",
-    time: "10:30 AM",
-    icon: <FaCalendarAlt />,
-    bg: "bg-green-100",
-    color: "text-green-600",
-  },
-  {
-    title: "Payment Received",
-    name: "Suresh Babu (A-00124)",
-    amount: "₹8,500",
-    time: "11:15 AM",
-    icon: <FaRupeeSign />,
-    bg: "bg-blue-100",
-    color: "text-blue-600",
-  },
-  {
-    title: "Account Renewed",
-    name: "Lakshmi Devi (A-00118)",
-    amount: "₹12,300",
-    time: "12:05 PM",
-    icon: <FaCalendarAlt />,
-    bg: "bg-orange-100",
-    color: "text-orange-600",
-  },
-];
-
 export default function DealerDashboard() {
   const navigate = useNavigate();
 
@@ -165,6 +143,39 @@ export default function DealerDashboard() {
 
   const [metalRateLoading, setMetalRateLoading] = useState(false);
   const [metalRateError, setMetalRateError] = useState("");
+
+  const [todayActivities, setTodayActivities] = useState<TodayActivityItem[]>(
+    []
+  );
+  const [todayActivityLoading, setTodayActivityLoading] = useState(false);
+  const [todayActivityError, setTodayActivityError] = useState("");
+
+  function formatCurrency(value: any) {
+    const amount = Number(value || 0);
+    return `₹${amount.toLocaleString("en-IN")}`;
+  }
+
+  function formatActivityTime(value: any) {
+    if (!value) return "";
+
+    const stringValue = String(value);
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(stringValue)) {
+      return "";
+    }
+
+    const date = new Date(stringValue);
+
+    if (Number.isNaN(date.getTime())) {
+      return stringValue;
+    }
+
+    return date.toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  }
 
   async function fetchTodayMetalRates() {
     if (!dealerId || dealerId === "-") return;
@@ -249,14 +260,15 @@ export default function DealerDashboard() {
     }
   }
 
- useEffect(() => {
-  async function fetchDashboardSummary() {
+  async function fetchTodayGirviSummary() {
     if (!dealerId || dealerId === "-") return;
 
-    try {
-      const token = localStorage.getItem("ps_token");
+    const token = localStorage.getItem("ps_token");
 
-      const res = await fetch(`${API_BASE}/dealer/dashboard-summary`, {
+    if (!token) return;
+
+    try {
+      const res = await fetch(TODAY_GIRVI_SUMMARY_API, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -264,28 +276,49 @@ export default function DealerDashboard() {
         },
       });
 
-      if (res.ok) {
-        const data = await res.json();
+      if (!res.ok) {
+        const msg = await res.text();
+        console.warn("Failed to load today's girvi summary:", msg);
 
-        // ✅ Do NOT update todayPledges here
-        // Today's Girvi amount comes from /girvi/today/summary
         setMetrics((prev) => ({
           ...prev,
-          totalLoanValue: data.totalLoanValue || "₹0",
+          todayPledges: "₹0",
         }));
+        return;
       }
+
+      const data: TodayGirviSummaryResponse = await res.json();
+
+      console.log("Today's Girvi Summary:", data);
+
+      const totalAmount = Number(data.totalAmount || 0);
+
+      setMetrics((prev) => ({
+        ...prev,
+        todayPledges: `₹${totalAmount.toLocaleString("en-IN")}`,
+      }));
     } catch (err) {
-      console.error("Failed to load dashboard statistics data", err);
+      console.error("Failed to load today's girvi summary", err);
+
+      setMetrics((prev) => ({
+        ...prev,
+        todayPledges: "₹0",
+      }));
     }
   }
 
-  async function fetchCustomerCount() {
+  async function fetchTodayGirviActivities() {
     if (!dealerId || dealerId === "-") return;
 
-    try {
-      const token = localStorage.getItem("ps_token");
+    const token = localStorage.getItem("ps_token");
 
-      const res = await fetch(`${API_BASE}/customers/allCustomer?page=0&size=1`, {
+    if (!token) return;
+
+    try {
+      setTodayActivityLoading(true);
+      setTodayActivityError("");
+
+      const res = await fetch(TODAY_GIRVI_LIST_API, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -293,48 +326,164 @@ export default function DealerDashboard() {
         },
       });
 
-      if (res.ok) {
-        const data = await res.json();
+      if (!res.ok) {
+        const msg = await res.text();
 
-        if (Array.isArray(data)) {
-          setActiveCustomerCount(data.length);
-        } else {
-          setActiveCustomerCount(data.totalElements || 0);
-        }
-      } else {
-        setActiveCustomerCount(0);
+        console.warn("Failed to load today's girvi activities:", msg);
+
+        setTodayActivities([]);
+        setTodayActivityError(msg || "Unable to load today's activity");
+        return;
       }
+
+      const data = await res.json();
+
+      const mappedActivities: TodayActivityItem[] = Array.isArray(data)
+        ? data.map((girvi: any) => {
+            const customerName =
+              girvi.customerName ||
+              girvi.customer?.customerName ||
+              girvi.customer?.name ||
+              girvi.borrowerName ||
+              girvi.fullName ||
+              girvi.name ||
+              "Customer";
+
+            const accountNo =
+              girvi.accountNumber ||
+              girvi.accountNo ||
+              girvi.girviNumber ||
+              girvi.girviNo ||
+              girvi.girviId ||
+              girvi.id ||
+              "";
+
+            const amount =
+              girvi.loanAmount ||
+              girvi.principalAmount ||
+              girvi.totalAmount ||
+              girvi.amount ||
+              girvi.sanctionedAmount ||
+              0;
+
+            const createdTime =
+              girvi.createdAt ||
+              girvi.createdDate ||
+              girvi.createdOn ||
+              girvi.createdTime ||
+              girvi.girviDate ||
+              girvi.date ||
+              "";
+
+            return {
+              title: "New Girvi Created",
+              name: accountNo ? `${customerName} (${accountNo})` : customerName,
+              amount: formatCurrency(amount),
+              time: formatActivityTime(createdTime),
+              icon: <FaCalendarAlt />,
+              bg: "bg-green-100",
+              color: "text-green-600",
+            };
+          })
+        : [];
+
+      setTodayActivities(mappedActivities);
     } catch (err) {
-      console.error("Failed to load true customer count", err);
-      setActiveCustomerCount(0);
+      console.error("Failed to load today's girvi activities", err);
+
+      setTodayActivities([]);
+      setTodayActivityError("Unable to load today's activity");
+    } finally {
+      setTodayActivityLoading(false);
     }
   }
 
-  fetchDashboardSummary();
-  fetchCustomerCount();
-  fetchTodayMetalRates();
-  fetchGirviDueAndOverdueCounts();
+  useEffect(() => {
+    async function fetchDashboardSummary() {
+      if (!dealerId || dealerId === "-") return;
 
-  // ✅ This was missing
-  fetchTodayGirviSummary();
+      try {
+        const token = localStorage.getItem("ps_token");
 
-  const timer = setInterval(() => {
-    setCurrentDate(new Date());
-  }, 60000);
+        const res = await fetch(`${API_BASE}/dealer/dashboard-summary`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "X-DEALER-ID": dealerId,
+          },
+        });
 
-  return () => clearInterval(timer);
-}, [dealerId]);
+        if (res.ok) {
+          const data = await res.json();
+
+          setMetrics((prev) => ({
+            ...prev,
+            totalLoanValue: data.totalLoanValue || "₹0",
+          }));
+        }
+      } catch (err) {
+        console.error("Failed to load dashboard statistics data", err);
+      }
+    }
+
+    async function fetchCustomerCount() {
+      if (!dealerId || dealerId === "-") return;
+
+      try {
+        const token = localStorage.getItem("ps_token");
+
+        const res = await fetch(
+          `${API_BASE}/customers/allCustomer?page=0&size=1`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "X-DEALER-ID": dealerId,
+            },
+          }
+        );
+
+        if (res.ok) {
+          const data = await res.json();
+
+          if (Array.isArray(data)) {
+            setActiveCustomerCount(data.length);
+          } else {
+            setActiveCustomerCount(data.totalElements || 0);
+          }
+        } else {
+          setActiveCustomerCount(0);
+        }
+      } catch (err) {
+        console.error("Failed to load true customer count", err);
+        setActiveCustomerCount(0);
+      }
+    }
+
+    fetchDashboardSummary();
+    fetchCustomerCount();
+    fetchTodayMetalRates();
+    fetchGirviDueAndOverdueCounts();
+    fetchTodayGirviSummary();
+    fetchTodayGirviActivities();
+
+    const timer = setInterval(() => {
+      setCurrentDate(new Date());
+    }, 60000);
+
+    return () => clearInterval(timer);
+  }, [dealerId]);
 
   const stats: StatItem[] = [
     {
-  title: "Today's Girvi",
-  value: metrics.todayPledges,
-  subtitle: "Dynamic Transactions",
-  icon: <FaRupeeSign />,
-  iconBg: "bg-purple-600",
-  cardBg: "bg-white",
-  path: "/dealer/today-girvi",
-},
+      title: "Today's Girvi",
+      value: metrics.todayPledges,
+      subtitle: "Dynamic Transactions",
+      icon: <FaRupeeSign />,
+      iconBg: "bg-purple-600",
+      cardBg: "bg-white",
+      path: "/dealer/today-girvi",
+    },
     {
       title: "Active Customers",
       value: activeCustomerCount.toString(),
@@ -344,24 +493,24 @@ export default function DealerDashboard() {
       cardBg: "bg-white",
       path: "/dealer/customers",
     },
-{
-  title: "Due Today",
-  value: metrics.dueToday.toString(),
-  subtitle: "Pending actions",
-  icon: <FaCalendarAlt />,
-  iconBg: "bg-orange-500",
-  cardBg: "bg-orange-50",
-  path: "/dealer/due-today",
-},
-{
-  title: "Overdue Accounts",
-  value: metrics.overdueAccounts.toString(),
-  subtitle: "Immediate collection",
-  icon: <FaClock />,
-  iconBg: "bg-red-500",
-  cardBg: "bg-red-50",
-  path: "/dealer/overdue-accounts",
-},
+    {
+      title: "Due Today",
+      value: metrics.dueToday.toString(),
+      subtitle: "Pending actions",
+      icon: <FaCalendarAlt />,
+      iconBg: "bg-orange-500",
+      cardBg: "bg-orange-50",
+      path: "/dealer/due-today",
+    },
+    {
+      title: "Overdue Accounts",
+      value: metrics.overdueAccounts.toString(),
+      subtitle: "Immediate collection",
+      icon: <FaClock />,
+      iconBg: "bg-red-500",
+      cardBg: "bg-red-50",
+      path: "/dealer/overdue-accounts",
+    },
   ];
 
   const metalRates = [
@@ -473,53 +622,6 @@ export default function DealerDashboard() {
 
     navigate(path);
   }
-
-async function fetchTodayGirviSummary() {
-  if (!dealerId || dealerId === "-") return;
-
-  const token = localStorage.getItem("ps_token");
-
-  if (!token) return;
-
-  try {
-    const res = await fetch(TODAY_GIRVI_SUMMARY_API, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "X-DEALER-ID": dealerId,
-      },
-    });
-
-    if (!res.ok) {
-      const msg = await res.text();
-      console.warn("Failed to load today's girvi summary:", msg);
-
-      setMetrics((prev) => ({
-        ...prev,
-        todayPledges: "₹0",
-      }));
-      return;
-    }
-
-    const data: TodayGirviSummaryResponse = await res.json();
-
-    console.log("Today's Girvi Summary:", data);
-
-    const totalAmount = Number(data.totalAmount || 0);
-
-    setMetrics((prev) => ({
-      ...prev,
-      todayPledges: `₹${totalAmount.toLocaleString("en-IN")}`,
-    }));
-  } catch (err) {
-    console.error("Failed to load today's girvi summary", err);
-
-    setMetrics((prev) => ({
-      ...prev,
-      todayPledges: "₹0",
-    }));
-  }
-}
 
   const dealerIdDisplay = getDealerIdDisplay(dealerId);
 
@@ -791,41 +893,65 @@ async function fetchTodayGirviSummary() {
                 <h2 className="text-xl font-bold text-gray-900">
                   Today's Activity
                 </h2>
-                <button className="text-purple-700 font-semibold text-sm hover:underline">
+
+                <button
+                  type="button"
+                  onClick={() => !isAdminView && navigate("/dealer/today-girvi")}
+                  disabled={isAdminView}
+                  className={`font-semibold text-sm ${
+                    isAdminView
+                      ? "text-gray-400 cursor-not-allowed"
+                      : "text-purple-700 hover:underline"
+                  }`}
+                >
                   View All
                 </button>
               </div>
 
-              <div className="space-y-4">
-                {activities.map((item, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between border-b last:border-0 pb-4 last:pb-0"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div
-                        className={`${item.bg} ${item.color} w-10 h-10 rounded-full flex items-center justify-center shrink-0`}
-                      >
-                        {item.icon}
+              {todayActivityLoading ? (
+                <div className="py-8 text-center text-sm text-gray-500">
+                  Loading today's activity...
+                </div>
+              ) : todayActivityError ? (
+                <div className="py-8 text-center text-sm text-gray-500">
+                  {todayActivityError}
+                </div>
+              ) : todayActivities.length === 0 ? (
+                <div className="py-8 text-center text-sm text-gray-500">
+                  No Girvi created today
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {todayActivities.slice(0, 5).map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between border-b last:border-0 pb-4 last:pb-0"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div
+                          className={`${item.bg} ${item.color} w-10 h-10 rounded-full flex items-center justify-center shrink-0`}
+                        >
+                          {item.icon}
+                        </div>
+
+                        <div>
+                          <p className="font-semibold text-gray-900">
+                            {item.title}
+                          </p>
+                          <p className="text-sm text-gray-500">{item.name}</p>
+                        </div>
                       </div>
 
-                      <div>
-                        <p className="font-semibold text-gray-900">
-                          {item.title}
+                      <div className="text-right">
+                        <p className="text-green-600 font-bold text-base">
+                          {item.amount}
                         </p>
-                        <p className="text-sm text-gray-500">{item.name}</p>
+                        <p className="text-sm text-gray-500">{item.time}</p>
                       </div>
                     </div>
-
-                    <div className="text-right">
-                      <p className="text-green-600 font-bold text-base">
-                        {item.amount}
-                      </p>
-                      <p className="text-sm text-gray-500">{item.time}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </main>
@@ -1100,46 +1226,73 @@ async function fetchTodayGirviSummary() {
             </div>
           </div>
 
+          {/* Mobile Activities */}
           <div className="mx-4 mt-4 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-bold text-gray-900">
                 Today's Activity
               </h2>
-              <button className="text-purple-700 font-medium text-xs">
+
+              <button
+                type="button"
+                onClick={() => !isAdminView && navigate("/dealer/today-girvi")}
+                disabled={isAdminView}
+                className={`font-medium text-xs ${
+                  isAdminView
+                    ? "text-gray-400 cursor-not-allowed"
+                    : "text-purple-700"
+                }`}
+              >
                 View All
               </button>
             </div>
 
-            <div className="space-y-4">
-              {activities.map((item, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between border-b border-gray-50 last:border-0 pb-4 last:pb-0"
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`${item.bg} ${item.color} w-10 h-10 rounded-full flex items-center justify-center text-sm shrink-0`}
-                    >
-                      {item.icon}
+            {todayActivityLoading ? (
+              <div className="py-6 text-center text-xs text-gray-500">
+                Loading today's activity...
+              </div>
+            ) : todayActivityError ? (
+              <div className="py-6 text-center text-xs text-gray-500">
+                {todayActivityError}
+              </div>
+            ) : todayActivities.length === 0 ? (
+              <div className="py-6 text-center text-xs text-gray-500">
+                No Girvi created today
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {todayActivities.slice(0, 5).map((item, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between border-b border-gray-50 last:border-0 pb-4 last:pb-0"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`${item.bg} ${item.color} w-10 h-10 rounded-full flex items-center justify-center text-sm shrink-0`}
+                      >
+                        {item.icon}
+                      </div>
+
+                      <div>
+                        <p className="font-semibold text-sm text-gray-900">
+                          {item.title}
+                        </p>
+                        <p className="text-[11px] text-gray-500">
+                          {item.name}
+                        </p>
+                      </div>
                     </div>
 
-                    <div>
-                      <p className="font-semibold text-sm text-gray-900">
-                        {item.title}
+                    <div className="text-right">
+                      <p className="text-green-600 font-bold text-sm">
+                        {item.amount}
                       </p>
-                      <p className="text-[11px] text-gray-500">{item.name}</p>
+                      <p className="text-[11px] text-gray-500">{item.time}</p>
                     </div>
                   </div>
-
-                  <div className="text-right">
-                    <p className="text-green-600 font-bold text-sm">
-                      {item.amount}
-                    </p>
-                    <p className="text-[11px] text-gray-500">{item.time}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
