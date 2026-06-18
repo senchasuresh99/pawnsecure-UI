@@ -217,7 +217,7 @@ export async function imageUrlToDataUrl(url: string): Promise<string> {
 
     const blob = await res.blob();
 
-    return await new Promise((resolve) => {
+    return await new Promise<string>((resolve) => {
       const reader = new FileReader();
 
       reader.onloadend = () => {
@@ -542,10 +542,17 @@ function getInvoiceHtmlForPdf(input: InvoicePdfInput) {
   const periodText = calculatePeriodText(girviDate, maturityDate);
 
   const logoHtml = invoiceLogoDataUrl
-    ? `<img src="${escapeHtml(
-        invoiceLogoDataUrl
-      )}" alt="PawnSecure" style="width:42px;height:42px;object-fit:contain;display:block;" />`
-    : "PS";
+    ? `<img
+        src="${escapeHtml(invoiceLogoDataUrl)}"
+        alt="PawnSecure"
+        style="
+          width:44px;
+          height:44px;
+          object-fit:contain;
+          display:block;
+        "
+      />`
+    : `<span style="font-size:13px;font-weight:900;color:#312e81;">PS</span>`;
 
   return `
     <div
@@ -553,11 +560,13 @@ function getInvoiceHtmlForPdf(input: InvoicePdfInput) {
       style="
         width:794px;
         min-height:1123px;
-        background:#f8fafc;
+        background:#ffffff;
         color:#111827;
         font-family:Arial, Helvetica, sans-serif;
         box-sizing:border-box;
-        padding:28px 34px;
+        padding:18px 28px;
+        overflow:hidden;
+        position:relative;
       "
     >
       <div style="
@@ -568,57 +577,72 @@ function getInvoiceHtmlForPdf(input: InvoicePdfInput) {
         box-shadow:0 8px 22px rgba(15,23,42,0.10);
       ">
         <div style="
+          position:relative;
           display:grid;
           grid-template-columns:1fr 178px;
           background:linear-gradient(135deg, #312e81, #6d28d9);
           color:#ffffff;
+          border-bottom:1px solid #cbd5e1;
         ">
-          <div style="text-align:center; padding:14px 16px 12px;">
+          <div style="
+            position:relative;
+            text-align:center;
+            padding:12px 14px 10px 78px;
+            min-height:176px;
+            box-sizing:border-box;
+          ">
             <div style="
+              position:absolute;
+              top:12px;
+              left:14px;
+              width:54px;
+              height:54px;
+              background:#ffffff;
+              border:1px solid rgba(255,255,255,0.75);
+              border-radius:12px;
               display:flex;
               align-items:center;
               justify-content:center;
-              gap:10px;
-              margin-bottom:5px;
+              overflow:hidden;
+              box-shadow:0 4px 12px rgba(15,23,42,0.18);
             ">
-              <div style="
-                width:48px;
-                height:48px;
-                background:#ffffff;
-                color:#312e81;
-                border-radius:12px;
-                display:flex;
-                align-items:center;
-                justify-content:center;
-                overflow:hidden;
-                font-size:11px;
-                font-weight:900;
-              ">
-                ${logoHtml}
-              </div>
-
-              <div>
-                <div style="font-size:12px; font-weight:800;">
-                  Shree Ganeshay Namaha
-                </div>
-
-                <div style="
-                  font-size:18px;
-                  font-weight:900;
-                  margin-top:4px;
-                  letter-spacing:0.4px;
-                ">
-                  MONEY LENDERS PLEDGE RECEIPT
-                </div>
-              </div>
+              ${logoHtml}
             </div>
+
+            <div style="
+              font-size:12px;
+              font-weight:800;
+              color:#ffffff;
+              opacity:0.92;
+              margin-bottom:4px;
+            ">
+              Shree Ganeshay Namaha
+            </div>
+
+            <div style="
+              font-size:18px;
+              font-weight:900;
+              color:#ffffff;
+              letter-spacing:0.6px;
+              text-transform:uppercase;
+            ">
+              Money Lenders Pledge Receipt
+            </div>
+
+            <div style="
+              height:4px;
+              width:185px;
+              margin:7px auto 8px;
+              border-radius:999px;
+              background:linear-gradient(90deg, #f59e0b, #facc15, #f59e0b);
+            "></div>
 
             <div style="
               font-size:10px;
               line-height:1.45;
-              margin-top:5px;
-              opacity:0.9;
-              font-weight:600;
+              color:#ffffff;
+              opacity:0.88;
+              font-weight:700;
             ">
               Inventory of articles taken in pawn as provided in subsection action<br/>
               and referred to in rule 25
@@ -630,6 +654,7 @@ function getInvoiceHtmlForPdf(input: InvoicePdfInput) {
               margin-top:8px;
               text-transform:uppercase;
               letter-spacing:0.8px;
+              color:#ffffff;
             ">
               ${escapeHtml(shopName)}
             </div>
@@ -638,7 +663,9 @@ function getInvoiceHtmlForPdf(input: InvoicePdfInput) {
               font-size:12px;
               font-weight:700;
               line-height:1.55;
-              margin-top:5px;
+              margin-top:4px;
+              color:#ffffff;
+              opacity:0.94;
             ">
               ${escapeHtml(shopAddress)}<br/>
               GST: ${escapeHtml(gstNumber)} &nbsp; | &nbsp; Cell: ${escapeHtml(

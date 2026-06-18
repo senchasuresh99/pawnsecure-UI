@@ -16,6 +16,7 @@ type BottomAction = {
   icon: ReactNode;
   path: string;
   state?: any;
+  disabled?: boolean;
 };
 
 type DealerMobileBottomNavProps = {
@@ -70,12 +71,14 @@ export default function DealerMobileBottomNav({
       label: "Collect",
       icon: <FaCoins />,
       path: "/dealer/collections",
+      disabled: true,
     },
     {
       key: "more",
       label: "More",
       icon: <FaEllipsisH />,
       path: "/dealer/more",
+      disabled: true,
     },
   ];
 
@@ -84,6 +87,8 @@ export default function DealerMobileBottomNav({
   );
 
   function isActive(item: BottomAction) {
+    if (item.disabled) return false;
+
     if (active) return active === item.key;
 
     const pathname = location.pathname;
@@ -121,6 +126,10 @@ export default function DealerMobileBottomNav({
   }
 
   function handleNavigate(item: BottomAction) {
+    if (item.disabled) {
+      return;
+    }
+
     if (item.state) {
       navigate(item.path, { state: item.state });
       return;
@@ -138,9 +147,12 @@ export default function DealerMobileBottomNav({
           <button
             key={item.key}
             type="button"
+            disabled={item.disabled}
             onClick={() => handleNavigate(item)}
             className={`flex flex-col items-center text-[10px] w-16 transition ${
-              activeItem
+              item.disabled
+                ? "text-gray-300 font-medium cursor-not-allowed opacity-60"
+                : activeItem
                 ? "text-purple-700 font-semibold"
                 : "text-gray-500 hover:text-gray-900 font-medium"
             }`}

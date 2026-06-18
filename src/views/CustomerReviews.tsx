@@ -684,7 +684,7 @@ export default function CustomerReviews() {
                       />
                     </div>
 
-                    <button
+                    {/* <button
                       type="button"
                       onClick={() => {
                         setScannerError("");
@@ -694,7 +694,7 @@ export default function CustomerReviews() {
                     >
                       <FaQrcode />
                       Scan QR
-                    </button>
+                    </button> */}
                   </div>
 
                   <button
@@ -841,7 +841,7 @@ export default function CustomerReviews() {
                 />
               </div>
 
-              <button
+              {/* <button
                 type="button"
                 onClick={() => {
                   setScannerError("");
@@ -851,7 +851,7 @@ export default function CustomerReviews() {
               >
                 <FaQrcode />
                 Scan QR
-              </button>
+              </button> */}
 
               <button
                 type="button"
