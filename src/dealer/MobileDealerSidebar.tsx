@@ -1,6 +1,6 @@
+import { useEffect, useState } from "react";
 import {
   FaHome,
-  FaRupeeSign,
   FaUserFriends,
   FaUserPlus,
   FaCoins,
@@ -8,8 +8,17 @@ import {
   FaUserCheck,
   FaSignOutAlt,
   FaTimes,
+  FaEnvelope,
+  FaPhoneAlt,
+  FaMapMarkerAlt,
+  FaStore,
+  FaIdCard,
+  FaShieldAlt,
+  FaCalendarAlt,
 } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+
+const API_BASE = "https://pawnsecure-1.onrender.com/api";
 
 type MobileDealerSidebarProps = {
   open: boolean;
@@ -17,6 +26,22 @@ type MobileDealerSidebarProps = {
   isAdminView?: boolean;
   dealerName: string;
   dealerId: string;
+};
+
+type DealerProfile = {
+  id: number;
+  name: string;
+  email?: string;
+  phoneNumber?: string;
+  city?: string;
+  gstNumber?: string;
+  shopName?: string;
+  shopAddress?: string;
+  role?: string;
+  status?: string;
+  subscriptionStart?: string;
+  subscriptionEnd?: string;
+  subscriptionActive?: boolean;
 };
 
 export default function MobileDealerSidebar({
@@ -28,7 +53,16 @@ export default function MobileDealerSidebar({
 }: MobileDealerSidebarProps) {
   const navigate = useNavigate();
 
-  if (!open) return null;
+  const [dealerProfile, setDealerProfile] = useState<DealerProfile | null>(
+    null
+  );
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [showDealerDetails, setShowDealerDetails] = useState(false);
+
+  function normalizeDealerId(id: string | null | undefined) {
+    if (!id || id === "-") return "";
+    return String(id).replace(/^DP/i, "");
+  }
 
   function getInitials(name: string) {
     return name
@@ -40,10 +74,77 @@ export default function MobileDealerSidebar({
       .toUpperCase();
   }
 
-  function getDealerIdDisplay(id: string | null) {
+  function getDealerIdDisplay(id: string | number | null | undefined) {
     if (!id || id === "-") return "-";
-    return id.startsWith("DP") ? id : `DP${id}`;
+
+    const value = String(id);
+
+    return value.startsWith("DP") ? value : `DP${value}`;
   }
+
+  function formatDateTime(value?: string) {
+    if (!value) return "-";
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) return value;
+
+    return date.toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  }
+
+  async function fetchDealerProfile() {
+    const rawDealerId =
+      dealerId || localStorage.getItem("ps_dealer_id") || "-";
+
+    const cleanDealerId = normalizeDealerId(rawDealerId);
+
+    if (!cleanDealerId) return;
+
+    try {
+      setProfileLoading(true);
+
+      const token = localStorage.getItem("ps_token");
+
+      const res = await fetch(`${API_BASE}/auth/dealer/${cleanDealerId}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        const msg = await res.text();
+        console.warn("Failed to load dealer profile:", msg);
+        return;
+      }
+
+      const data: DealerProfile = await res.json();
+
+      setDealerProfile(data);
+
+      localStorage.setItem("ps_dealer_id", String(data.id));
+      localStorage.setItem("ps_dealer_name", data.name);
+    } catch (error) {
+      console.error("Failed to fetch dealer profile", error);
+    } finally {
+      setProfileLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (open) {
+      fetchDealerProfile();
+    }
+  }, [open, dealerId]);
+
+  if (!open) return null;
 
   function goTo(path: string, state?: any) {
     if (isAdminView) return;
@@ -72,6 +173,16 @@ export default function MobileDealerSidebar({
 
     navigate("/", { replace: true });
   }
+
+  const displayName =
+    dealerProfile?.name ||
+    localStorage.getItem("ps_dealer_name") ||
+    dealerName ||
+    "Dealer";
+
+  const displayDealerId = getDealerIdDisplay(
+    dealerProfile?.id || normalizeDealerId(dealerId)
+  );
 
   const menuItems = [
     {
@@ -142,10 +253,11 @@ export default function MobileDealerSidebar({
 
           <div className="flex items-center gap-3">
             <img
-            src="https://github.com/senchasuresh99/LearningScalare/blob/main/logo1.png?raw=true"
-            alt="PawnSecure"
-            className="w-10 h-10 bg-white rounded-lg p-1 object-contain"
-          />
+              src="https://github.com/senchasuresh99/LearningScalare/blob/main/logo1.png?raw=true"
+              alt="PawnSecure"
+              className="w-10 h-10 bg-white rounded-lg p-1 object-contain"
+            />
+
             <div>
               <h2 className="text-lg font-extrabold leading-tight">
                 PawnSecure
@@ -154,18 +266,30 @@ export default function MobileDealerSidebar({
             </div>
           </div>
 
-          <div className="mt-5 flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center font-bold text-white">
-              {getInitials(dealerName)}
+          {/* ✅ Clickable Dealer Profile Card */}
+          <button
+            type="button"
+            onClick={() => setShowDealerDetails(true)}
+            className="mt-5 w-full flex items-center gap-3 bg-white/10 rounded-2xl p-3 border border-white/10 text-left hover:bg-white/20 active:bg-white/25 transition"
+          >
+            <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center font-bold text-white shrink-0">
+              {profileLoading ? "..." : getInitials(displayName)}
             </div>
 
-            <div className="min-w-0">
-              <p className="font-bold truncate">{dealerName}</p>
+            <div className="min-w-0 flex-1">
+              <p className="font-bold truncate">
+                {profileLoading ? "Loading..." : displayName}
+              </p>
+
               <p className="text-xs opacity-80">
-                Dealer ID: {getDealerIdDisplay(dealerId)}
+                Dealer ID: {displayDealerId}
+              </p>
+
+              <p className="text-[10px] opacity-70 mt-0.5">
+                Tap to view profile
               </p>
             </div>
-          </div>
+          </button>
 
           {isAdminView && (
             <div className="mt-4 bg-yellow-300 text-yellow-900 px-3 py-1.5 rounded-lg text-xs font-bold inline-block">
@@ -219,6 +343,135 @@ export default function MobileDealerSidebar({
           </button>
         </div>
       </aside>
+
+      {/* ✅ Dealer Details Modal */}
+      {showDealerDetails && (
+        <div className="absolute inset-0 z-[1000] bg-black/50 flex items-end justify-center">
+          <div className="w-full max-w-md bg-white rounded-t-3xl shadow-2xl max-h-[85vh] overflow-y-auto animate-in slide-in-from-bottom duration-200">
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-white border-b border-gray-100 px-5 py-4 flex items-center justify-between rounded-t-3xl">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">
+                  Dealer Profile
+                </h2>
+                <p className="text-xs text-gray-500">
+                  Logged-in dealer details
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowDealerDetails(false)}
+                className="w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-700"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            {/* Profile Top */}
+            <div className="px-5 py-5 bg-gradient-to-br from-purple-700 to-indigo-600 text-white">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-xl font-bold">
+                  {getInitials(displayName)}
+                </div>
+
+                <div className="min-w-0">
+                  <h3 className="text-xl font-bold truncate">
+                    {displayName}
+                  </h3>
+                  <p className="text-sm text-white/85">
+                    Dealer ID: {displayDealerId}
+                  </p>
+
+                  {dealerProfile?.status && (
+                    <span className="inline-block mt-2 bg-green-100 text-green-700 text-xs font-bold px-2.5 py-1 rounded-full">
+                      {dealerProfile.status}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Details */}
+            <div className="p-5 space-y-3">
+              <ProfileRow
+                icon={<FaEnvelope />}
+                label="Email"
+                value={dealerProfile?.email}
+              />
+
+              <ProfileRow
+                icon={<FaPhoneAlt />}
+                label="Phone Number"
+                value={dealerProfile?.phoneNumber}
+              />
+
+              <ProfileRow
+                icon={<FaMapMarkerAlt />}
+                label="City"
+                value={dealerProfile?.city}
+              />
+
+              <ProfileRow
+                icon={<FaIdCard />}
+                label="GST Number"
+                value={dealerProfile?.gstNumber}
+              />
+
+              <ProfileRow
+                icon={<FaStore />}
+                label="Shop Name"
+                value={dealerProfile?.shopName}
+              />
+
+              <ProfileRow
+                icon={<FaMapMarkerAlt />}
+                label="Shop Address"
+                value={dealerProfile?.shopAddress}
+              />
+
+              <ProfileRow
+                icon={<FaCalendarAlt />}
+                label="Subscription Start"
+                value={formatDateTime(dealerProfile?.subscriptionStart)}
+              />
+
+              <ProfileRow
+                icon={<FaCalendarAlt />}
+                label="Subscription End"
+                value={formatDateTime(dealerProfile?.subscriptionEnd)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProfileRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value?: string | number | null;
+}) {
+  return (
+    <div className="flex items-start gap-3 bg-gray-50 rounded-2xl p-3 border border-gray-100">
+      <div className="w-9 h-9 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center shrink-0">
+        {icon}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] uppercase tracking-wide text-gray-400 font-bold">
+          {label}
+        </p>
+        <p className="text-sm font-semibold text-gray-800 break-words mt-0.5">
+          {value || "-"}
+        </p>
+      </div>
     </div>
   );
 }

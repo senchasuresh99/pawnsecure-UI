@@ -25,6 +25,22 @@ type Dealer = {
   subscriptionEnd?: string;
 };
 
+type DealerProfile = {
+  id: number;
+  name?: string;
+  email?: string;
+  phoneNumber?: string;
+  city?: string;
+  gstNumber?: string;
+  shopName?: string;
+  shopAddress?: string;
+  role?: string;
+  status?: "APPROVED" | "PENDING" | "REJECTED" | string;
+  subscriptionStart?: string;
+  subscriptionEnd?: string;
+  subscriptionActive?: boolean;
+};
+
 type MetalRateForm = {
   city: string;
   rateDate: string;
@@ -90,6 +106,14 @@ export default function AdminDashboard() {
   const [message, setMessage] = useState("");
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
+  const [dealerDetailsModal, setDealerDetailsModal] = useState(false);
+  const [dealerDetailsLoading, setDealerDetailsLoading] = useState(false);
+  const [dealerDetailsError, setDealerDetailsError] = useState("");
+  const [selectedDealer, setSelectedDealer] = useState<DealerProfile | null>(
+    null
+  );
+  const [selectedDealerId, setSelectedDealerId] = useState<number | string>("");
+
   const [popup, setPopup] = useState({
     show: false,
     type: "success" as "success" | "error",
@@ -154,12 +178,91 @@ export default function AdminDashboard() {
     navigate("/", { replace: true });
   }
 
-  function openDealerDashboard(dealer: Dealer) {
-    navigate(
-      `/dealer/dashboard?adminView=true&dealerId=${
-        dealer.id
-      }&dealerName=${encodeURIComponent(dealer.shopName)}`
-    );
+  function openDealerDashboard(dealer: Dealer | DealerProfile) {
+  const dealerName =
+    "shopName" in dealer && dealer.shopName
+      ? dealer.shopName
+      : "name" in dealer && dealer.name
+      ? dealer.name
+      : "Dealer";
+
+  navigate(
+    `/dealer/dashboard?adminView=true&dealerId=${dealer.id}&dealerName=${encodeURIComponent(
+      dealerName
+    )}`
+  );
+}
+
+  function getDealerIdDisplay(id?: string | number | null) {
+    if (!id) return "-";
+
+    const value = String(id);
+
+    return value.startsWith("DP") ? value : `DP${value}`;
+  }
+
+  function getInitials(name?: string) {
+    if (!name) return "D";
+
+    return name
+      .split(" ")
+      .filter(Boolean)
+      .map((word) => word[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
+  }
+
+  function formatDateTime(value?: string) {
+    if (!value) return "-";
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) return value;
+
+    return date.toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  }
+
+  async function viewDealerDetails(dealerId: number | string) {
+    try {
+      setSelectedDealerId(dealerId);
+      setDealerDetailsModal(true);
+      setDealerDetailsLoading(true);
+      setDealerDetailsError("");
+      setSelectedDealer(null);
+
+      const cleanDealerId = String(dealerId).replace(/^DP/i, "");
+
+      const res = await fetch(`${API_BASE}/auth/dealer/${cleanDealerId}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("ps_token")}`,
+        },
+      });
+
+      if (!res.ok) {
+        const msg = await res.text();
+
+        setDealerDetailsError(msg || "Failed to load dealer details");
+        return;
+      }
+
+      const data: DealerProfile = await res.json();
+
+      setSelectedDealer(data);
+    } catch (error) {
+      console.error("Failed to load dealer details", error);
+      setDealerDetailsError("Server error while loading dealer details");
+    } finally {
+      setDealerDetailsLoading(false);
+    }
   }
 
   async function loadDealers() {
@@ -670,7 +773,7 @@ export default function AdminDashboard() {
                           <div className="col-span-2">
                             <div className="flex flex-wrap gap-2 justify-end">
                               <button
-                                onClick={() => openDealerDashboard(dealer)}
+                                onClick={() => viewDealerDetails(dealer.id)}
                                 className="px-3 py-2 rounded-lg text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-1"
                               >
                                 <FaEye />
@@ -727,7 +830,7 @@ export default function AdminDashboard() {
 
                           <div className="mt-4 grid grid-cols-3 gap-2">
                             <button
-                              onClick={() => openDealerDashboard(dealer)}
+                              onClick={() => viewDealerDetails(dealer.id)}
                               className="bg-blue-600 text-white py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1"
                             >
                               <FaEye />
@@ -922,7 +1025,7 @@ export default function AdminDashboard() {
 
                   <div className="mt-4 grid grid-cols-3 gap-2">
                     <button
-                      onClick={() => openDealerDashboard(dealer)}
+                      onClick={() => viewDealerDetails(dealer.id)}
                       className="bg-blue-600 text-white py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1"
                     >
                       <FaEye />
@@ -959,6 +1062,155 @@ export default function AdminDashboard() {
           )}
         </div>
       </div>
+
+      {/* ================= DEALER DETAILS MODAL ================= */}
+      {dealerDetailsModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[999] p-4">
+          <div className="bg-white rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden">
+            <div className="bg-gradient-to-br from-purple-700 to-indigo-600 text-white px-6 py-5 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold">Dealer Details</h2>
+                <p className="text-sm text-white/80">
+                  Full registered dealer information
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setDealerDetailsModal(false)}
+                className="w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            {dealerDetailsLoading ? (
+              <div className="p-10 text-center text-gray-500">
+                Loading dealer details...
+              </div>
+            ) : dealerDetailsError ? (
+              <div className="p-10 text-center">
+                <p className="text-red-600 font-semibold text-sm">
+                  {dealerDetailsError}
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => selectedDealerId && viewDealerDetails(selectedDealerId)}
+                  className="mt-4 bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-xl text-sm font-bold"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : selectedDealer ? (
+              <>
+                <div className="px-6 py-5 border-b border-gray-100 flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-xl font-bold shrink-0">
+                    {getInitials(selectedDealer.shopName || selectedDealer.name)}
+                  </div>
+
+                  <div className="min-w-0">
+                    <h3 className="text-xl font-bold text-gray-900 truncate">
+                      {selectedDealer.shopName ||
+                        selectedDealer.name ||
+                        "Dealer"}
+                    </h3>
+
+                    <p className="text-sm text-gray-500">
+                      Dealer ID: {getDealerIdDisplay(selectedDealer.id)}
+                    </p>
+
+                    {selectedDealer.status && (
+                      <span
+                        className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold ${
+                          selectedDealer.status === "APPROVED"
+                            ? "bg-green-100 text-green-700"
+                            : selectedDealer.status === "REJECTED"
+                            ? "bg-red-100 text-red-700"
+                            : "bg-orange-100 text-orange-700"
+                        }`}
+                      >
+                        {selectedDealer.status}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto">
+                  <AdminDealerDetailRow
+                    label="Dealer Name"
+                    value={selectedDealer.name}
+                  />
+
+                  <AdminDealerDetailRow
+                    label="Shop Name"
+                    value={selectedDealer.shopName}
+                  />
+
+                  <AdminDealerDetailRow
+                    label="Email"
+                    value={selectedDealer.email}
+                  />
+
+                  <AdminDealerDetailRow
+                    label="Phone Number"
+                    value={selectedDealer.phoneNumber}
+                  />
+
+                  <AdminDealerDetailRow
+                    label="City / State"
+                    value={selectedDealer.city}
+                  />
+
+                  <AdminDealerDetailRow
+                    label="GST Number"
+                    value={selectedDealer.gstNumber}
+                  />
+
+                  <AdminDealerDetailRow
+                    label="Shop Address"
+                    value={selectedDealer.shopAddress}
+                  />
+
+                  <AdminDealerDetailRow
+                    label="Role"
+                    value={selectedDealer.role}
+                  />
+
+                  <AdminDealerDetailRow
+                    label="Status"
+                    value={selectedDealer.status}
+                  />
+
+                  <AdminDealerDetailRow
+                    label="Subscription Start"
+                    value={formatDateTime(selectedDealer.subscriptionStart)}
+                  />
+
+                  <AdminDealerDetailRow
+                    label="Subscription End"
+                    value={formatDateTime(selectedDealer.subscriptionEnd)}
+                  />
+                </div>
+
+                <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setDealerDetailsModal(false)}
+                    className="px-5 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-bold"
+                  >
+                    Close
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="p-10 text-center text-gray-500">
+                Dealer details not found
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {notifyModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[999] p-4">
@@ -1355,5 +1607,25 @@ function SubscriptionBadge({ active }: { active: boolean }) {
     <span className="inline-flex bg-red-50 text-red-700 px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap">
       Expired / Inactive
     </span>
+  );
+}
+
+function AdminDealerDetailRow({
+  label,
+  value,
+}: {
+  label: string;
+  value?: string | number | null;
+}) {
+  return (
+    <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4">
+      <p className="text-[11px] uppercase tracking-wide text-gray-400 font-bold">
+        {label}
+      </p>
+
+      <p className="text-sm font-semibold text-gray-800 break-words mt-1">
+        {value || "-"}
+      </p>
+    </div>
   );
 }

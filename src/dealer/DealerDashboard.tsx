@@ -21,7 +21,6 @@ import {
 
 const API_BASE = "https://pawnsecure-1.onrender.com/api";
 
-/* ✅ GIRVI DASHBOARD API PATHS */
 const DUE_TODAY_COUNT_API = `${API_BASE}/girvi/due-today/count`;
 const OVERDUE_COUNT_API = `${API_BASE}/girvi/overdue/count`;
 const TODAY_GIRVI_SUMMARY_API = `${API_BASE}/girvi/today/summary`;
@@ -124,6 +123,8 @@ export default function DealerDashboard() {
   const dealerId =
     query.get("dealerId") || localStorage.getItem("ps_dealer_id") || "-";
 
+  const dealerIdForHeader = dealerId.replace(/^DP/i, "");
+
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
@@ -160,21 +161,39 @@ export default function DealerDashboard() {
 
     const stringValue = String(value);
 
-    if (/^\d{4}-\d{2}-\d{2}$/.test(stringValue)) {
-      return "";
-    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(stringValue)) return "";
 
     const date = new Date(stringValue);
 
-    if (Number.isNaN(date.getTime())) {
-      return stringValue;
-    }
+    if (Number.isNaN(date.getTime())) return stringValue;
 
     return date.toLocaleTimeString("en-IN", {
       hour: "2-digit",
       minute: "2-digit",
       hour12: true,
     });
+  }
+
+  function getTodayDateString() {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+  }
+
+  function getRateUpdateLabel(rateDate?: string) {
+    if (!rateDate) return "Rates not available";
+
+    const today = getTodayDateString();
+    const normalizedRateDate = String(rateDate).slice(0, 10);
+
+    if (normalizedRateDate === today) {
+      return `Updated today: ${normalizedRateDate}`;
+    }
+
+    return `Latest available rate: ${normalizedRateDate}`;
   }
 
   async function fetchTodayMetalRates() {
@@ -190,7 +209,7 @@ export default function DealerDashboard() {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
-          "X-DEALER-ID": dealerId,
+          "X-DEALER-ID": dealerIdForHeader,
         },
       });
 
@@ -200,15 +219,19 @@ export default function DealerDashboard() {
         console.warn("Failed to load metal rates:", msg);
 
         setMetalRateData(null);
-        setMetalRateError(msg || "Today's metal rates not found");
+
+        // ✅ Do not show backend JSON error in UI
+        setMetalRateError("Rates not available");
         return;
       }
 
       const data: MetalRateApiResponse = await res.json();
 
       setMetalRateData(data);
+      setMetalRateError("");
     } catch (err) {
       console.error("Failed to fetch metal rates", err);
+
       setMetalRateData(null);
       setMetalRateError("Unable to load metal rates");
     } finally {
@@ -220,7 +243,6 @@ export default function DealerDashboard() {
     if (!dealerId || dealerId === "-") return;
 
     const token = localStorage.getItem("ps_token");
-
     if (!token) return;
 
     try {
@@ -229,14 +251,14 @@ export default function DealerDashboard() {
           method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
-            "X-DEALER-ID": dealerId,
+            "X-DEALER-ID": dealerIdForHeader,
           },
         }),
         fetch(OVERDUE_COUNT_API, {
           method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
-            "X-DEALER-ID": dealerId,
+            "X-DEALER-ID": dealerIdForHeader,
           },
         }),
       ]);
@@ -264,7 +286,6 @@ export default function DealerDashboard() {
     if (!dealerId || dealerId === "-") return;
 
     const token = localStorage.getItem("ps_token");
-
     if (!token) return;
 
     try {
@@ -272,7 +293,7 @@ export default function DealerDashboard() {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
-          "X-DEALER-ID": dealerId,
+          "X-DEALER-ID": dealerIdForHeader,
         },
       });
 
@@ -288,9 +309,6 @@ export default function DealerDashboard() {
       }
 
       const data: TodayGirviSummaryResponse = await res.json();
-
-      console.log("Today's Girvi Summary:", data);
-
       const totalAmount = Number(data.totalAmount || 0);
 
       setMetrics((prev) => ({
@@ -311,7 +329,6 @@ export default function DealerDashboard() {
     if (!dealerId || dealerId === "-") return;
 
     const token = localStorage.getItem("ps_token");
-
     if (!token) return;
 
     try {
@@ -322,7 +339,7 @@ export default function DealerDashboard() {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
-          "X-DEALER-ID": dealerId,
+          "X-DEALER-ID": dealerIdForHeader,
         },
       });
 
@@ -332,7 +349,7 @@ export default function DealerDashboard() {
         console.warn("Failed to load today's girvi activities:", msg);
 
         setTodayActivities([]);
-        setTodayActivityError(msg || "Unable to load today's activity");
+        setTodayActivityError("Unable to load today's activity");
         return;
       }
 
@@ -409,7 +426,7 @@ export default function DealerDashboard() {
           method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
-            "X-DEALER-ID": dealerId,
+            "X-DEALER-ID": dealerIdForHeader,
           },
         });
 
@@ -438,7 +455,7 @@ export default function DealerDashboard() {
             method: "GET",
             headers: {
               Authorization: `Bearer ${token}`,
-              "X-DEALER-ID": dealerId,
+              "X-DEALER-ID": dealerIdForHeader,
             },
           }
         );
@@ -523,8 +540,8 @@ export default function DealerDashboard() {
         : "₹ 0",
       unit: "/gram",
       change: metalRateData
-        ? `Updated: ${metalRateData.rateDate}`
-        : metalRateError || "Today's rate not available",
+        ? getRateUpdateLabel(metalRateData.rateDate)
+        : metalRateError || "Rates not available",
       isUp: !!metalRateData,
       cardBg: "bg-[#fffbeb] border-[#fde68a]",
       iconBg: "bg-[#fef3c7] text-[#b45309]",
@@ -539,8 +556,8 @@ export default function DealerDashboard() {
         : "₹ 0",
       unit: "/gram",
       change: metalRateData
-        ? `Updated: ${metalRateData.rateDate}`
-        : metalRateError || "Today's rate not available",
+        ? getRateUpdateLabel(metalRateData.rateDate)
+        : metalRateError || "Rates not available",
       isUp: !!metalRateData,
       cardBg: "bg-[#fffdf5] border-[#fef08a]",
       iconBg: "bg-[#fef9c3] text-[#a16207]",
@@ -555,8 +572,8 @@ export default function DealerDashboard() {
         : "₹ 0",
       unit: "/gram",
       change: metalRateData
-        ? `Updated: ${metalRateData.rateDate}`
-        : metalRateError || "Today's rate not available",
+        ? getRateUpdateLabel(metalRateData.rateDate)
+        : metalRateError || "Rates not available",
       isUp: !!metalRateData,
       cardBg: "bg-[#f8fafc] border-[#e2e8f0]",
       iconBg: "bg-[#f1f5f9] text-[#475569]",
@@ -833,7 +850,7 @@ export default function DealerDashboard() {
                   />
                   <span>
                     {metalRateData
-                      ? `Updated: ${metalRateData.rateDate}`
+                      ? getRateUpdateLabel(metalRateData.rateDate)
                       : metalRateLoading
                       ? "Loading rates..."
                       : "Rates unavailable"}
@@ -1178,7 +1195,7 @@ export default function DealerDashboard() {
                   }`}
                 />
                 {metalRateData
-                  ? metalRateData.rateDate
+                  ? getRateUpdateLabel(metalRateData.rateDate)
                   : metalRateLoading
                   ? "Loading..."
                   : "Unavailable"}
