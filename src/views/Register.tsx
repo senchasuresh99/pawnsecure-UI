@@ -9,7 +9,7 @@ const API_BASE = "https://pawnsecure-1.onrender.com/api";
 // ✅ WhatsApp details
 const waNumber = 918290818133;
 const waGroupLink =
-  "https://chat.whatsapp.com/G1U849zmSbe3baXsZmmYp";
+  "https://chat.whatsapp.com/KrCnMpNvmJP6ZCa3FW1hPB?s=sh&p=a&mlu=4";
 const waText = encodeURIComponent(
   "Hello, I have registered and am awaiting approval."
 );

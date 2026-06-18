@@ -11,7 +11,16 @@ import {
   FaSearch,
   FaTimes,
   FaSyncAlt,
+  FaFileInvoice,
+  FaDownload,
+  FaWhatsapp,
 } from "react-icons/fa";
+import {
+  LOGO_URL,
+  imageUrlToDataUrl,
+  buildInvoiceDataFromBackend,
+  generateFrontendInvoicePdfFile,
+} from "./InvoicePdf";
 
 const API_BASE = "https://pawnsecure-1.onrender.com/api";
 
@@ -19,6 +28,8 @@ type GirviResponseDTO = {
   id?: number;
   customerId: number;
   customerName: string;
+  customerPhone?: string;
+  phoneNumber?: string;
   itemName: string;
   itemType: string;
   itemWeightGram: number;
@@ -32,6 +43,17 @@ type GirviResponseDTO = {
   createdAt?: string;
   itemPhotoBase64?: string;
   itemPhotoContentType?: string;
+
+  invoiceId?: number;
+  invoiceNumber?: string;
+  invoiceDownloadUrl?: string;
+  invoice?: {
+    id?: number;
+    invoiceId?: number;
+    invoiceNumber?: string;
+  };
+
+  customer?: any;
 };
 
 type GirviPageResponse = {
@@ -110,6 +132,14 @@ export default function GirviList() {
     remarks: "",
   });
 
+  const [invoiceLogoDataUrl, setInvoiceLogoDataUrl] = useState("");
+  const [downloadingPdfGirviId, setDownloadingPdfGirviId] = useState<
+    number | string | null
+  >(null);
+  const [sendingWhatsAppGirviId, setSendingWhatsAppGirviId] = useState<
+    number | string | null
+  >(null);
+
   function goToAddGirvi() {
     navigate("/dealer/details", {
       state: { returnTo: "/dealer/customer" },
@@ -119,6 +149,24 @@ export default function GirviList() {
   useEffect(() => {
     fetchGirviList();
   }, [page, size]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadInvoiceLogo() {
+      const dataUrl = await imageUrlToDataUrl(LOGO_URL);
+
+      if (active) {
+        setInvoiceLogoDataUrl(dataUrl);
+      }
+    }
+
+    loadInvoiceLogo();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     const q = search.toLowerCase().trim();
@@ -292,6 +340,7 @@ export default function GirviList() {
       alert(
         "Girvi secure asset portfolio loan configuration extended/renewed successfully."
       );
+
       fetchGirviList();
     } catch (err) {
       console.error("Renewal transaction failure:", err);
@@ -429,6 +478,208 @@ export default function GirviList() {
     return `data:${contentType};base64,${item.itemPhotoBase64}`;
   }
 
+  function getGirviRowKey(item: GirviResponseDTO) {
+    return item.id || `${item.customerId}-${item.itemName}-${item.girviDate}`;
+  }
+
+  function getGirviInvoiceId(item: GirviResponseDTO) {
+    return item.invoiceId || item.invoice?.id || item.invoice?.invoiceId || null;
+  }
+
+  function getGirviInvoiceNumber(item: GirviResponseDTO, invoiceId: any) {
+    return item.invoiceNumber || item.invoice?.invoiceNumber || `INV-${invoiceId}`;
+  }
+
+  function buildInvoiceFormFromGirvi(item: GirviResponseDTO) {
+    return {
+      itemName: String(item.itemName || ""),
+      itemType: String(item.itemType || ""),
+      itemWeightGram: String(item.itemWeightGram || ""),
+      ratePerGram: String(item.ratePerGram || ""),
+      interestRate: String(item.interestRate || ""),
+      girviDate: String(item.girviDate || ""),
+      maturityDate: String(item.maturityDate || ""),
+      remarks: String(item.remarks || "-"),
+    };
+  }
+
+  function getCustomerPhoneForWhatsApp(item: GirviResponseDTO) {
+    return (
+      item.customerPhone ||
+      item.phoneNumber ||
+      item.customer?.phoneNumber ||
+      item.customer?.phone ||
+      item.customer?.mobile ||
+      ""
+    );
+  }
+
+  function normalizeWhatsAppPhone(phone: string) {
+    const digits = String(phone || "").replace(/\D/g, "");
+
+    if (!digits) return "";
+
+    if (digits.length === 10) {
+      return `91${digits}`;
+    }
+
+    return digits;
+  }
+
+  async function generateGirviInvoiceFile(item: GirviResponseDTO) {
+    const invoiceId = getGirviInvoiceId(item);
+
+    if (!invoiceId) {
+      throw new Error(
+        "Invoice ID not found for this Girvi. Please return invoiceId and invoiceNumber in Girvi list API."
+      );
+    }
+
+    const dealerId = localStorage.getItem("ps_dealer_id");
+    const token = localStorage.getItem("ps_token");
+
+    if (!dealerId || !token) {
+      throw new Error("Session expired. Please login again.");
+    }
+
+    const res = await fetch(`${API_BASE}/invoices/${invoiceId}/details`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "X-DEALER-ID": dealerId,
+      },
+    });
+
+    if (!res.ok) {
+      const message = await res.text();
+      throw new Error(message || "Unable to load invoice details");
+    }
+
+    const invoiceDetails = await res.json();
+
+    const form = buildInvoiceFormFromGirvi(item);
+
+    const invoiceNumber =
+      invoiceDetails?.invoiceNumber || getGirviInvoiceNumber(item, invoiceId);
+
+    const savedGirviData = buildInvoiceDataFromBackend({
+      invoiceDetails,
+      savedGirvi: item,
+      invoiceId,
+      invoiceNumber,
+      form,
+    });
+
+    const file = await generateFrontendInvoicePdfFile({
+      invoiceId: Number(invoiceId),
+      savedInvoiceNumber: invoiceNumber,
+      savedGirviData,
+      invoiceLogoDataUrl,
+      customerName: item.customerName || "Customer",
+      customer: item.customer || {},
+      resolvedCustomerId: item.customerId,
+      form,
+    });
+
+    return {
+      file,
+      invoiceNumber,
+      invoiceDetails,
+    };
+  }
+
+  async function downloadGirviInvoicePdf(item: GirviResponseDTO) {
+    const rowKey = getGirviRowKey(item);
+
+    setDownloadingPdfGirviId(rowKey);
+
+    try {
+      const { file } = await generateGirviInvoiceFile(item);
+
+      const url = window.URL.createObjectURL(file);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = file.name;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error("Invoice PDF download failed:", err);
+      alert(err?.message || "Could not download invoice PDF.");
+    } finally {
+      setDownloadingPdfGirviId(null);
+    }
+  }
+
+  async function sendGirviInvoiceOnWhatsApp(item: GirviResponseDTO) {
+    const rowKey = getGirviRowKey(item);
+
+    setSendingWhatsAppGirviId(rowKey);
+
+    try {
+      const { file, invoiceNumber } = await generateGirviInvoiceFile(item);
+
+      const message = `PawnSecure Invoice
+
+Invoice No: ${invoiceNumber}
+Customer: ${item.customerName || "-"}
+Item: ${item.itemName || "-"}
+Loan Amount: ${formatCurrency(item.loanAmount)}
+Maturity Date: ${formatDate(item.maturityDate)}
+
+Please find attached invoice PDF.`;
+
+      const navAny = navigator as any;
+
+      if (
+        navAny.share &&
+        navAny.canShare &&
+        navAny.canShare({ files: [file] })
+      ) {
+        await navAny.share({
+          title: "PawnSecure Invoice",
+          text: message,
+          files: [file],
+        });
+
+        return;
+      }
+
+      const url = window.URL.createObjectURL(file);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = file.name;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.URL.revokeObjectURL(url);
+
+      const phone = normalizeWhatsAppPhone(getCustomerPhoneForWhatsApp(item));
+
+      const whatsappUrl = phone
+        ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
+        : `https://wa.me/?text=${encodeURIComponent(message)}`;
+
+      window.open(whatsappUrl, "_blank");
+
+      alert(
+        "PDF downloaded. If WhatsApp does not attach the PDF automatically, please attach the downloaded PDF manually."
+      );
+    } catch (err: any) {
+      console.error("WhatsApp invoice share failed:", err);
+      alert(err?.message || "Could not send invoice on WhatsApp.");
+    } finally {
+      setSendingWhatsAppGirviId(null);
+    }
+  }
+
   function formatCurrency(value: number | string | undefined) {
     if (value === undefined || value === null || value === "") return "₹0";
     return `₹${Number(value).toLocaleString("en-IN")}`;
@@ -452,15 +703,19 @@ export default function GirviList() {
     const s = status?.toLowerCase();
 
     if (s === "active") return "bg-green-50 text-green-700 border-green-100";
-    if (s === "closed") return "bg-gray-100 text-gray-600 border-gray-200";
+    if (s === "duetoday") return "bg-yellow-50 text-yellow-700 border-yellow-100";
+    if (s === "due") return "bg-yellow-50 text-yellow-700 border-yellow-100";
     if (s === "overdue") return "bg-red-50 text-red-700 border-red-100";
+    if (s === "partial_released")
+      return "bg-blue-50 text-blue-700 border-blue-100";
+    if (s === "released") return "bg-indigo-50 text-indigo-700 border-indigo-100";
+    if (s === "closed") return "bg-gray-100 text-gray-600 border-gray-200";
 
     return "bg-purple-50 text-purple-700 border-purple-100";
   }
 
   return (
     <div className="min-h-screen bg-[#f4f5f7] font-sans">
-      {/* ================= DESKTOP VIEW WITH GLOBAL SIDEBAR ================= */}
       <div className="hidden lg:flex min-h-screen">
         <DealerSidebar isAdminView={isAdminView} />
 
@@ -505,6 +760,11 @@ export default function GirviList() {
               getStatusClass={getStatusClass}
               openEditModal={openEditModal}
               handleRenewGirvi={handleRenewGirvi}
+              downloadGirviInvoicePdf={downloadGirviInvoicePdf}
+              downloadingPdfGirviId={downloadingPdfGirviId}
+              sendGirviInvoiceOnWhatsApp={sendGirviInvoiceOnWhatsApp}
+              sendingWhatsAppGirviId={sendingWhatsAppGirviId}
+              getGirviRowKey={getGirviRowKey}
               page={page}
               size={size}
               totalPages={totalPages}
@@ -515,7 +775,6 @@ export default function GirviList() {
         </main>
       </div>
 
-      {/* ================= MOBILE VIEW ================= */}
       <div className="lg:hidden min-h-screen bg-[#f4f5f7] pb-32">
         <MobileDealerSidebar
           open={showMobileSidebar}
@@ -592,6 +851,11 @@ export default function GirviList() {
             getStatusClass={getStatusClass}
             openEditModal={openEditModal}
             handleRenewGirvi={handleRenewGirvi}
+            downloadGirviInvoicePdf={downloadGirviInvoicePdf}
+            downloadingPdfGirviId={downloadingPdfGirviId}
+            sendGirviInvoiceOnWhatsApp={sendGirviInvoiceOnWhatsApp}
+            sendingWhatsAppGirviId={sendingWhatsAppGirviId}
+            getGirviRowKey={getGirviRowKey}
             page={page}
             size={size}
             totalPages={totalPages}
@@ -621,8 +885,6 @@ export default function GirviList() {
   );
 }
 
-/* ================= DESKTOP COMPONENT PANEL ================= */
-
 function RecordsPanel({
   loading,
   error,
@@ -636,6 +898,11 @@ function RecordsPanel({
   getStatusClass,
   openEditModal,
   handleRenewGirvi,
+  downloadGirviInvoicePdf,
+  downloadingPdfGirviId,
+  sendGirviInvoiceOnWhatsApp,
+  sendingWhatsAppGirviId,
+  getGirviRowKey,
   page,
   size,
   totalPages,
@@ -686,6 +953,9 @@ function RecordsPanel({
             {filteredList.map((item: GirviResponseDTO, index: number) => {
               const imageSrc = getImageSrc(item);
               const typeLower = String(item.itemType || "").toLowerCase();
+              const rowKey = getGirviRowKey(item);
+              const pdfLoading = downloadingPdfGirviId === rowKey;
+              const whatsAppLoading = sendingWhatsAppGirviId === rowKey;
 
               return (
                 <div
@@ -786,11 +1056,11 @@ function RecordsPanel({
                     </div>
 
                     <div className="col-span-2">
-                      <div className="flex flex-col gap-2">
+                      <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
                           onClick={() => openEditModal(item)}
-                          className="w-full bg-purple-50 hover:bg-purple-100 text-[#4820C5] px-3 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition"
+                          className="w-full bg-purple-50 hover:bg-purple-100 text-[#4820C5] px-2 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition"
                         >
                           <FaEdit />
                           Edit
@@ -799,10 +1069,48 @@ function RecordsPanel({
                         <button
                           type="button"
                           onClick={() => handleRenewGirvi(item.id)}
-                          className="w-full bg-green-50 hover:bg-green-100 text-[#28A745] px-3 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition"
+                          className="w-full bg-green-50 hover:bg-green-100 text-[#28A745] px-2 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition"
                         >
                           <FaSyncAlt className="text-[10px]" />
                           Renew
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => downloadGirviInvoicePdf(item)}
+                          disabled={pdfLoading}
+                          className="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400"
+                        >
+                          {pdfLoading ? (
+                            <>
+                              <FaDownload className="animate-pulse" />
+                              PDF...
+                            </>
+                          ) : (
+                            <>
+                              <FaFileInvoice />
+                              PDF
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => sendGirviInvoiceOnWhatsApp(item)}
+                          disabled={whatsAppLoading}
+                          className="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400"
+                        >
+                          {whatsAppLoading ? (
+                            <>
+                              <FaDownload className="animate-pulse" />
+                              Share...
+                            </>
+                          ) : (
+                            <>
+                              <FaWhatsapp />
+                              WhatsApp
+                            </>
+                          )}
                         </button>
                       </div>
                     </div>
@@ -829,8 +1137,6 @@ function RecordsPanel({
   );
 }
 
-/* ================= MOBILE COMPONENT PANEL ================= */
-
 function MobileRecordsPanel({
   loading,
   error,
@@ -844,6 +1150,11 @@ function MobileRecordsPanel({
   getStatusClass,
   openEditModal,
   handleRenewGirvi,
+  downloadGirviInvoicePdf,
+  downloadingPdfGirviId,
+  sendGirviInvoiceOnWhatsApp,
+  sendingWhatsAppGirviId,
+  getGirviRowKey,
   page,
   size,
   totalPages,
@@ -881,6 +1192,9 @@ function MobileRecordsPanel({
         !error &&
         filteredList.map((item: GirviResponseDTO, index: number) => {
           const imageSrc = getImageSrc(item);
+          const rowKey = getGirviRowKey(item);
+          const pdfLoading = downloadingPdfGirviId === rowKey;
+          const whatsAppLoading = sendingWhatsAppGirviId === rowKey;
 
           return (
             <div
@@ -960,7 +1274,7 @@ function MobileRecordsPanel({
                   className="bg-purple-50 hover:bg-purple-100 text-[#4820C5] py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition"
                 >
                   <FaEdit className="text-xs" />
-                  Edit Records
+                  Edit
                 </button>
 
                 <button
@@ -969,7 +1283,45 @@ function MobileRecordsPanel({
                   className="bg-[#28A745]/5 hover:bg-[#28A745]/10 text-[#28A745] py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition"
                 >
                   <FaSyncAlt className="text-[10px]" />
-                  Renew Loan
+                  Renew
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => downloadGirviInvoicePdf(item)}
+                  disabled={pdfLoading}
+                  className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400"
+                >
+                  {pdfLoading ? (
+                    <>
+                      <FaDownload className="animate-pulse" />
+                      PDF...
+                    </>
+                  ) : (
+                    <>
+                      <FaFileInvoice className="text-xs" />
+                      PDF
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => sendGirviInvoiceOnWhatsApp(item)}
+                  disabled={whatsAppLoading}
+                  className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400"
+                >
+                  {whatsAppLoading ? (
+                    <>
+                      <FaDownload className="animate-pulse" />
+                      Share...
+                    </>
+                  ) : (
+                    <>
+                      <FaWhatsapp className="text-xs" />
+                      WhatsApp
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -992,8 +1344,6 @@ function MobileRecordsPanel({
     </div>
   );
 }
-
-/* ================= EDIT MODAL OVERLAY ================= */
 
 function EditModal({
   selectedGirvi,
@@ -1130,8 +1480,6 @@ function EditModal({
     </div>
   );
 }
-
-/* ================= COMPACT UI ATOM SUBSYSTEMS ================= */
 
 function EditInput({
   label,

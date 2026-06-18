@@ -408,7 +408,7 @@ export default function MobileDealerSidebar({
 
               <ProfileRow
                 icon={<FaMapMarkerAlt />}
-                label="City"
+                label="State"
                 value={dealerProfile?.city}
               />
 

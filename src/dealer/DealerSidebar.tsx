@@ -380,7 +380,7 @@ export default function DealerSidebar({
 
                   <ProfileRow
                     icon={<FaMapMarkerAlt />}
-                    label="City"
+                    label="State"
                     value={dealerProfile?.city}
                   />
 

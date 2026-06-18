@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
 import {
   FaArrowLeft,
   FaArrowRight,
@@ -19,10 +17,15 @@ import {
 import DealerSidebar from "../dealer/DealerSidebar";
 import MobileDealerSidebar from "../dealer/MobileDealerSidebar";
 import { useGirvi } from "./GirviContext";
+import {
+  LOGO_URL,
+  imageUrlToDataUrl,
+  buildInvoiceDataFromBackend,
+  generateFrontendInvoicePdfFile,
+  formatInvoiceCurrency,
+} from "./InvoicePdf";
 
 const API_BASE = "https://pawnsecure-1.onrender.com/api";
-const LOGO_URL =
-  "https://raw.githubusercontent.com/senchasuresh99/LearningScalare/main/logo1.png";
 
 export default function AddGirvi() {
   const nav = useNavigate();
@@ -319,95 +322,6 @@ export default function AddGirvi() {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
   }
 
-  function formatInvoiceCurrency(value: any) {
-    if (value === undefined || value === null || value === "") return "₹0";
-    return `₹${Number(value).toLocaleString("en-IN")}`;
-  }
-
-  function formatInvoiceDate(value?: string) {
-    if (!value) return "-";
-
-    try {
-      return new Date(value).toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      });
-    } catch {
-      return value;
-    }
-  }
-
-  function escapeHtml(value: any) {
-    return String(value ?? "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-  }
-
-  function firstValue(...values: any[]) {
-    for (const value of values) {
-      if (
-        value !== undefined &&
-        value !== null &&
-        String(value).trim() !== ""
-      ) {
-        return value;
-      }
-    }
-
-    return "";
-  }
-
-  async function imageUrlToDataUrl(url: string): Promise<string> {
-    try {
-      const res = await fetch(url, {
-        mode: "cors",
-        cache: "force-cache",
-      });
-
-      if (!res.ok) return "";
-
-      const blob = await res.blob();
-
-      return await new Promise((resolve) => {
-        const reader = new FileReader();
-
-        reader.onloadend = () => {
-          resolve(String(reader.result || ""));
-        };
-
-        reader.onerror = () => {
-          resolve("");
-        };
-
-        reader.readAsDataURL(blob);
-      });
-    } catch (err) {
-      console.warn("Logo load failed:", err);
-      return "";
-    }
-  }
-
-  function waitForImagesToLoad(element: HTMLElement) {
-    const images = Array.from(element.querySelectorAll("img"));
-
-    return Promise.all(
-      images.map((img) => {
-        if (img.complete && img.naturalWidth > 0) {
-          return Promise.resolve(true);
-        }
-
-        return new Promise((resolve) => {
-          img.onload = () => resolve(true);
-          img.onerror = () => resolve(false);
-        });
-      })
-    );
-  }
-
   async function fetchInvoiceDetailsForFrontend(invoiceId: number) {
     const authToken = localStorage.getItem("ps_token");
     const currentDealerId = localStorage.getItem("ps_dealer_id");
@@ -435,446 +349,6 @@ export default function AddGirvi() {
     }
   }
 
-  function buildInvoiceDataFromBackend({
-    invoiceDetails,
-    savedGirvi,
-    invoiceId,
-    invoiceNumber,
-  }: {
-    invoiceDetails: any;
-    savedGirvi: any;
-    invoiceId: any;
-    invoiceNumber: string;
-  }) {
-    const data = invoiceDetails?.data || invoiceDetails || {};
-
-    return {
-      ...savedGirvi,
-      ...data,
-
-      invoiceId,
-      invoiceNumber: firstValue(
-        data.invoiceNumber,
-        savedGirvi?.invoiceNumber,
-        invoiceNumber
-      ),
-
-      shopName: firstValue(data.shopName, savedGirvi?.shopName),
-      gstNumber: firstValue(data.gstNumber, data.gstin, savedGirvi?.gstNumber),
-      dealerName: firstValue(data.dealerName, savedGirvi?.dealerName),
-      dealerPhone: firstValue(
-        data.dealerPhone,
-        data.dealerMobile,
-        savedGirvi?.dealerPhone
-      ),
-      shopAddress: firstValue(
-        data.shopAddress,
-        data.dealerShopAddress,
-        savedGirvi?.shopAddress
-      ),
-
-      customerId: firstValue(data.customerId, savedGirvi?.customerId),
-      customerName: firstValue(data.customerName, savedGirvi?.customerName),
-      customerPhone: firstValue(
-        data.customerPhone,
-        data.customerPhoneNumber,
-        data.phoneNumber,
-        savedGirvi?.customerPhone
-      ),
-      customerAddress: firstValue(
-        data.customerAddress,
-        savedGirvi?.customerAddress
-      ),
-
-      itemName: firstValue(data.itemName, savedGirvi?.itemName, form.itemName),
-      itemType: firstValue(data.itemType, savedGirvi?.itemType, form.itemType),
-      itemWeightGram: firstValue(
-        data.itemWeightGram,
-        savedGirvi?.itemWeightGram,
-        form.itemWeightGram
-      ),
-      ratePerGram: firstValue(
-        data.ratePerGram,
-        savedGirvi?.ratePerGram,
-        form.ratePerGram
-      ),
-
-      loanAmount: firstValue(
-        data.loanAmount,
-        savedGirvi?.loanAmount,
-        Number(form.itemWeightGram || 0) * Number(form.ratePerGram || 0)
-      ),
-      interestRate: firstValue(
-        data.interestRate,
-        savedGirvi?.interestRate,
-        form.interestRate
-      ),
-      girviDate: firstValue(
-        data.girviDate,
-        savedGirvi?.girviDate,
-        form.girviDate
-      ),
-      maturityDate: firstValue(
-        data.maturityDate,
-        savedGirvi?.maturityDate,
-        form.maturityDate
-      ),
-      remarks: firstValue(data.remarks, savedGirvi?.remarks, form.remarks, "-"),
-      status: firstValue(data.status, savedGirvi?.status, "ACTIVE"),
-    };
-  }
-
-  function invoicePanelHtml(title: string, rows: [string, any][]) {
-    return `
-      <div style="
-        border:1px solid #eef2f7;
-        border-radius:20px;
-        overflow:hidden;
-        background:#ffffff;
-        margin-bottom:18px;
-      ">
-        <div style="
-          background:#f8fafc;
-          padding:14px 18px;
-          font-size:13px;
-          font-weight:900;
-          text-transform:uppercase;
-          letter-spacing:0.6px;
-          color:#4820C5;
-          border-bottom:1px solid #eef2f7;
-        ">
-          ${escapeHtml(title)}
-        </div>
-
-        <div style="padding:16px 18px;">
-          ${rows
-            .map(
-              ([label, value]) => `
-                <div style="
-                  display:flex;
-                  justify-content:space-between;
-                  gap:18px;
-                  padding:10px 0;
-                  border-bottom:1px dashed #e5e7eb;
-                  font-size:13px;
-                ">
-                  <span style="color:#64748b; font-weight:700; min-width:120px;">
-                    ${escapeHtml(label)}
-                  </span>
-                  <span style="color:#111827; font-weight:800; text-align:right; word-break:break-word;">
-                    ${escapeHtml(value)}
-                  </span>
-                </div>
-              `
-            )
-            .join("")}
-        </div>
-      </div>
-    `;
-  }
-
-  function getInvoiceHtmlForPdf(invoiceId: number) {
-    if (!savedGirviData) return "";
-
-    const invoiceNumber =
-      savedInvoiceNumber || savedGirviData.invoiceNumber || `INV-${invoiceId}`;
-
-    const dealerName =
-      savedGirviData.dealerName ||
-      localStorage.getItem("ps_dealer_name") ||
-      "PawnSecure Dealer";
-
-    const shopName =
-      savedGirviData.shopName ||
-      savedGirviData.dealerShopName ||
-      localStorage.getItem("ps_shop_name") ||
-      dealerName ||
-      "PawnSecure";
-
-    const gstNumber = savedGirviData.gstNumber || savedGirviData.gstin || "-";
-
-    const shopAddress =
-      savedGirviData.shopAddress ||
-      savedGirviData.dealerShopAddress ||
-      localStorage.getItem("ps_shop_address") ||
-      "-";
-
-    const dealerPhone =
-      savedGirviData.dealerPhone ||
-      savedGirviData.dealerMobile ||
-      localStorage.getItem("ps_dealer_phone") ||
-      "-";
-
-    const customerDisplayName =
-      savedGirviData.customerName || customerName || "Selected Customer";
-
-    const customerPhone =
-      savedGirviData.customerPhone ||
-      savedGirviData.phoneNumber ||
-      savedGirviData.customerPhoneNumber ||
-      customer?.phoneNumber ||
-      customer?.phone ||
-      "-";
-
-    const customerAddress =
-      savedGirviData.customerAddress ||
-      customer?.customerAddress ||
-      customer?.address ||
-      "-";
-
-    const itemName = savedGirviData.itemName || form.itemName || "-";
-    const itemType = savedGirviData.itemType || form.itemType || "-";
-    const weight = savedGirviData.itemWeightGram || form.itemWeightGram || "-";
-    const ratePerGram = savedGirviData.ratePerGram || form.ratePerGram || 0;
-
-    const loanAmount =
-      savedGirviData.loanAmount ||
-      Number(form.itemWeightGram || 0) * Number(form.ratePerGram || 0);
-
-    const interestRate = savedGirviData.interestRate || form.interestRate || 0;
-    const girviDate = savedGirviData.girviDate || form.girviDate;
-    const maturityDate = savedGirviData.maturityDate || form.maturityDate;
-    const remarks = savedGirviData.remarks || form.remarks || "-";
-
-    const logoHtml = invoiceLogoDataUrl
-      ? `<img src="${invoiceLogoDataUrl}" alt="PawnSecure" style="width:44px;height:44px;object-fit:contain;display:block;" />`
-      : "PS";
-
-    return `
-      <div id="frontend-invoice-pdf" style="
-        width:794px;
-        min-height:1123px;
-        background:#ffffff;
-        font-family:Arial, Helvetica, sans-serif;
-        color:#111827;
-        box-sizing:border-box;
-        overflow:hidden;
-      ">
-        <div style="
-          background:linear-gradient(135deg, #4820C5, #24106D);
-          color:white;
-          padding:34px 40px;
-        ">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:24px;">
-            <div style="display:flex; align-items:center; gap:14px;">
-              <div style="
-                width:58px;
-                height:58px;
-                background:white;
-                color:#4820C5;
-                border-radius:18px;
-                display:flex;
-                align-items:center;
-                justify-content:center;
-                font-weight:900;
-                font-size:22px;
-                overflow:hidden;
-              ">
-                ${logoHtml}
-              </div>
-
-              <div>
-                <h1 style="font-size:28px; font-weight:900; margin:0;">
-                  PawnSecure
-                </h1>
-                <div style="font-size:12px; opacity:0.85; margin-top:4px;">
-                  Secure Girvi Invoice / Pledge Receipt
-                </div>
-              </div>
-            </div>
-
-            <div style="
-              background:rgba(255,255,255,0.14);
-              border:1px solid rgba(255,255,255,0.24);
-              padding:12px 16px;
-              border-radius:16px;
-              text-align:right;
-              min-width:230px;
-            ">
-              <div style="font-size:11px; text-transform:uppercase; opacity:0.75; letter-spacing:0.8px;">
-                Invoice Number
-              </div>
-              <strong style="font-size:15px; word-break:break-word;">
-                ${escapeHtml(invoiceNumber)}
-              </strong>
-            </div>
-          </div>
-        </div>
-
-        <div style="padding:34px 40px 40px;">
-          <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:14px; margin-bottom:28px;">
-            <div style="background:#ecfdf5; border:1px solid #bbf7d0; border-radius:18px; padding:16px;">
-              <div style="font-size:11px; color:#64748b; font-weight:800; text-transform:uppercase; margin-bottom:8px;">
-                Loan Amount
-              </div>
-              <div style="font-size:18px; font-weight:900; color:#15803d;">
-                ${escapeHtml(formatInvoiceCurrency(loanAmount))}
-              </div>
-            </div>
-
-            <div style="background:#f8fafc; border:1px solid #eef2f7; border-radius:18px; padding:16px;">
-              <div style="font-size:11px; color:#64748b; font-weight:800; text-transform:uppercase; margin-bottom:8px;">
-                Interest Rate
-              </div>
-              <div style="font-size:18px; font-weight:900;">
-                ${escapeHtml(interestRate)}%
-              </div>
-            </div>
-
-            <div style="background:#f8fafc; border:1px solid #eef2f7; border-radius:18px; padding:16px;">
-              <div style="font-size:11px; color:#64748b; font-weight:800; text-transform:uppercase; margin-bottom:8px;">
-                Maturity Date
-              </div>
-              <div style="font-size:18px; font-weight:900;">
-                ${escapeHtml(formatInvoiceDate(maturityDate))}
-              </div>
-            </div>
-          </div>
-
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:18px;">
-            ${invoicePanelHtml("Shop Details", [
-              ["Shop Name", shopName],
-              ["GST Number", gstNumber],
-              ["Dealer", dealerName],
-              ["Mobile", dealerPhone],
-              ["Address", shopAddress],
-            ])}
-
-            ${invoicePanelHtml("Customer Details", [
-              ["Name", customerDisplayName],
-              [
-                "Customer ID",
-                savedGirviData.customerId || resolvedCustomerId || "-",
-              ],
-              ["Phone", customerPhone],
-              ["Address", customerAddress],
-            ])}
-          </div>
-
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:18px;">
-            ${invoicePanelHtml("Item Details", [
-              ["Item Name", itemName],
-              ["Item Type", itemType],
-              ["Weight", `${weight} gm`],
-              ["Rate / Gram", formatInvoiceCurrency(ratePerGram)],
-            ])}
-
-            ${invoicePanelHtml("Loan Details", [
-              ["Girvi Date", formatInvoiceDate(girviDate)],
-              ["Maturity Date", formatInvoiceDate(maturityDate)],
-              ["Status", savedGirviData.status || "ACTIVE"],
-              ["Remarks", remarks],
-            ])}
-          </div>
-
-          <div style="
-            background:#fff7ed;
-            border:1px solid #fed7aa;
-            color:#9a3412;
-            padding:16px 18px;
-            border-radius:18px;
-            font-size:12px;
-            line-height:1.6;
-            margin-top:4px;
-            margin-bottom:28px;
-          ">
-            <strong style="display:block; font-size:13px; margin-bottom:6px;">
-              Terms &amp; Declaration
-            </strong>
-            This invoice is generated for the pledged item and loan details recorded in PawnSecure.
-            Customer and dealer are advised to verify item details, loan amount, interest rate and maturity date before signing.
-          </div>
-
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:34px;">
-            <div style="
-              height:95px;
-              border:1px dashed #cbd5e1;
-              border-radius:18px;
-              display:flex;
-              align-items:flex-end;
-              justify-content:center;
-              padding-bottom:12px;
-              color:#64748b;
-              font-size:12px;
-              font-weight:800;
-            ">Customer Signature</div>
-
-            <div style="
-              height:95px;
-              border:1px dashed #cbd5e1;
-              border-radius:18px;
-              display:flex;
-              align-items:flex-end;
-              justify-content:center;
-              padding-bottom:12px;
-              color:#64748b;
-              font-size:12px;
-              font-weight:800;
-            ">Dealer Signature</div>
-          </div>
-        </div>
-
-        <div style="
-          text-align:center;
-          padding:18px 40px 28px;
-          font-size:11px;
-          color:#64748b;
-          border-top:1px solid #eef2f7;
-        ">
-          Generated by <strong style="color:#4820C5;">PawnSecure</strong> • Secure pledge management system
-        </div>
-      </div>
-    `;
-  }
-
-  async function generateFrontendInvoicePdfFile(invoiceId: number) {
-    const invoiceNumber =
-      savedInvoiceNumber || savedGirviData?.invoiceNumber || `INV-${invoiceId}`;
-
-    const container = document.createElement("div");
-    container.style.position = "fixed";
-    container.style.left = "-10000px";
-    container.style.top = "0";
-    container.style.background = "#ffffff";
-    container.innerHTML = getInvoiceHtmlForPdf(invoiceId);
-
-    document.body.appendChild(container);
-
-    const invoiceElement = container.querySelector(
-      "#frontend-invoice-pdf"
-    ) as HTMLElement;
-
-    if (!invoiceElement) {
-      document.body.removeChild(container);
-      throw new Error("Invoice template not found.");
-    }
-
-    await waitForImagesToLoad(invoiceElement);
-
-    const canvas = await html2canvas(invoiceElement, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: false,
-      backgroundColor: "#ffffff",
-    });
-
-    const imgData = canvas.toDataURL("image/png");
-
-    const pdf = new jsPDF("p", "mm", "a4");
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = pdf.internal.pageSize.getHeight();
-
-    pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-
-    const blob = pdf.output("blob");
-
-    document.body.removeChild(container);
-
-    return new File([blob], `${invoiceNumber}.pdf`, {
-      type: "application/pdf",
-    });
-  }
-
   async function downloadInvoice(invoiceId: number) {
     if (!savedGirviData) {
       alert("Invoice data not available. Please try again.");
@@ -884,7 +358,17 @@ export default function AddGirvi() {
     setDownloadingInvoice(true);
 
     try {
-      const file = await generateFrontendInvoicePdfFile(invoiceId);
+      const file = await generateFrontendInvoicePdfFile({
+        invoiceId,
+        savedInvoiceNumber,
+        savedGirviData,
+        invoiceLogoDataUrl,
+        customerName,
+        customer,
+        resolvedCustomerId,
+        form,
+      });
+
       const url = window.URL.createObjectURL(file);
 
       const link = document.createElement("a");
@@ -913,7 +397,16 @@ export default function AddGirvi() {
     setSendingInvoice(true);
 
     try {
-      const file = await generateFrontendInvoicePdfFile(invoiceId);
+      const file = await generateFrontendInvoicePdfFile({
+        invoiceId,
+        savedInvoiceNumber,
+        savedGirviData,
+        invoiceLogoDataUrl,
+        customerName,
+        customer,
+        resolvedCustomerId,
+        form,
+      });
 
       const message = `PawnSecure Invoice
 
@@ -1083,6 +576,7 @@ Please find attached invoice PDF.`;
         savedGirvi,
         invoiceId,
         invoiceNumber,
+        form,
       });
 
       setSavedGirviData(invoiceDataForFrontend);

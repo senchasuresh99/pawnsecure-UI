@@ -1158,7 +1158,7 @@ export default function AdminDashboard() {
                   />
 
                   <AdminDealerDetailRow
-                    label="City / State"
+                    label="State"
                     value={selectedDealer.city}
                   />
 
