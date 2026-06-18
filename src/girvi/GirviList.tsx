@@ -32,7 +32,15 @@ type GirviResponseDTO = {
   phoneNumber?: string;
   itemName: string;
   itemType: string;
+
+  // Gross weight
   itemWeightGram: number;
+
+  // New fields
+  goldKarat?: string;
+  lessWeightGram?: number;
+  netWeightGram?: number;
+
   ratePerGram?: number;
   loanAmount: number;
   interestRate: number;
@@ -71,6 +79,9 @@ type GirviPageResponse = {
 type GirviUpdateForm = {
   itemName: string;
   itemWeightGram: string;
+  goldKarat: string;
+  lessWeightGram: string;
+  netWeightGram: string;
   ratePerGram: string;
   interestRate: string;
   maturityDate: string;
@@ -126,6 +137,9 @@ export default function GirviList() {
   const [editForm, setEditForm] = useState<GirviUpdateForm>({
     itemName: "",
     itemWeightGram: "",
+    goldKarat: "",
+    lessWeightGram: "",
+    netWeightGram: "",
     ratePerGram: "",
     interestRate: "",
     maturityDate: "",
@@ -203,6 +217,42 @@ export default function GirviList() {
       });
     };
   }, []);
+
+  function calculateNetWeight(gross: any, less: any) {
+    const grossWeight = Number(gross || 0);
+    const lessWeight = Number(less || 0);
+    const net = grossWeight - lessWeight;
+
+    return net > 0 ? net : 0;
+  }
+
+  function formatWeight(value: number | string | undefined) {
+    if (value === undefined || value === null || value === "") return "0 gm";
+
+    return `${Number(value).toLocaleString("en-IN", {
+      maximumFractionDigits: 3,
+    })} gm`;
+  }
+
+  function updateEditForm(key: keyof GirviUpdateForm, value: string) {
+    setEditForm((prev) => {
+      const next = {
+        ...prev,
+        [key]: value,
+      };
+
+      if (key === "itemWeightGram" || key === "lessWeightGram") {
+        const netWeight = calculateNetWeight(
+          key === "itemWeightGram" ? value : next.itemWeightGram,
+          key === "lessWeightGram" ? value : next.lessWeightGram
+        );
+
+        next.netWeightGram = netWeight ? String(netWeight) : "";
+      }
+
+      return next;
+    });
+  }
 
   async function fetchGirviList() {
     const dealerId = localStorage.getItem("ps_dealer_id");
@@ -312,6 +362,7 @@ export default function GirviList() {
     const confirmRenew = window.confirm(
       "Are you sure you want to renew this loan application record?"
     );
+
     if (!confirmRenew) return;
 
     const dealerId = localStorage.getItem("ps_dealer_id");
@@ -357,6 +408,15 @@ export default function GirviList() {
         item.itemWeightGram !== undefined && item.itemWeightGram !== null
           ? String(item.itemWeightGram)
           : "",
+      goldKarat: item.goldKarat || "",
+      lessWeightGram:
+        item.lessWeightGram !== undefined && item.lessWeightGram !== null
+          ? String(item.lessWeightGram)
+          : "",
+      netWeightGram:
+        item.netWeightGram !== undefined && item.netWeightGram !== null
+          ? String(item.netWeightGram)
+          : String(calculateNetWeight(item.itemWeightGram, item.lessWeightGram)),
       ratePerGram:
         item.ratePerGram !== undefined && item.ratePerGram !== null
           ? String(item.ratePerGram)
@@ -397,7 +457,25 @@ export default function GirviList() {
     }
 
     if (!editForm.itemWeightGram || Number(editForm.itemWeightGram) <= 0) {
-      alert("Valid item weight is required");
+      alert("Valid gross weight is required");
+      return;
+    }
+
+    if (Number(editForm.lessWeightGram || 0) < 0) {
+      alert("Less weight cannot be negative");
+      return;
+    }
+
+    if (
+      Number(editForm.lessWeightGram || 0) >
+      Number(editForm.itemWeightGram || 0)
+    ) {
+      alert("Less weight cannot be greater than gross weight");
+      return;
+    }
+
+    if (!editForm.netWeightGram || Number(editForm.netWeightGram) <= 0) {
+      alert("Valid net weight is required");
       return;
     }
 
@@ -429,6 +507,12 @@ export default function GirviList() {
         body: JSON.stringify({
           itemName: editForm.itemName.trim(),
           itemWeightGram: Number(editForm.itemWeightGram),
+          goldKarat: editForm.goldKarat.trim(),
+          lessWeightGram: Number(editForm.lessWeightGram || 0),
+          netWeightGram: Number(
+            editForm.netWeightGram ||
+              calculateNetWeight(editForm.itemWeightGram, editForm.lessWeightGram)
+          ),
           ratePerGram: Number(editForm.ratePerGram),
           interestRate: Number(editForm.interestRate),
           maturityDate: editForm.maturityDate,
@@ -495,6 +579,12 @@ export default function GirviList() {
       itemName: String(item.itemName || ""),
       itemType: String(item.itemType || ""),
       itemWeightGram: String(item.itemWeightGram || ""),
+      goldKarat: String(item.goldKarat || ""),
+      lessWeightGram: String(item.lessWeightGram || ""),
+      netWeightGram: String(
+        item.netWeightGram ||
+          calculateNetWeight(item.itemWeightGram, item.lessWeightGram)
+      ),
       ratePerGram: String(item.ratePerGram || ""),
       interestRate: String(item.interestRate || ""),
       girviDate: String(item.girviDate || ""),
@@ -757,6 +847,8 @@ Please find attached invoice PDF.`;
               getImageSrc={getImageSrc}
               formatCurrency={formatCurrency}
               formatDate={formatDate}
+              formatWeight={formatWeight}
+              calculateNetWeight={calculateNetWeight}
               getStatusClass={getStatusClass}
               openEditModal={openEditModal}
               handleRenewGirvi={handleRenewGirvi}
@@ -848,6 +940,8 @@ Please find attached invoice PDF.`;
             getImageSrc={getImageSrc}
             formatCurrency={formatCurrency}
             formatDate={formatDate}
+            formatWeight={formatWeight}
+            calculateNetWeight={calculateNetWeight}
             getStatusClass={getStatusClass}
             openEditModal={openEditModal}
             handleRenewGirvi={handleRenewGirvi}
@@ -872,6 +966,7 @@ Please find attached invoice PDF.`;
           selectedGirvi={selectedGirvi}
           editForm={editForm}
           setEditForm={setEditForm}
+          updateEditForm={updateEditForm}
           updating={updating}
           submitUpdateGirvi={submitUpdateGirvi}
           close={() => {
@@ -895,6 +990,8 @@ function RecordsPanel({
   getImageSrc,
   formatCurrency,
   formatDate,
+  formatWeight,
+  calculateNetWeight,
   getStatusClass,
   openEditModal,
   handleRenewGirvi,
@@ -957,6 +1054,10 @@ function RecordsPanel({
               const pdfLoading = downloadingPdfGirviId === rowKey;
               const whatsAppLoading = sendingWhatsAppGirviId === rowKey;
 
+              const resolvedNetWeight =
+                item.netWeightGram ||
+                calculateNetWeight(item.itemWeightGram, item.lessWeightGram);
+
               return (
                 <div
                   key={item.id || `${item.customerId}-${index}`}
@@ -1008,9 +1109,25 @@ function RecordsPanel({
                         {item.itemType || "-"}
                       </span>
 
-                      <p className="text-sm font-bold text-gray-700 mt-2">
-                        {item.itemWeightGram || 0} gm
-                      </p>
+                      <div className="mt-2 space-y-1">
+                        {typeLower === "gold" && item.goldKarat && (
+                          <p className="text-[11px] font-bold text-amber-700">
+                            Karat: {item.goldKarat}
+                          </p>
+                        )}
+
+                        <p className="text-xs font-bold text-gray-700">
+                          Gross: {formatWeight(item.itemWeightGram)}
+                        </p>
+
+                        <p className="text-xs font-bold text-gray-500">
+                          Less: {formatWeight(item.lessWeightGram)}
+                        </p>
+
+                        <p className="text-xs font-extrabold text-green-700">
+                          Net: {formatWeight(resolvedNetWeight)}
+                        </p>
+                      </div>
                     </div>
 
                     <div className="col-span-2">
@@ -1147,6 +1264,8 @@ function MobileRecordsPanel({
   getImageSrc,
   formatCurrency,
   formatDate,
+  formatWeight,
+  calculateNetWeight,
   getStatusClass,
   openEditModal,
   handleRenewGirvi,
@@ -1196,6 +1315,10 @@ function MobileRecordsPanel({
           const pdfLoading = downloadingPdfGirviId === rowKey;
           const whatsAppLoading = sendingWhatsAppGirviId === rowKey;
 
+          const resolvedNetWeight =
+            item.netWeightGram ||
+            calculateNetWeight(item.itemWeightGram, item.lessWeightGram);
+
           return (
             <div
               key={item.id || `${item.customerId}-${index}`}
@@ -1226,7 +1349,7 @@ function MobileRecordsPanel({
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <span
                       className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                         item.itemType === "Gold"
@@ -1236,8 +1359,9 @@ function MobileRecordsPanel({
                     >
                       {item.itemType || "-"}
                     </span>
-                    <span className="text-xs font-bold text-gray-500">
-                      {item.itemWeightGram || 0} gm
+
+                    <span className="text-xs font-bold text-green-700">
+                      Net: {formatWeight(resolvedNetWeight)}
                     </span>
                   </div>
 
@@ -1247,6 +1371,13 @@ function MobileRecordsPanel({
                   <p className="text-[11px] text-gray-400 font-medium">
                     Cust ID: {item.customerId || "-"}
                   </p>
+
+                  <div className="mt-2 text-[11px] text-gray-500 font-semibold space-y-0.5">
+                    {String(item.itemType || "").toLowerCase() === "gold" &&
+                      item.goldKarat && <p>Karat: {item.goldKarat}</p>}
+                    <p>Gross: {formatWeight(item.itemWeightGram)}</p>
+                    <p>Less: {formatWeight(item.lessWeightGram)}</p>
+                  </div>
                 </div>
               </div>
 
@@ -1348,7 +1479,7 @@ function MobileRecordsPanel({
 function EditModal({
   selectedGirvi,
   editForm,
-  setEditForm,
+  updateEditForm,
   updating,
   submitUpdateGirvi,
   close,
@@ -1380,18 +1511,42 @@ function EditModal({
           <EditInput
             label="Item Component Name"
             value={editForm.itemName}
-            onChange={(value: string) =>
-              setEditForm({ ...editForm, itemName: value })
-            }
+            onChange={(value: string) => updateEditForm("itemName", value)}
+          />
+
+          <EditInput
+            label="Gold Karat"
+            value={editForm.goldKarat}
+            onChange={(value: string) => updateEditForm("goldKarat", value)}
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <EditInput
-              label="Weight Mass (Gram)"
+              label="Gross Weight (Gram)"
               type="number"
               value={editForm.itemWeightGram}
               onChange={(value: string) =>
-                setEditForm({ ...editForm, itemWeightGram: value })
+                updateEditForm("itemWeightGram", value)
+              }
+            />
+
+            <EditInput
+              label="Less Weight (Gram)"
+              type="number"
+              value={editForm.lessWeightGram}
+              onChange={(value: string) =>
+                updateEditForm("lessWeightGram", value)
+              }
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <EditInput
+              label="Net Weight (Gram)"
+              type="number"
+              value={editForm.netWeightGram}
+              onChange={(value: string) =>
+                updateEditForm("netWeightGram", value)
               }
             />
 
@@ -1400,7 +1555,7 @@ function EditModal({
               type="number"
               value={editForm.ratePerGram}
               onChange={(value: string) =>
-                setEditForm({ ...editForm, ratePerGram: value })
+                updateEditForm("ratePerGram", value)
               }
             />
           </div>
@@ -1411,7 +1566,7 @@ function EditModal({
               type="number"
               value={editForm.interestRate}
               onChange={(value: string) =>
-                setEditForm({ ...editForm, interestRate: value })
+                updateEditForm("interestRate", value)
               }
             />
 
@@ -1420,7 +1575,7 @@ function EditModal({
               type="date"
               value={editForm.maturityDate}
               onChange={(value: string) =>
-                setEditForm({ ...editForm, maturityDate: value })
+                updateEditForm("maturityDate", value)
               }
             />
           </div>
@@ -1431,9 +1586,7 @@ function EditModal({
             </label>
             <textarea
               value={editForm.remarks}
-              onChange={(e) =>
-                setEditForm({ ...editForm, remarks: e.target.value })
-              }
+              onChange={(e) => updateEditForm("remarks", e.target.value)}
               rows={3}
               className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#4820C5] text-sm resize-none transition bg-gray-50/30"
               placeholder="Add auxiliary transactional remarks here..."
@@ -1447,7 +1600,7 @@ function EditModal({
               </p>
               <p className="text-2xl font-black text-green-600 mt-0.5">
                 {formatCurrency(
-                  Number(editForm.itemWeightGram || 0) *
+                  Number(editForm.netWeightGram || 0) *
                     Number(editForm.ratePerGram || 0)
                 )}
               </p>

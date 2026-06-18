@@ -8,6 +8,11 @@ export type GirviInvoiceForm = {
   itemName: string;
   itemType: string;
   itemWeightGram: string;
+
+  goldKarat?: string;
+  lessWeightGram?: string;
+  netWeightGram?: string;
+
   ratePerGram: string;
   interestRate: string;
   girviDate: string;
@@ -106,6 +111,14 @@ function formatWeight(value: any) {
   });
 }
 
+function calculateNetWeight(gross: any, less: any) {
+  const grossWeight = toNumber(gross);
+  const lessWeight = toNumber(less);
+  const netWeight = grossWeight - lessWeight;
+
+  return netWeight > 0 ? netWeight : 0;
+}
+
 function calculatePeriodText(start?: string, end?: string) {
   if (!start || !end) return "-";
 
@@ -122,7 +135,6 @@ function calculatePeriodText(start?: string, end?: string) {
 
   if (months >= 1) {
     if (months === 1) return "LAST TIME ONE MONTH ONLY";
-
     return `LAST TIME ${numberToWordsIndian(months)} MONTHS ONLY`;
   }
 
@@ -177,7 +189,6 @@ function numberToWordsIndian(num: number): string {
 
   function lessThanHundred(n: number) {
     if (n < 20) return ones[n];
-
     return `${tens[Math.floor(n / 10)]} ${ones[n % 10]}`.trim();
   }
 
@@ -253,6 +264,21 @@ function waitForImagesToLoad(element: HTMLElement) {
   );
 }
 
+function normalizeImageSrc(src?: string, contentType?: string) {
+  if (!src) return "";
+
+  if (
+    src.startsWith("data:") ||
+    src.startsWith("blob:") ||
+    src.startsWith("http://") ||
+    src.startsWith("https://")
+  ) {
+    return src;
+  }
+
+  return `data:${contentType || "image/png"};base64,${src}`;
+}
+
 export function buildInvoiceDataFromBackend({
   invoiceDetails,
   savedGirvi,
@@ -267,6 +293,32 @@ export function buildInvoiceDataFromBackend({
   form: GirviInvoiceForm;
 }) {
   const data = invoiceDetails?.data || invoiceDetails || {};
+
+  const grossWeight = firstValue(
+    data.itemWeightGram,
+    savedGirvi?.itemWeightGram,
+    form.itemWeightGram
+  );
+
+  const lessWeight = firstValue(
+    data.lessWeightGram,
+    savedGirvi?.lessWeightGram,
+    form.lessWeightGram,
+    0
+  );
+
+  const netWeight = firstValue(
+    data.netWeightGram,
+    savedGirvi?.netWeightGram,
+    form.netWeightGram,
+    calculateNetWeight(grossWeight, lessWeight)
+  );
+
+  const ratePerGram = firstValue(
+    data.ratePerGram,
+    savedGirvi?.ratePerGram,
+    form.ratePerGram
+  );
 
   return {
     ...savedGirvi,
@@ -306,26 +358,43 @@ export function buildInvoiceDataFromBackend({
       savedGirvi?.customerAddress
     ),
 
-    customerPhoto: firstValue(data.customerPhoto, savedGirvi?.customerPhoto),
+    customerPhoto: firstValue(
+      data.customerPhoto,
+      data.customerPhotoBase64,
+      data.customer?.photo,
+      data.customer?.photoBase64,
+      savedGirvi?.customerPhoto,
+      savedGirvi?.customerPhotoBase64,
+      savedGirvi?.customer?.photo,
+      savedGirvi?.customer?.photoBase64
+    ),
     customerPhotoContentType: firstValue(
       data.customerPhotoContentType,
-      savedGirvi?.customerPhotoContentType
+      data.customer?.photoContentType,
+      savedGirvi?.customerPhotoContentType,
+      savedGirvi?.customer?.photoContentType
     ),
 
     itemName: firstValue(data.itemName, savedGirvi?.itemName, form.itemName),
     itemType: firstValue(data.itemType, savedGirvi?.itemType, form.itemType),
-    itemWeightGram: firstValue(
-      data.itemWeightGram,
-      savedGirvi?.itemWeightGram,
-      form.itemWeightGram
-    ),
-    ratePerGram: firstValue(
-      data.ratePerGram,
-      savedGirvi?.ratePerGram,
-      form.ratePerGram
-    ),
+    itemWeightGram: grossWeight,
 
-    itemPhoto: firstValue(data.itemPhoto, savedGirvi?.itemPhoto),
+    goldKarat: firstValue(
+      data.goldKarat,
+      savedGirvi?.goldKarat,
+      form.goldKarat
+    ),
+    lessWeightGram: lessWeight,
+    netWeightGram: netWeight,
+
+    ratePerGram,
+
+    itemPhoto: firstValue(
+      data.itemPhoto,
+      data.itemPhotoBase64,
+      savedGirvi?.itemPhoto,
+      savedGirvi?.itemPhotoBase64
+    ),
     itemPhotoContentType: firstValue(
       data.itemPhotoContentType,
       savedGirvi?.itemPhotoContentType
@@ -334,7 +403,7 @@ export function buildInvoiceDataFromBackend({
     loanAmount: firstValue(
       data.loanAmount,
       savedGirvi?.loanAmount,
-      Number(form.itemWeightGram || 0) * Number(form.ratePerGram || 0)
+      Number(netWeight || 0) * Number(ratePerGram || 0)
     ),
     interestRate: firstValue(
       data.interestRate,
@@ -352,13 +421,7 @@ export function buildInvoiceDataFromBackend({
   };
 }
 
-function td(
-  value: any,
-  style = "",
-  options?: {
-    colspan?: number;
-  }
-) {
+function td(value: any, style = "", options?: { colspan?: number }) {
   return `
     <td
       ${options?.colspan ? `colspan="${options.colspan}"` : ""}
@@ -425,6 +488,7 @@ function imageBox(title: string, src?: string) {
         <img
           src="${escapeHtml(src)}"
           alt="${escapeHtml(title)}"
+          crossorigin="anonymous"
           style="
             width:100%;
             height:100%;
@@ -516,35 +580,65 @@ function getInvoiceHtmlForPdf(input: InvoicePdfInput) {
 
   const itemName = savedGirviData.itemName || form.itemName || "-";
   const itemType = savedGirviData.itemType || form.itemType || "-";
-  const weight = savedGirviData.itemWeightGram || form.itemWeightGram || 0;
+  const goldKarat = savedGirviData.goldKarat || form.goldKarat || "";
+
+  const grossWeightValue =
+    savedGirviData.itemWeightGram || form.itemWeightGram || 0;
+
+  const lessWeightValue =
+    savedGirviData.lessWeightGram || form.lessWeightGram || 0;
+
+  const netWeightValue =
+    savedGirviData.netWeightGram ||
+    form.netWeightGram ||
+    calculateNetWeight(grossWeightValue, lessWeightValue);
+
   const ratePerGram = savedGirviData.ratePerGram || form.ratePerGram || 0;
 
-  const loanAmount =
-    savedGirviData.loanAmount ||
-    Number(form.itemWeightGram || 0) * Number(form.ratePerGram || 0);
+  const grossWeight = toNumber(grossWeightValue);
+  const lessWeight = toNumber(lessWeightValue);
+  const netWeight = toNumber(netWeightValue);
+
+  const presentValue = netWeight * toNumber(ratePerGram);
+  const loanAmount = savedGirviData.loanAmount || presentValue;
 
   const girviDate = savedGirviData.girviDate || form.girviDate;
   const maturityDate = savedGirviData.maturityDate || form.maturityDate;
   const remarks = savedGirviData.remarks || form.remarks || "-";
 
-  const customerId = savedGirviData.customerId || resolvedCustomerId || "-";
+  const customerPhoto = normalizeImageSrc(
+    firstValue(
+      savedGirviData.customerPhoto,
+      savedGirviData.customerPhotoBase64,
+      savedGirviData.customer?.photo,
+      savedGirviData.customer?.photoBase64
+    ),
+    firstValue(
+      savedGirviData.customerPhotoContentType,
+      savedGirviData.customer?.photoContentType
+    )
+  );
 
-  const customerPhoto = savedGirviData.customerPhoto || "";
-  const itemPhoto = savedGirviData.itemPhoto || "";
+  const itemPhoto = normalizeImageSrc(
+    firstValue(savedGirviData.itemPhoto, savedGirviData.itemPhotoBase64),
+    savedGirviData.itemPhotoContentType
+  );
 
-  const grossWeight = toNumber(weight);
-  const lessWeight = 0;
-  const netWeight = grossWeight - lessWeight;
-  const presentValue = grossWeight * toNumber(ratePerGram);
   const debtAmount = toNumber(loanAmount);
-
   const amountInWords = `${numberToWordsIndian(debtAmount)} ONLY`;
   const periodText = calculatePeriodText(girviDate, maturityDate);
+
+  const commodityName = `${itemName} ${itemType}${
+    String(itemType).toLowerCase() === "gold" && goldKarat
+      ? ` (${goldKarat})`
+      : ""
+  }`;
 
   const logoHtml = invoiceLogoDataUrl
     ? `<img
         src="${escapeHtml(invoiceLogoDataUrl)}"
         alt="PawnSecure"
+        crossorigin="anonymous"
         style="
           width:44px;
           height:44px;
@@ -760,7 +854,7 @@ function getInvoiceHtmlForPdf(input: InvoicePdfInput) {
 
           <tbody>
             <tr>
-              ${td(`${itemName} ${itemType}`, "text-align:center;")}
+              ${td(commodityName, "text-align:center;")}
               ${td("1.00", "text-align:center;")}
               ${td(formatWeight(grossWeight), "text-align:center;")}
               ${td(formatWeight(lessWeight), "text-align:center;")}
@@ -939,10 +1033,11 @@ function getInvoiceHtmlForPdf(input: InvoicePdfInput) {
             <span>Loan Amount</span>
             <span>${escapeHtml(formatPlainAmount(debtAmount))}</span>
 
-            <span>Weight</span>
-            <span>${escapeHtml(formatWeight(grossWeight))} / ${escapeHtml(
-    formatWeight(netWeight)
-  )}</span>
+            <span>Gross Wt</span>
+            <span>${escapeHtml(formatWeight(grossWeight))}</span>
+
+            <span>Net Wt</span>
+            <span>${escapeHtml(formatWeight(netWeight))}</span>
           </div>
         </div>
 

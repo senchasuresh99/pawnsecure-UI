@@ -81,7 +81,15 @@ export default function AddGirvi() {
   const [form, setForm] = useState({
     itemName: "",
     itemType: "Gold",
+
+    // gross weight
     itemWeightGram: "",
+
+    // ✅ new fields
+    goldKarat: "",
+    lessWeightGram: "",
+    netWeightGram: "",
+
     ratePerGram: "",
     interestRate: "",
     girviDate: "",
@@ -196,15 +204,34 @@ export default function AddGirvi() {
     };
   }, [photoPreview]);
 
-  const totalValue =
-    Number(form.itemWeightGram || 0) * Number(form.ratePerGram || 0);
+  const grossWeight = Number(form.itemWeightGram || 0);
+  const lessWeight = Number(form.lessWeightGram || 0);
+  const calculatedNetWeight = Math.max(grossWeight - lessWeight, 0);
+
+  const netWeight =
+    form.netWeightGram !== "" ? Number(form.netWeightGram || 0) : calculatedNetWeight;
+
+  const totalValue = netWeight * Number(form.ratePerGram || 0);
 
   function update(key: string, value: any) {
     setForm((prev) => {
-      const next = {
+      const next: any = {
         ...prev,
         [key]: value,
       };
+
+      if (key === "itemWeightGram" || key === "lessWeightGram") {
+        const gross = Number(
+          key === "itemWeightGram" ? value || 0 : next.itemWeightGram || 0
+        );
+        const less = Number(
+          key === "lessWeightGram" ? value || 0 : next.lessWeightGram || 0
+        );
+
+        const net = Math.max(gross - less, 0);
+
+        next.netWeightGram = net ? String(net) : "";
+      }
 
       if (
         key === "girviDate" &&
@@ -277,11 +304,28 @@ export default function AddGirvi() {
       }
 
       if (!form.itemWeightGram || Number(form.itemWeightGram) <= 0) {
-        newErrors.itemWeightGram = "Enter valid weight";
+        newErrors.itemWeightGram = "Enter valid gross weight";
+      }
+
+      if (form.lessWeightGram !== "" && Number(form.lessWeightGram) < 0) {
+        newErrors.lessWeightGram = "Less weight cannot be negative";
+      }
+
+      if (Number(form.lessWeightGram || 0) > Number(form.itemWeightGram || 0)) {
+        newErrors.lessWeightGram =
+          "Less weight cannot be greater than gross weight";
+      }
+
+      if (!form.netWeightGram || Number(form.netWeightGram) <= 0) {
+        newErrors.netWeightGram = "Net weight must be greater than zero";
       }
 
       if (!form.ratePerGram || Number(form.ratePerGram) <= 0) {
         newErrors.ratePerGram = "Enter valid rate";
+      }
+
+      if (form.itemType === "Gold" && !form.goldKarat.trim()) {
+        newErrors.goldKarat = "Please enter gold karat";
       }
     }
 
@@ -490,7 +534,14 @@ Please find attached invoice PDF.`;
         customerId: Number(customerId),
         itemName: form.itemName.trim(),
         itemType: form.itemType.toUpperCase(),
+
         itemWeightGram: Number(form.itemWeightGram),
+
+        // ✅ new fields
+        goldKarat: form.goldKarat.trim(),
+        lessWeightGram: Number(form.lessWeightGram || 0),
+        netWeightGram: Number(form.netWeightGram || netWeight),
+
         ratePerGram: Number(form.ratePerGram),
         interestRate: Number(form.interestRate),
         girviDate: form.girviDate,
@@ -715,13 +766,56 @@ Please find attached invoice PDF.`;
                 />
               </div>
 
-              <Input
-                label="Weight (Gram) *"
-                type="number"
-                value={form.itemWeightGram}
-                onChange={(v: any) => update("itemWeightGram", v)}
-                error={errors.itemWeightGram}
-              />
+              {form.itemType === "Gold" && (
+                <Input
+                  label="Gold Karat *"
+                  value={form.goldKarat}
+                  placeholder="Example: 22K / 24K / 916"
+                  onChange={(v: any) => update("goldKarat", v)}
+                  error={errors.goldKarat}
+                />
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 md:gap-6">
+                <Input
+                  label="Gross Weight (Gram) *"
+                  type="number"
+                  value={form.itemWeightGram}
+                  onChange={(v: any) => update("itemWeightGram", v)}
+                  error={errors.itemWeightGram}
+                />
+
+                <Input
+                  label="Less Weight (Gram)"
+                  type="number"
+                  value={form.lessWeightGram}
+                  onChange={(v: any) => update("lessWeightGram", v)}
+                  error={errors.lessWeightGram}
+                />
+
+                <Input
+                  label="Net Weight (Gram) *"
+                  type="number"
+                  value={form.netWeightGram}
+                  onChange={(v: any) => update("netWeightGram", v)}
+                  error={errors.netWeightGram}
+                />
+              </div>
+
+              <div className="bg-green-50 border border-green-100 rounded-2xl p-4">
+                <p className="text-xs font-bold text-green-700 uppercase tracking-wide">
+                  Estimated Loan Value
+                </p>
+                <p className="text-2xl font-black text-green-700 mt-1">
+                  ₹{" "}
+                  {totalValue.toLocaleString("en-IN", {
+                    maximumFractionDigits: 2,
+                  })}
+                </p>
+                <p className="text-xs text-green-700 mt-1">
+                  Net Weight ({netWeight || 0} gm) × Rate ₹{form.ratePerGram || 0}
+                </p>
+              </div>
 
               <Input
                 label="Description (Optional)"
@@ -798,7 +892,7 @@ Please find attached invoice PDF.`;
                 <div className="w-full px-4 py-3.5 md:py-4 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 font-bold text-sm md:text-base">
                   ₹{" "}
                   {totalValue.toLocaleString("en-IN", {
-                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 2,
                   })}
                 </div>
               </div>
@@ -844,7 +938,10 @@ Please find attached invoice PDF.`;
                 photo={photoPreview}
                 name={form.itemName}
                 type={form.itemType}
-                weight={`${form.itemWeightGram} gram`}
+                karat={form.goldKarat}
+                grossWeight={`${form.itemWeightGram || 0} gram`}
+                lessWeight={`${form.lessWeightGram || 0} gram`}
+                netWeight={`${form.netWeightGram || netWeight || 0} gram`}
               />
 
               <div className="bg-gray-50 rounded-2xl border border-gray-100 p-5 md:p-8 text-sm md:text-base">
@@ -856,12 +953,29 @@ Please find attached invoice PDF.`;
                   />
                   <ReviewRow label="Girvi Date" value={form.girviDate} />
                   <ReviewRow label="Maturity Date" value={form.maturityDate} />
+                  <ReviewRow
+                    label="Gross Weight"
+                    value={`${form.itemWeightGram || 0} gm`}
+                  />
+                  <ReviewRow
+                    label="Less Weight"
+                    value={`${form.lessWeightGram || 0} gm`}
+                  />
+                  <ReviewRow
+                    label="Net Weight"
+                    value={`${form.netWeightGram || netWeight || 0} gm`}
+                  />
+                  {form.itemType === "Gold" && (
+                    <ReviewRow label="Gold Karat" value={form.goldKarat || "-"} />
+                  )}
                 </div>
 
                 <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-200">
                   <ReviewRow
                     label="Calculated Value"
-                    value={`₹ ${totalValue.toLocaleString("en-IN")}`}
+                    value={`₹ ${totalValue.toLocaleString("en-IN", {
+                      maximumFractionDigits: 2,
+                    })}`}
                     isHighlight
                   />
                 </div>
@@ -1235,12 +1349,18 @@ function ItemSummaryCard({
   photo,
   name,
   type,
-  weight,
+  karat,
+  grossWeight,
+  lessWeight,
+  netWeight,
 }: {
   photo: string | null;
   name: string;
   type: string;
-  weight: string;
+  karat?: string;
+  grossWeight: string;
+  lessWeight: string;
+  netWeight: string;
 }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-4 md:p-6 flex items-center gap-4 md:gap-6 shadow-sm">
@@ -1261,7 +1381,7 @@ function ItemSummaryCard({
           {name || "Unnamed Item"}
         </p>
 
-        <div className="flex items-center gap-2 mt-2 md:mt-3">
+        <div className="flex items-center gap-2 mt-2 md:mt-3 flex-wrap">
           <span
             className={`px-2.5 py-1 md:px-3 md:py-1.5 rounded-full text-[10px] md:text-xs font-bold ${
               type === "Gold"
@@ -1271,11 +1391,19 @@ function ItemSummaryCard({
           >
             {type}
           </span>
+
+          {type === "Gold" && karat && (
+            <span className="px-2.5 py-1 md:px-3 md:py-1.5 rounded-full text-[10px] md:text-xs font-bold bg-amber-50 text-amber-700">
+              {karat}
+            </span>
+          )}
         </div>
 
-        <p className="font-semibold text-gray-700 text-sm md:text-base mt-2 md:mt-3">
-          {weight}
-        </p>
+        <div className="mt-2 md:mt-3 text-xs md:text-sm text-gray-600 font-semibold space-y-1">
+          <p>Gross: {grossWeight}</p>
+          <p>Less: {lessWeight}</p>
+          <p className="text-green-700 font-bold">Net: {netWeight}</p>
+        </div>
       </div>
     </div>
   );
