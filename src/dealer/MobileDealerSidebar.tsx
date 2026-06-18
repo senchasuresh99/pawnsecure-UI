@@ -217,7 +217,7 @@ export default function MobileDealerSidebar({
     {
       label: "Due Collections",
       icon: <FaCoins />,
-      path: "/dealer/collections",
+      path: "/dealer/due-today",
       color: "text-green-600",
       bg: "bg-green-100",
     },
