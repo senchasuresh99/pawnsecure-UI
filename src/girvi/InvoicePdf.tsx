@@ -7,12 +7,11 @@ export const LOGO_URL =
 export type GirviInvoiceForm = {
   itemName: string;
   itemType: string;
+  itemCount?: string;
   itemWeightGram: string;
-
   goldKarat?: string;
   lessWeightGram?: string;
   netWeightGram?: string;
-
   ratePerGram: string;
   interestRate: string;
   girviDate: string;
@@ -294,6 +293,13 @@ export function buildInvoiceDataFromBackend({
 }) {
   const data = invoiceDetails?.data || invoiceDetails || {};
 
+  const itemCount = firstValue(
+    data.itemCount,
+    savedGirvi?.itemCount,
+    form.itemCount,
+    1
+  );
+
   const grossWeight = firstValue(
     data.itemWeightGram,
     savedGirvi?.itemWeightGram,
@@ -377,6 +383,7 @@ export function buildInvoiceDataFromBackend({
 
     itemName: firstValue(data.itemName, savedGirvi?.itemName, form.itemName),
     itemType: firstValue(data.itemType, savedGirvi?.itemType, form.itemType),
+    itemCount,
     itemWeightGram: grossWeight,
 
     goldKarat: firstValue(
@@ -526,7 +533,6 @@ function getInvoiceHtmlForPdf(input: InvoicePdfInput) {
     savedGirviData,
     customerName,
     customer,
-    resolvedCustomerId,
     form,
     invoiceLogoDataUrl,
   } = input;
@@ -581,6 +587,7 @@ function getInvoiceHtmlForPdf(input: InvoicePdfInput) {
   const itemName = savedGirviData.itemName || form.itemName || "-";
   const itemType = savedGirviData.itemType || form.itemType || "-";
   const goldKarat = savedGirviData.goldKarat || form.goldKarat || "";
+  const itemCount = firstValue(savedGirviData.itemCount, form.itemCount, 1);
 
   const grossWeightValue =
     savedGirviData.itemWeightGram || form.itemWeightGram || 0;
@@ -855,7 +862,7 @@ function getInvoiceHtmlForPdf(input: InvoicePdfInput) {
           <tbody>
             <tr>
               ${td(commodityName, "text-align:center;")}
-              ${td("1.00", "text-align:center;")}
+              ${td(formatPlainAmount(itemCount), "text-align:center;")}
               ${td(formatWeight(grossWeight), "text-align:center;")}
               ${td(formatWeight(lessWeight), "text-align:center;")}
               ${td(formatWeight(netWeight), "text-align:center;")}
@@ -1032,6 +1039,9 @@ function getInvoiceHtmlForPdf(input: InvoicePdfInput) {
 
             <span>Loan Amount</span>
             <span>${escapeHtml(formatPlainAmount(debtAmount))}</span>
+
+            <span>No.Pc</span>
+            <span>${escapeHtml(formatPlainAmount(itemCount))}</span>
 
             <span>Gross Wt</span>
             <span>${escapeHtml(formatWeight(grossWeight))}</span>

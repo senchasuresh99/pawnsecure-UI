@@ -79,23 +79,26 @@ export default function AddGirvi() {
   const [invoiceLogoDataUrl, setInvoiceLogoDataUrl] = useState("");
 
   const [form, setForm] = useState({
-    itemName: "",
-    itemType: "Gold",
+  itemName: "",
+  itemType: "Gold",
 
-    // gross weight
-    itemWeightGram: "",
+  // ✅ No.Pc count
+  itemCount: "1",
 
-    // ✅ new fields
-    goldKarat: "",
-    lessWeightGram: "",
-    netWeightGram: "",
+  // gross weight
+  itemWeightGram: "",
 
-    ratePerGram: "",
-    interestRate: "",
-    girviDate: "",
-    maturityDate: "",
-    remarks: "",
-  });
+  // ✅ new fields
+  goldKarat: "",
+  lessWeightGram: "",
+  netWeightGram: "",
+
+  ratePerGram: "",
+  interestRate: "",
+  girviDate: "",
+  maturityDate: "",
+  remarks: "",
+});
 
   const steps = [
     { id: 1, label: "Customer" },
@@ -299,36 +302,39 @@ export default function AddGirvi() {
     }
 
     if (step === 2) {
-      if (!form.itemName.trim()) {
-        newErrors.itemName = "Please enter item name";
-      }
+  if (!form.itemName.trim()) {
+    newErrors.itemName = "Please enter item name";
+  }
 
-      if (!form.itemWeightGram || Number(form.itemWeightGram) <= 0) {
-        newErrors.itemWeightGram = "Enter valid gross weight";
-      }
+  if (!form.itemCount || Number(form.itemCount) <= 0) {
+    newErrors.itemCount = "Enter valid No.Pc count";
+  }
 
-      if (form.lessWeightGram !== "" && Number(form.lessWeightGram) < 0) {
-        newErrors.lessWeightGram = "Less weight cannot be negative";
-      }
+  if (!form.itemWeightGram || Number(form.itemWeightGram) <= 0) {
+    newErrors.itemWeightGram = "Enter valid gross weight";
+  }
 
-      if (Number(form.lessWeightGram || 0) > Number(form.itemWeightGram || 0)) {
-        newErrors.lessWeightGram =
-          "Less weight cannot be greater than gross weight";
-      }
+  if (form.lessWeightGram !== "" && Number(form.lessWeightGram) < 0) {
+    newErrors.lessWeightGram = "Less weight cannot be negative";
+  }
 
-      if (!form.netWeightGram || Number(form.netWeightGram) <= 0) {
-        newErrors.netWeightGram = "Net weight must be greater than zero";
-      }
+  if (Number(form.lessWeightGram || 0) > Number(form.itemWeightGram || 0)) {
+    newErrors.lessWeightGram =
+      "Less weight cannot be greater than gross weight";
+  }
 
-      if (!form.ratePerGram || Number(form.ratePerGram) <= 0) {
-        newErrors.ratePerGram = "Enter valid rate";
-      }
+  if (!form.netWeightGram || Number(form.netWeightGram) <= 0) {
+    newErrors.netWeightGram = "Net weight must be greater than zero";
+  }
 
-      if (form.itemType === "Gold" && !form.goldKarat.trim()) {
-        newErrors.goldKarat = "Please enter gold karat";
-      }
-    }
+  if (!form.ratePerGram || Number(form.ratePerGram) <= 0) {
+    newErrors.ratePerGram = "Enter valid rate";
+  }
 
+  if (form.itemType === "Gold" && !form.goldKarat.trim()) {
+    newErrors.goldKarat = "Please enter gold karat";
+  }
+}
     if (step === 3) {
       if (form.interestRate === "" || Number(form.interestRate) < 0) {
         newErrors.interestRate = "Enter valid interest rate";
@@ -531,23 +537,26 @@ Please find attached invoice PDF.`;
 
     try {
       const girviPayload = {
-        customerId: Number(customerId),
-        itemName: form.itemName.trim(),
-        itemType: form.itemType.toUpperCase(),
+  customerId: Number(customerId),
+  itemName: form.itemName.trim(),
+  itemType: form.itemType.toUpperCase(),
 
-        itemWeightGram: Number(form.itemWeightGram),
+  // ✅ No.Pc count
+  itemCount: Number(form.itemCount || 1),
 
-        // ✅ new fields
-        goldKarat: form.goldKarat.trim(),
-        lessWeightGram: Number(form.lessWeightGram || 0),
-        netWeightGram: Number(form.netWeightGram || netWeight),
+  itemWeightGram: Number(form.itemWeightGram),
 
-        ratePerGram: Number(form.ratePerGram),
-        interestRate: Number(form.interestRate),
-        girviDate: form.girviDate,
-        maturityDate: form.maturityDate,
-        remarks: form.remarks.trim(),
-      };
+  // ✅ new fields
+  goldKarat: form.goldKarat.trim(),
+  lessWeightGram: Number(form.lessWeightGram || 0),
+  netWeightGram: Number(form.netWeightGram || netWeight),
+
+  ratePerGram: Number(form.ratePerGram),
+  interestRate: Number(form.interestRate),
+  girviDate: form.girviDate,
+  maturityDate: form.maturityDate,
+  remarks: form.remarks.trim(),
+};
 
       const formData = new FormData();
       formData.append("girvi", JSON.stringify(girviPayload));
@@ -735,36 +744,44 @@ Please find attached invoice PDF.`;
                 error={errors.itemName}
               />
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 md:gap-6">
-                <div>
-                  <label className="text-xs md:text-sm font-bold text-gray-600 block mb-1.5 md:mb-2">
-                    Item Type *
-                  </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 md:gap-6">
+  <div>
+    <label className="text-xs md:text-sm font-bold text-gray-600 block mb-1.5 md:mb-2">
+      Item Type *
+    </label>
 
-                  <div className="relative">
-                    <select
-                      value={form.itemType}
-                      onChange={(e) => update("itemType", e.target.value)}
-                      className="w-full px-4 py-3.5 md:py-4 rounded-xl border border-gray-200 bg-white text-sm md:text-base font-medium outline-none focus:border-[#4820C5] focus:ring-1 focus:ring-[#4820C5] appearance-none"
-                    >
-                      <option value="Gold">Gold</option>
-                      <option value="Silver">Silver</option>
-                    </select>
+    <div className="relative">
+      <select
+        value={form.itemType}
+        onChange={(e) => update("itemType", e.target.value)}
+        className="w-full px-4 py-3.5 md:py-4 rounded-xl border border-gray-200 bg-white text-sm md:text-base font-medium outline-none focus:border-[#4820C5] focus:ring-1 focus:ring-[#4820C5] appearance-none"
+      >
+        <option value="Gold">Gold</option>
+        <option value="Silver">Silver</option>
+      </select>
 
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 text-xs md:text-sm">
-                      ▼
-                    </div>
-                  </div>
-                </div>
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 text-xs md:text-sm">
+        ▼
+      </div>
+    </div>
+  </div>
 
-                <Input
-                  label="Rate per Gram (₹) *"
-                  type="number"
-                  value={form.ratePerGram}
-                  onChange={(v: any) => update("ratePerGram", v)}
-                  error={errors.ratePerGram}
-                />
-              </div>
+  <Input
+    label="No.Pc Count *"
+    type="number"
+    value={form.itemCount}
+    onChange={(v: any) => update("itemCount", v)}
+    error={errors.itemCount}
+  />
+
+  <Input
+    label="Rate per Gram (₹) *"
+    type="number"
+    value={form.ratePerGram}
+    onChange={(v: any) => update("ratePerGram", v)}
+    error={errors.ratePerGram}
+  />
+</div>
 
               {form.itemType === "Gold" && (
                 <Input
@@ -935,18 +952,20 @@ Please find attached invoice PDF.`;
 
             <div className="space-y-4 md:space-y-6">
               <ItemSummaryCard
-                photo={photoPreview}
-                name={form.itemName}
-                type={form.itemType}
-                karat={form.goldKarat}
-                grossWeight={`${form.itemWeightGram || 0} gram`}
-                lessWeight={`${form.lessWeightGram || 0} gram`}
-                netWeight={`${form.netWeightGram || netWeight || 0} gram`}
-              />
+  photo={photoPreview}
+  name={form.itemName}
+  type={form.itemType}
+  itemCount={form.itemCount}
+  karat={form.goldKarat}
+  grossWeight={`${form.itemWeightGram || 0} gram`}
+  lessWeight={`${form.lessWeightGram || 0} gram`}
+  netWeight={`${form.netWeightGram || netWeight || 0} gram`}
+/>
 
               <div className="bg-gray-50 rounded-2xl border border-gray-100 p-5 md:p-8 text-sm md:text-base">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 sm:gap-y-6">
                   <ReviewRow label="Customer" value={customerName} />
+                  <ReviewRow label="No.Pc Count" value={`${form.itemCount || 1}`} />
                   <ReviewRow
                     label="Interest Rate"
                     value={`${form.interestRate}%`}
@@ -1349,6 +1368,7 @@ function ItemSummaryCard({
   photo,
   name,
   type,
+  itemCount,
   karat,
   grossWeight,
   lessWeight,
@@ -1357,6 +1377,7 @@ function ItemSummaryCard({
   photo: string | null;
   name: string;
   type: string;
+  itemCount?: string;
   karat?: string;
   grossWeight: string;
   lessWeight: string;
@@ -1397,6 +1418,11 @@ function ItemSummaryCard({
               {karat}
             </span>
           )}
+          
+<span className="px-2.5 py-1 md:px-3 md:py-1.5 rounded-full text-[10px] md:text-xs font-bold bg-green-50 text-green-700">
+    No.Pc: {itemCount || 1}
+  </span>
+
         </div>
 
         <div className="mt-2 md:mt-3 text-xs md:text-sm text-gray-600 font-semibold space-y-1">
