@@ -33,10 +33,9 @@ type GirviResponseDTO = {
   itemName: string;
   itemType: string;
 
-  // Gross weight
-  itemWeightGram: number;
+  itemCount?: number;
 
-  // New fields
+  itemWeightGram: number;
   goldKarat?: string;
   lessWeightGram?: number;
   netWeightGram?: number;
@@ -78,6 +77,7 @@ type GirviPageResponse = {
 
 type GirviUpdateForm = {
   itemName: string;
+  itemCount: string;
   itemWeightGram: string;
   goldKarat: string;
   lessWeightGram: string;
@@ -136,6 +136,7 @@ export default function GirviList() {
 
   const [editForm, setEditForm] = useState<GirviUpdateForm>({
     itemName: "",
+    itemCount: "1",
     itemWeightGram: "",
     goldKarat: "",
     lessWeightGram: "",
@@ -162,6 +163,7 @@ export default function GirviList() {
 
   useEffect(() => {
     fetchGirviList();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, size]);
 
   useEffect(() => {
@@ -195,6 +197,8 @@ export default function GirviList() {
         item.customerName?.toLowerCase().includes(q) ||
         item.itemName?.toLowerCase().includes(q) ||
         item.itemType?.toLowerCase().includes(q) ||
+        item.goldKarat?.toLowerCase().includes(q) ||
+        String(item.itemCount || "").includes(q) ||
         item.status?.toLowerCase().includes(q) ||
         String(item.id || "").includes(q) ||
         String(item.customerId || "").includes(q)
@@ -208,6 +212,7 @@ export default function GirviList() {
     girviList.forEach((item) => {
       if (item.id) fetchGirviPhoto(item.id);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [girviList]);
 
   useEffect(() => {
@@ -234,9 +239,22 @@ export default function GirviList() {
     })} gm`;
   }
 
+  function formatCount(value: number | string | undefined) {
+    if (value === undefined || value === null || value === "") return "1.00";
+
+    const num = Number(value || 1);
+
+    if (Number.isNaN(num)) return "1.00";
+
+    return num.toLocaleString("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
+
   function updateEditForm(key: keyof GirviUpdateForm, value: string) {
     setEditForm((prev) => {
-      const next = {
+      const next: GirviUpdateForm = {
         ...prev,
         [key]: value,
       };
@@ -404,27 +422,39 @@ export default function GirviList() {
 
     setEditForm({
       itemName: item.itemName || "",
+
+      itemCount:
+        item.itemCount !== undefined && item.itemCount !== null
+          ? String(item.itemCount)
+          : "1",
+
       itemWeightGram:
         item.itemWeightGram !== undefined && item.itemWeightGram !== null
           ? String(item.itemWeightGram)
           : "",
+
       goldKarat: item.goldKarat || "",
+
       lessWeightGram:
         item.lessWeightGram !== undefined && item.lessWeightGram !== null
           ? String(item.lessWeightGram)
           : "",
+
       netWeightGram:
         item.netWeightGram !== undefined && item.netWeightGram !== null
           ? String(item.netWeightGram)
           : String(calculateNetWeight(item.itemWeightGram, item.lessWeightGram)),
+
       ratePerGram:
         item.ratePerGram !== undefined && item.ratePerGram !== null
           ? String(item.ratePerGram)
           : "",
+
       interestRate:
         item.interestRate !== undefined && item.interestRate !== null
           ? String(item.interestRate)
           : "",
+
       maturityDate: item.maturityDate || "",
       remarks: item.remarks || "",
     });
@@ -453,6 +483,11 @@ export default function GirviList() {
 
     if (!editForm.itemName.trim()) {
       alert("Item name is required");
+      return;
+    }
+
+    if (!editForm.itemCount || Number(editForm.itemCount) <= 0) {
+      alert("Valid No.Pc count is required");
       return;
     }
 
@@ -506,6 +541,7 @@ export default function GirviList() {
         },
         body: JSON.stringify({
           itemName: editForm.itemName.trim(),
+          itemCount: Number(editForm.itemCount || 1),
           itemWeightGram: Number(editForm.itemWeightGram),
           goldKarat: editForm.goldKarat.trim(),
           lessWeightGram: Number(editForm.lessWeightGram || 0),
@@ -558,7 +594,6 @@ export default function GirviList() {
     }
 
     const contentType = item.itemPhotoContentType || "image/png";
-
     return `data:${contentType};base64,${item.itemPhotoBase64}`;
   }
 
@@ -578,6 +613,7 @@ export default function GirviList() {
     return {
       itemName: String(item.itemName || ""),
       itemType: String(item.itemType || ""),
+      itemCount: String(item.itemCount || 1),
       itemWeightGram: String(item.itemWeightGram || ""),
       goldKarat: String(item.goldKarat || ""),
       lessWeightGram: String(item.lessWeightGram || ""),
@@ -646,7 +682,6 @@ export default function GirviList() {
     }
 
     const invoiceDetails = await res.json();
-
     const form = buildInvoiceFormFromGirvi(item);
 
     const invoiceNumber =
@@ -718,6 +753,7 @@ export default function GirviList() {
 Invoice No: ${invoiceNumber}
 Customer: ${item.customerName || "-"}
 Item: ${item.itemName || "-"}
+No.Pc: ${formatCount(item.itemCount)}
 Loan Amount: ${formatCurrency(item.loanAmount)}
 Maturity Date: ${formatDate(item.maturityDate)}
 
@@ -848,6 +884,7 @@ Please find attached invoice PDF.`;
               formatCurrency={formatCurrency}
               formatDate={formatDate}
               formatWeight={formatWeight}
+              formatCount={formatCount}
               calculateNetWeight={calculateNetWeight}
               getStatusClass={getStatusClass}
               openEditModal={openEditModal}
@@ -941,6 +978,7 @@ Please find attached invoice PDF.`;
             formatCurrency={formatCurrency}
             formatDate={formatDate}
             formatWeight={formatWeight}
+            formatCount={formatCount}
             calculateNetWeight={calculateNetWeight}
             getStatusClass={getStatusClass}
             openEditModal={openEditModal}
@@ -965,7 +1003,6 @@ Please find attached invoice PDF.`;
         <EditModal
           selectedGirvi={selectedGirvi}
           editForm={editForm}
-          setEditForm={setEditForm}
           updateEditForm={updateEditForm}
           updating={updating}
           submitUpdateGirvi={submitUpdateGirvi}
@@ -991,6 +1028,7 @@ function RecordsPanel({
   formatCurrency,
   formatDate,
   formatWeight,
+  formatCount,
   calculateNetWeight,
   getStatusClass,
   openEditModal,
@@ -1110,6 +1148,10 @@ function RecordsPanel({
                       </span>
 
                       <div className="mt-2 space-y-1">
+                        <p className="text-[11px] font-bold text-purple-700">
+                          No.Pc: {formatCount(item.itemCount)}
+                        </p>
+
                         {typeLower === "gold" && item.goldKarat && (
                           <p className="text-[11px] font-bold text-amber-700">
                             Karat: {item.goldKarat}
@@ -1265,6 +1307,7 @@ function MobileRecordsPanel({
   formatCurrency,
   formatDate,
   formatWeight,
+  formatCount,
   calculateNetWeight,
   getStatusClass,
   openEditModal,
@@ -1340,6 +1383,7 @@ function MobileRecordsPanel({
                     <h3 className="font-extrabold text-gray-900 text-base truncate leading-tight">
                       {item.itemName || "-"}
                     </h3>
+
                     <span
                       className={`px-2.5 py-0.5 rounded-full border text-[10px] font-extrabold tracking-wider uppercase shrink-0 ${getStatusClass(
                         item.status
@@ -1352,12 +1396,16 @@ function MobileRecordsPanel({
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <span
                       className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        item.itemType === "Gold"
+                        String(item.itemType || "").toLowerCase() === "gold"
                           ? "bg-amber-50 text-amber-700"
                           : "bg-slate-100 text-slate-700"
                       }`}
                     >
                       {item.itemType || "-"}
+                    </span>
+
+                    <span className="text-xs font-bold text-purple-700">
+                      No.Pc: {formatCount(item.itemCount)}
                     </span>
 
                     <span className="text-xs font-bold text-green-700">
@@ -1368,6 +1416,7 @@ function MobileRecordsPanel({
                   <p className="text-sm font-bold text-gray-800 mt-2 truncate">
                     {item.customerName || "-"}
                   </p>
+
                   <p className="text-[11px] text-gray-400 font-medium">
                     Cust ID: {item.customerId || "-"}
                   </p>
@@ -1375,6 +1424,7 @@ function MobileRecordsPanel({
                   <div className="mt-2 text-[11px] text-gray-500 font-semibold space-y-0.5">
                     {String(item.itemType || "").toLowerCase() === "gold" &&
                       item.goldKarat && <p>Karat: {item.goldKarat}</p>}
+
                     <p>Gross: {formatWeight(item.itemWeightGram)}</p>
                     <p>Less: {formatWeight(item.lessWeightGram)}</p>
                   </div>
@@ -1512,6 +1562,13 @@ function EditModal({
             label="Item Component Name"
             value={editForm.itemName}
             onChange={(value: string) => updateEditForm("itemName", value)}
+          />
+
+          <EditInput
+            label="No.Pc Count"
+            type="number"
+            value={editForm.itemCount}
+            onChange={(value: string) => updateEditForm("itemCount", value)}
           />
 
           <EditInput

@@ -34,10 +34,9 @@ type GirviResponseDTO = {
   itemName: string;
   itemType: string;
 
-  // Gross weight
-  itemWeightGram: number;
+  itemCount?: number;
 
-  // New fields
+  itemWeightGram: number;
   goldKarat?: string;
   lessWeightGram?: number;
   netWeightGram?: number;
@@ -67,6 +66,7 @@ type GirviResponseDTO = {
 
 type GirviUpdateForm = {
   itemName: string;
+  itemCount: string;
   itemWeightGram: string;
   goldKarat: string;
   lessWeightGram: string;
@@ -133,6 +133,7 @@ export default function FilteredGirviListPage({
 
   const [editForm, setEditForm] = useState<GirviUpdateForm>({
     itemName: "",
+    itemCount: "1",
     itemWeightGram: "",
     goldKarat: "",
     lessWeightGram: "",
@@ -212,6 +213,7 @@ export default function FilteredGirviListPage({
         item.itemName?.toLowerCase().includes(q) ||
         item.itemType?.toLowerCase().includes(q) ||
         item.goldKarat?.toLowerCase().includes(q) ||
+        String(item.itemCount || "").includes(q) ||
         item.status?.toLowerCase().includes(q) ||
         String(item.id || "").includes(q) ||
         String(item.customerId || "").includes(q)
@@ -251,6 +253,19 @@ export default function FilteredGirviListPage({
     return `${Number(value).toLocaleString("en-IN", {
       maximumFractionDigits: 3,
     })} gm`;
+  }
+
+  function formatCount(value: number | string | undefined) {
+    if (value === undefined || value === null || value === "") return "1.00";
+
+    const num = Number(value || 1);
+
+    if (Number.isNaN(num)) return "1.00";
+
+    return num.toLocaleString("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
   }
 
   function updateEditForm(key: keyof GirviUpdateForm, value: string) {
@@ -417,6 +432,11 @@ export default function FilteredGirviListPage({
     setEditForm({
       itemName: item.itemName || "",
 
+      itemCount:
+        item.itemCount !== undefined && item.itemCount !== null
+          ? String(item.itemCount)
+          : "1",
+
       itemWeightGram:
         item.itemWeightGram !== undefined && item.itemWeightGram !== null
           ? String(item.itemWeightGram)
@@ -470,6 +490,11 @@ export default function FilteredGirviListPage({
       return;
     }
 
+    if (!editForm.itemCount || Number(editForm.itemCount) <= 0) {
+      alert("Valid No.Pc count is required");
+      return;
+    }
+
     if (!editForm.itemWeightGram || Number(editForm.itemWeightGram) <= 0) {
       alert("Valid gross weight is required");
       return;
@@ -520,7 +545,7 @@ export default function FilteredGirviListPage({
         },
         body: JSON.stringify({
           itemName: editForm.itemName.trim(),
-
+          itemCount: Number(editForm.itemCount || 1),
           itemWeightGram: Number(editForm.itemWeightGram),
           goldKarat: editForm.goldKarat.trim(),
           lessWeightGram: Number(editForm.lessWeightGram || 0),
@@ -528,7 +553,6 @@ export default function FilteredGirviListPage({
             editForm.netWeightGram ||
               calculateNetWeight(editForm.itemWeightGram, editForm.lessWeightGram)
           ),
-
           ratePerGram: Number(editForm.ratePerGram),
           interestRate: Number(editForm.interestRate),
           maturityDate: editForm.maturityDate,
@@ -584,6 +608,7 @@ export default function FilteredGirviListPage({
     return {
       itemName: String(item.itemName || ""),
       itemType: String(item.itemType || ""),
+      itemCount: String(item.itemCount || 1),
       itemWeightGram: String(item.itemWeightGram || ""),
 
       goldKarat: String(item.goldKarat || ""),
@@ -725,6 +750,7 @@ export default function FilteredGirviListPage({
 Invoice No: ${invoiceNumber}
 Customer: ${item.customerName || "-"}
 Item: ${item.itemName || "-"}
+No.Pc: ${formatCount(item.itemCount)}
 Loan Amount: ${formatCurrency(item.loanAmount)}
 Maturity Date: ${formatDate(item.maturityDate)}
 
@@ -813,7 +839,6 @@ Please find attached invoice PDF.`;
 
   return (
     <div className="min-h-screen bg-[#f4f5f7] font-sans">
-      {/* ================= DESKTOP ================= */}
       <div className="hidden lg:flex min-h-screen">
         <DealerSidebar isAdminView={isAdminView} />
 
@@ -862,6 +887,7 @@ Please find attached invoice PDF.`;
               formatCurrency={formatCurrency}
               formatDate={formatDate}
               formatWeight={formatWeight}
+              formatCount={formatCount}
               calculateNetWeight={calculateNetWeight}
               getStatusClass={getStatusClass}
               openEditModal={openEditModal}
@@ -883,7 +909,6 @@ Please find attached invoice PDF.`;
         </main>
       </div>
 
-      {/* ================= MOBILE ================= */}
       <div className="lg:hidden min-h-screen bg-[#f4f5f7] pb-32">
         <MobileDealerSidebar
           open={showMobileSidebar}
@@ -944,6 +969,7 @@ Please find attached invoice PDF.`;
             formatCurrency={formatCurrency}
             formatDate={formatDate}
             formatWeight={formatWeight}
+            formatCount={formatCount}
             calculateNetWeight={calculateNetWeight}
             getStatusClass={getStatusClass}
             openEditModal={openEditModal}
@@ -984,8 +1010,6 @@ Please find attached invoice PDF.`;
   );
 }
 
-/* ================= TOP BANNER ================= */
-
 function TopBanner({
   bannerTitle,
   bannerSubtitle,
@@ -1014,8 +1038,6 @@ function TopBanner({
   );
 }
 
-/* ================= DESKTOP PANEL ================= */
-
 function RecordsPanel({
   loading,
   error,
@@ -1027,6 +1049,7 @@ function RecordsPanel({
   formatCurrency,
   formatDate,
   formatWeight,
+  formatCount,
   calculateNetWeight,
   getStatusClass,
   openEditModal,
@@ -1100,16 +1123,16 @@ function RecordsPanel({
                 >
                   <div className="grid grid-cols-12 gap-4 items-center">
                     <div className="col-span-1">
-  {imageSrc ? (
-    <img
-      src={imageSrc}
-      alt={item.itemName || "Item asset"}
-      className="w-14 h-14 rounded-xl object-cover border border-gray-100 bg-white shadow-sm"
-    />
-  ) : (
-    <PhotoPlaceholder size="sm" />
-  )}
-</div>
+                      {imageSrc ? (
+                        <img
+                          src={imageSrc}
+                          alt={item.itemName || "Item asset"}
+                          className="w-14 h-14 rounded-xl object-cover border border-gray-100 bg-white shadow-sm"
+                        />
+                      ) : (
+                        <PhotoPlaceholder size="sm" />
+                      )}
+                    </div>
 
                     <div className="col-span-3 min-w-0">
                       <p className="font-extrabold text-gray-900 text-sm truncate">
@@ -1145,6 +1168,10 @@ function RecordsPanel({
                       </span>
 
                       <div className="mt-2 space-y-1">
+                        <p className="text-[11px] font-bold text-purple-700">
+                          No.Pc: {formatCount(item.itemCount)}
+                        </p>
+
                         {typeLower === "gold" && item.goldKarat && (
                           <p className="text-[11px] font-bold text-amber-700">
                             Karat: {item.goldKarat}
@@ -1289,8 +1316,6 @@ function RecordsPanel({
   );
 }
 
-/* ================= MOBILE PANEL ================= */
-
 function MobileRecordsPanel({
   loading,
   error,
@@ -1302,6 +1327,7 @@ function MobileRecordsPanel({
   formatCurrency,
   formatDate,
   formatWeight,
+  formatCount,
   calculateNetWeight,
   getStatusClass,
   openEditModal,
@@ -1362,14 +1388,14 @@ function MobileRecordsPanel({
             >
               <div className="flex gap-4 items-start">
                 {imageSrc ? (
-  <img
-    src={imageSrc}
-    alt={item.itemName || "Item Asset"}
-    className="w-20 h-20 rounded-2xl object-cover border border-gray-100 bg-white shrink-0 shadow-xs"
-  />
-) : (
-  <PhotoPlaceholder size="lg" />
-)}
+                  <img
+                    src={imageSrc}
+                    alt={item.itemName || "Item Asset"}
+                    className="w-20 h-20 rounded-2xl object-cover border border-gray-100 bg-white shrink-0 shadow-xs"
+                  />
+                ) : (
+                  <PhotoPlaceholder size="lg" />
+                )}
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
@@ -1395,6 +1421,10 @@ function MobileRecordsPanel({
                       }`}
                     >
                       {item.itemType || "-"}
+                    </span>
+
+                    <span className="text-xs font-bold text-purple-700">
+                      No.Pc: {formatCount(item.itemCount)}
                     </span>
 
                     <span className="text-xs font-bold text-green-700">
@@ -1515,8 +1545,6 @@ function MobileRecordsPanel({
   );
 }
 
-/* ================= EDIT MODAL ================= */
-
 function EditModal({
   selectedGirvi,
   editForm,
@@ -1553,6 +1581,13 @@ function EditModal({
             label="Item Component Name"
             value={editForm.itemName}
             onChange={(value: string) => updateEditForm("itemName", value)}
+          />
+
+          <EditInput
+            label="No.Pc Count"
+            type="number"
+            value={editForm.itemCount}
+            onChange={(value: string) => updateEditForm("itemCount", value)}
           />
 
           <EditInput
@@ -1675,8 +1710,6 @@ function EditModal({
     </div>
   );
 }
-
-/* ================= UI ATOMS ================= */
 
 function EditInput({
   label,
