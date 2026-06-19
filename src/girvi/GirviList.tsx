@@ -151,9 +151,13 @@ export default function GirviList() {
   const [downloadingPdfGirviId, setDownloadingPdfGirviId] = useState<
     number | string | null
   >(null);
+  
   const [sendingWhatsAppGirviId, setSendingWhatsAppGirviId] = useState<
     number | string | null
   >(null);
+  const [preparedShareData, setPreparedShareData] = useState<
+    Record<string, { file: File; message: string }>
+  >({});
 
   function goToAddGirvi() {
     navigate("/dealer/details", {
@@ -740,70 +744,76 @@ export default function GirviList() {
     }
   }
 
-  async function sendGirviInvoiceOnWhatsApp(item: GirviResponseDTO) {
+  async function prepareWhatsAppShare(item: GirviResponseDTO) {
     const rowKey = getGirviRowKey(item);
-
     setSendingWhatsAppGirviId(rowKey);
 
     try {
       const { file, invoiceNumber } = await generateGirviInvoiceFile(item);
 
-      const message = `PawnSecure Invoice
+      const message = `PawnSecure Invoice\n\nInvoice No: ${invoiceNumber}\nCustomer: ${
+        item.customerName || "-"
+      }\nItem: ${item.itemName || "-"}\nNo.Pc: ${formatCount(
+        item.itemCount
+      )}\nLoan Amount: ${formatCurrency(item.loanAmount)}\nMaturity Date: ${formatDate(
+        item.maturityDate
+      )}\n\nPlease find attached invoice PDF.`;
 
-Invoice No: ${invoiceNumber}
-Customer: ${item.customerName || "-"}
-Item: ${item.itemName || "-"}
-No.Pc: ${formatCount(item.itemCount)}
-Loan Amount: ${formatCurrency(item.loanAmount)}
-Maturity Date: ${formatDate(item.maturityDate)}
-
-Please find attached invoice PDF.`;
-
-      const navAny = navigator as any;
-
-      if (
-        navAny.share &&
-        navAny.canShare &&
-        navAny.canShare({ files: [file] })
-      ) {
-        await navAny.share({
-          title: "PawnSecure Invoice",
-          text: message,
-          files: [file],
-        });
-
-        return;
-      }
-
-      const url = window.URL.createObjectURL(file);
-
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = file.name;
-
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-
-      window.URL.revokeObjectURL(url);
-
-      const phone = normalizeWhatsAppPhone(getCustomerPhoneForWhatsApp(item));
-
-      const whatsappUrl = phone
-        ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
-        : `https://wa.me/?text=${encodeURIComponent(message)}`;
-
-      window.open(whatsappUrl, "_blank");
-
-      alert(
-        "PDF downloaded. If WhatsApp does not attach the PDF automatically, please attach the downloaded PDF manually."
-      );
+      setPreparedShareData((prev) => ({
+        ...prev,
+        [rowKey]: { file, message },
+      }));
     } catch (err: any) {
-      console.error("WhatsApp invoice share failed:", err);
-      alert(err?.message || "Could not send invoice on WhatsApp.");
+      console.error("WhatsApp invoice preparation failed:", err);
+      alert(err?.message || "Could not prepare invoice for WhatsApp.");
     } finally {
       setSendingWhatsAppGirviId(null);
     }
+  }
+
+  function executeWhatsAppShare(item: GirviResponseDTO) {
+    const rowKey = getGirviRowKey(item);
+    const data = preparedShareData[rowKey];
+
+    if (!data) {
+      alert("Share data is not ready yet.");
+      return;
+    }
+
+    const { file, message } = data;
+    const navAny = navigator as any;
+
+    if (navAny.share && navAny.canShare && navAny.canShare({ files: [file] })) {
+      navAny
+        .share({
+          title: "PawnSecure Invoice",
+          text: message,
+          files: [file],
+        })
+        .catch((err: any) => {
+          console.log("Native share dismissed or failed:", err);
+        });
+      return;
+    }
+
+    const url = window.URL.createObjectURL(file);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = file.name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+
+    const phone = normalizeWhatsAppPhone(getCustomerPhoneForWhatsApp(item));
+    const whatsappUrl = phone
+      ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
+      : `https://wa.me/?text=${encodeURIComponent(message)}`;
+
+    window.open(whatsappUrl, "_blank");
+    alert(
+      "PDF downloaded. If WhatsApp does not attach the PDF automatically, please attach the downloaded PDF manually."
+    );
   }
 
   function formatCurrency(value: number | string | undefined) {
@@ -891,7 +901,9 @@ Please find attached invoice PDF.`;
               handleRenewGirvi={handleRenewGirvi}
               downloadGirviInvoicePdf={downloadGirviInvoicePdf}
               downloadingPdfGirviId={downloadingPdfGirviId}
-              sendGirviInvoiceOnWhatsApp={sendGirviInvoiceOnWhatsApp}
+              preparedShareData={preparedShareData}
+              prepareWhatsAppShare={prepareWhatsAppShare}
+              executeWhatsAppShare={executeWhatsAppShare}
               sendingWhatsAppGirviId={sendingWhatsAppGirviId}
               getGirviRowKey={getGirviRowKey}
               page={page}
@@ -985,7 +997,9 @@ Please find attached invoice PDF.`;
             handleRenewGirvi={handleRenewGirvi}
             downloadGirviInvoicePdf={downloadGirviInvoicePdf}
             downloadingPdfGirviId={downloadingPdfGirviId}
-            sendGirviInvoiceOnWhatsApp={sendGirviInvoiceOnWhatsApp}
+            preparedShareData={preparedShareData}
+            prepareWhatsAppShare={prepareWhatsAppShare}
+            executeWhatsAppShare={executeWhatsAppShare}
             sendingWhatsAppGirviId={sendingWhatsAppGirviId}
             getGirviRowKey={getGirviRowKey}
             page={page}
@@ -1035,7 +1049,9 @@ function RecordsPanel({
   handleRenewGirvi,
   downloadGirviInvoicePdf,
   downloadingPdfGirviId,
-  sendGirviInvoiceOnWhatsApp,
+  preparedShareData,
+  prepareWhatsAppShare,
+  executeWhatsAppShare,
   sendingWhatsAppGirviId,
   getGirviRowKey,
   page,
@@ -1091,6 +1107,7 @@ function RecordsPanel({
               const rowKey = getGirviRowKey(item);
               const pdfLoading = downloadingPdfGirviId === rowKey;
               const whatsAppLoading = sendingWhatsAppGirviId === rowKey;
+              const isPrepared = !!preparedShareData[rowKey];
 
               const resolvedNetWeight =
                 item.netWeightGram ||
@@ -1255,14 +1272,25 @@ function RecordsPanel({
 
                         <button
                           type="button"
-                          onClick={() => sendGirviInvoiceOnWhatsApp(item)}
+                          onClick={() => {
+                            if (isPrepared) {
+                              executeWhatsAppShare(item);
+                            } else {
+                              prepareWhatsAppShare(item);
+                            }
+                          }}
                           disabled={whatsAppLoading}
                           className="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400"
                         >
                           {whatsAppLoading ? (
                             <>
                               <FaDownload className="animate-pulse" />
-                              Share...
+                              Prep...
+                            </>
+                          ) : isPrepared ? (
+                            <>
+                              <FaWhatsapp />
+                              Share Now
                             </>
                           ) : (
                             <>
@@ -1314,7 +1342,9 @@ function MobileRecordsPanel({
   handleRenewGirvi,
   downloadGirviInvoicePdf,
   downloadingPdfGirviId,
-  sendGirviInvoiceOnWhatsApp,
+  preparedShareData,
+  prepareWhatsAppShare,
+  executeWhatsAppShare,
   sendingWhatsAppGirviId,
   getGirviRowKey,
   page,
@@ -1357,6 +1387,7 @@ function MobileRecordsPanel({
           const rowKey = getGirviRowKey(item);
           const pdfLoading = downloadingPdfGirviId === rowKey;
           const whatsAppLoading = sendingWhatsAppGirviId === rowKey;
+          const isPrepared = !!preparedShareData[rowKey];
 
           const resolvedNetWeight =
             item.netWeightGram ||
@@ -1488,14 +1519,25 @@ function MobileRecordsPanel({
 
                 <button
                   type="button"
-                  onClick={() => sendGirviInvoiceOnWhatsApp(item)}
+                  onClick={() => {
+                    if (isPrepared) {
+                      executeWhatsAppShare(item);
+                    } else {
+                      prepareWhatsAppShare(item);
+                    }
+                  }}
                   disabled={whatsAppLoading}
                   className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400"
                 >
                   {whatsAppLoading ? (
                     <>
                       <FaDownload className="animate-pulse" />
-                      Share...
+                      Prep...
+                    </>
+                  ) : isPrepared ? (
+                    <>
+                      <FaWhatsapp className="text-xs" />
+                      Share Now
                     </>
                   ) : (
                     <>
