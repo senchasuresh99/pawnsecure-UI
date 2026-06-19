@@ -19,7 +19,7 @@ import {
   FaUserCheck,
 } from "react-icons/fa";
 
-const API_BASE = "https://pawnsecure-1.onrender.com/api";
+const API_BASE = "https://pawnsecure.onrender.com/api";
 
 const DUE_TODAY_COUNT_API = `${API_BASE}/girvi/due-today/count`;
 const OVERDUE_COUNT_API = `${API_BASE}/girvi/overdue/count`;

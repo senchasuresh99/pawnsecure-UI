@@ -11,7 +11,7 @@ import {
   FaTimes,
 } from "react-icons/fa";
 
-const API_BASE = "https://pawnsecure-1.onrender.com/api";
+const API_BASE = "https://pawnsecure.onrender.com/api";
 
 type CustomerResponseDTO = {
   id: number;

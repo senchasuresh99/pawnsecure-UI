@@ -17,7 +17,7 @@ import {
   FaCheckCircle,
 } from "react-icons/fa";
 
-const API_BASE = "https://pawnsecure-1.onrender.com/api";
+const API_BASE = "https://pawnsecure.onrender.com/api";
 const REVIEW_API = `${API_BASE}/reviews`;
 
 /* ================= TYPES ================= */
