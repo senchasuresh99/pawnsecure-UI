@@ -1130,8 +1130,7 @@ Please find attached invoice PDF.`;
     if (s === "duetoday") return "bg-yellow-50 text-yellow-700 border-yellow-100";
     if (s === "due") return "bg-yellow-50 text-yellow-700 border-yellow-100";
     if (s === "overdue") return "bg-red-50 text-red-700 border-red-100";
-    if (s === "partial_released")
-      return "bg-blue-50 text-blue-700 border-blue-100";
+    if (s === "partial_released")return "bg-blue-50 text-blue-700 border-blue-100";
     if (s === "released") return "bg-indigo-50 text-indigo-700 border-indigo-100";
     if (s === "closed") return "bg-gray-100 text-gray-600 border-gray-200";
 
@@ -2229,10 +2228,7 @@ function EditStatusSelect({
         className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#4820C5] text-sm font-medium transition bg-gray-50/30 text-gray-800"
       >
         <option value="ACTIVE">Active</option>
-        <option value="DUETODAY">Due Today</option>
-        <option value="OVERDUE">Overdue</option>
         <option value="RELEASED">Released</option>
-        <option value="CLOSED">Closed</option>
       </select>
     </div>
   );
