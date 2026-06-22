@@ -24,28 +24,6 @@ import {
 
 const API_BASE = "https://pawnsecure.onrender.com/api";
 
-type ParsedAadhaarQR = {
-  fullName?: string;
-  name?: string;
-  aadhaar?: string;
-  maskedAadhaar?: string;
-  uid?: string;
-  gender?: string;
-  dob?: string;
-  address?: string;
-  co?: string;
-  house?: string;
-  street?: string;
-  lm?: string;
-  loc?: string;
-  vtc?: string;
-  po?: string;
-  subdist?: string;
-  dist?: string;
-  state?: string;
-  pc?: string;
-};
-
 type QrStep = "idle" | "uploading" | "verifying" | "success" | "error";
 
 export default function CustomerRegister() {
@@ -66,11 +44,11 @@ export default function CustomerRegister() {
     "Dealer";
 
   const dealerIdForSidebar =
-  query.get("dealerId") ||
-  localStorage.getItem("ps_dealer_id") ||
-  "-";
+    query.get("dealerId") ||
+    localStorage.getItem("ps_dealer_id") ||
+    "-";
 
-const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
   const todayDate = new Date().toLocaleDateString("en-IN", {
     day: "2-digit",
@@ -181,130 +159,6 @@ const [showMobileSidebar, setShowMobileSidebar] = useState(false);
       }
 
       navigate("/dealer/details");
-    }
-  }
-
-  function extractAadhaarFromQR(text: string) {
-    const digits = text.replace(/\D/g, "");
-    const match = digits.match(/\d{12}/);
-    return match ? match[0] : "";
-  }
-
-  function normalizeGenderFromQR(gender?: string) {
-    if (!gender) return "";
-
-    const g = gender.trim().toUpperCase();
-
-    if (g === "M" || g === "MALE") return "M";
-    if (g === "F" || g === "FEMALE") return "F";
-    if (g === "O" || g === "OTHER") return "O";
-
-    return gender;
-  }
-
-  function buildAddressFromQR(data: ParsedAadhaarQR) {
-    return [
-      data.co,
-      data.house,
-      data.street,
-      data.lm,
-      data.loc,
-      data.vtc,
-      data.po,
-      data.subdist,
-      data.dist,
-      data.state,
-      data.pc,
-    ]
-      .filter(Boolean)
-      .join(", ");
-  }
-
-  function parseAadhaarQRText(decodedText: string): ParsedAadhaarQR | null {
-    if (!decodedText) return null;
-
-    try {
-      const text = decodedText.trim();
-
-      if (text.includes("PrintLetterBarcodeData") || text.startsWith("<")) {
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(text, "text/xml");
-
-        const parserError = xmlDoc.getElementsByTagName("parsererror")[0];
-        if (parserError) return null;
-
-        const node =
-          xmlDoc.getElementsByTagName("PrintLetterBarcodeData")[0] ||
-          xmlDoc.documentElement;
-
-        if (!node) return null;
-
-        const getAttr = (key: string) => node.getAttribute(key) || "";
-
-        const uid = getAttr("uid");
-        const name = getAttr("name");
-        const gender = getAttr("gender");
-        const dob = getAttr("dob") || getAttr("yob");
-
-        const addressData: ParsedAadhaarQR = {
-          co: getAttr("co"),
-          house: getAttr("house"),
-          street: getAttr("street"),
-          lm: getAttr("lm"),
-          loc: getAttr("loc"),
-          vtc: getAttr("vtc"),
-          po: getAttr("po"),
-          subdist: getAttr("subdist"),
-          dist: getAttr("dist"),
-          state: getAttr("state"),
-          pc: getAttr("pc"),
-        };
-
-        return {
-          fullName: name,
-          name,
-          aadhaar: uid,
-          uid,
-          maskedAadhaar:
-            uid && uid.length === 12 ? `XXXX-XXXX-${uid.slice(8)}` : "",
-          gender: normalizeGenderFromQR(gender),
-          dob,
-          address: buildAddressFromQR(addressData),
-          ...addressData,
-        };
-      }
-
-      if (text.startsWith("{")) {
-        const data = JSON.parse(text);
-        const uid = data.aadhaar || data.uid || "";
-
-        return {
-          fullName: data.fullName || data.name || data.customerName || "",
-          name: data.fullName || data.name || data.customerName || "",
-          aadhaar: uid,
-          uid,
-          maskedAadhaar:
-            data.maskedAadhaar ||
-            (uid && uid.length === 12 ? `XXXX-XXXX-${uid.slice(8)}` : ""),
-          gender: normalizeGenderFromQR(data.gender || data.sex || ""),
-          dob: data.dob || data.dateOfBirth || data.birthDate || "",
-          address: data.address || data.fullAddress || "",
-        };
-      }
-
-      const extractedAadhaar = extractAadhaarFromQR(text);
-
-      if (extractedAadhaar) {
-        return {
-          aadhaar: extractedAadhaar,
-          uid: extractedAadhaar,
-          maskedAadhaar: `XXXX-XXXX-${extractedAadhaar.slice(8)}`,
-        };
-      }
-
-      return null;
-    } catch {
-      return null;
     }
   }
 
@@ -662,6 +516,7 @@ const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
+    // Optimized from PNG to JPEG to significantly reduce file payload size
     return new Promise((resolve) => {
       canvas.toBlob(
         (blob) => {
@@ -670,14 +525,14 @@ const [showMobileSidebar, setShowMobileSidebar] = useState(false);
             return;
           }
 
-          const file = new File([blob], "scanned-aadhaar-qr.png", {
-            type: "image/png",
+          const file = new File([blob], "scanned-aadhaar-qr.jpg", {
+            type: "image/jpeg",
           });
 
           resolve(file);
         },
-        "image/png",
-        0.95
+        "image/jpeg",
+        0.90 // 90% quality is perfect for OCR
       );
     });
   }
@@ -709,6 +564,7 @@ const [showMobileSidebar, setShowMobileSidebar] = useState(false);
     let hasScanned = false;
     let isUnmounted = false;
 
+    // Added video constraints for continuous autofocus and zoom
     const scanConfig = {
       fps: 15,
       qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
@@ -718,6 +574,10 @@ const [showMobileSidebar, setShowMobileSidebar] = useState(false);
       },
       aspectRatio: 1.0,
       disableFlip: true,
+      videoConstraints: {
+        facingMode: "environment",
+        advanced: [{ focusMode: "continuous" }, { zoom: 2.0 }]
+      }
     };
 
     async function stopScanner() {
@@ -1522,7 +1382,7 @@ const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   )}
 </div>
 
-      {/* ================= SCANNER MODAL CONTAINER ================= */}
+      {/* ================= SCANNER MODAL CONTAINER (WITH EXPOSURE MASK) ================= */}
       {showScanner && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[999] p-4">
           <div className="bg-white rounded-2xl p-4 w-full max-w-[420px] shadow-2xl">
@@ -1540,18 +1400,22 @@ const [showMobileSidebar, setShowMobileSidebar] = useState(false);
               </button>
             </div>
 
-            <div
-              id="aadhaar-qr-reader"
-              className="w-full min-h-[320px] sm:min-h-[420px] overflow-hidden rounded-xl border bg-black"
-            />
+            <div className="relative w-full min-h-[320px] sm:min-h-[420px] overflow-hidden rounded-xl border bg-black">
+              {/* html5-qrcode video injects here */}
+              <div id="aadhaar-qr-reader" className="w-full h-full" />
+              
+              {/* Targeting Reticle Overlay (Exposure mask) */}
+              <div className="absolute inset-0 z-10 pointer-events-none flex items-center justify-center">
+                <div className="w-[250px] h-[250px] border-4 border-purple-500 rounded-lg shadow-[0_0_0_4000px_rgba(0,0,0,0.6)]"></div>
+              </div>
+            </div>
 
             {scannerError && (
               <p className="text-sm text-red-600 mt-3">{scannerError}</p>
             )}
 
             <p className="text-xs text-gray-500 mt-3">
-              Back camera only. If Aadhaar QR does not scan automatically, tap
-              Capture & Verify QR.
+              Align the QR code inside the purple box. If it does not scan automatically, tap Capture & Verify QR.
             </p>
 
             <button
