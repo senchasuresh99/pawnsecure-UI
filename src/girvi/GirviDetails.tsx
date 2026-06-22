@@ -27,6 +27,17 @@ import {
 
 const API_BASE = "https://pawnsecure.onrender.com/api";
 
+type GirviItemForm = {
+  itemName: string;
+  itemType: string;
+  itemCount: string;
+  itemWeightGram: string;
+  goldKarat: string;
+  lessWeightGram: string;
+  netWeightGram: string;
+  ratePerGram: string;
+};
+
 export default function AddGirvi() {
   const nav = useNavigate();
   const location = useLocation();
@@ -79,26 +90,25 @@ export default function AddGirvi() {
   const [invoiceLogoDataUrl, setInvoiceLogoDataUrl] = useState("");
 
   const [form, setForm] = useState({
-  itemName: "",
-  itemType: "Gold",
+    actualLoanAmount: "",
+    interestRate: "",
+    girviDate: "",
+    maturityDate: "",
+    remarks: "",
+  });
 
-  // ✅ No.Pc count
-  itemCount: "1",
-
-  // gross weight
-  itemWeightGram: "",
-
-  // ✅ new fields
-  goldKarat: "",
-  lessWeightGram: "",
-  netWeightGram: "",
-
-  ratePerGram: "",
-  interestRate: "",
-  girviDate: "",
-  maturityDate: "",
-  remarks: "",
-});
+  const [items, setItems] = useState<GirviItemForm[]>([
+    {
+      itemName: "",
+      itemType: "Gold",
+      itemCount: "1",
+      itemWeightGram: "",
+      goldKarat: "",
+      lessWeightGram: "",
+      netWeightGram: "",
+      ratePerGram: "",
+    },
+  ]);
 
   const steps = [
     { id: 1, label: "Customer" },
@@ -207,14 +217,53 @@ export default function AddGirvi() {
     };
   }, [photoPreview]);
 
-  const grossWeight = Number(form.itemWeightGram || 0);
-  const lessWeight = Number(form.lessWeightGram || 0);
-  const calculatedNetWeight = Math.max(grossWeight - lessWeight, 0);
+  function calculateNetWeight(gross: any, less: any) {
+    const grossWeight = Number(gross || 0);
+    const lessWeight = Number(less || 0);
+    const net = grossWeight - lessWeight;
 
-  const netWeight =
-    form.netWeightGram !== "" ? Number(form.netWeightGram || 0) : calculatedNetWeight;
+    return net > 0 ? net : 0;
+  }
 
-  const totalValue = netWeight * Number(form.ratePerGram || 0);
+  const totalValue = items.reduce((sum, item) => {
+    const rowNet =
+      item.netWeightGram !== ""
+        ? Number(item.netWeightGram || 0)
+        : calculateNetWeight(item.itemWeightGram, item.lessWeightGram);
+
+    const rowRate = Number(item.ratePerGram || 0);
+
+    return sum + rowNet * rowRate;
+  }, 0);
+
+  function getInvoiceForm() {
+    const firstItem = items[0];
+
+    const firstNetWeight =
+      firstItem?.netWeightGram ||
+      String(
+        calculateNetWeight(
+          firstItem?.itemWeightGram,
+          firstItem?.lessWeightGram
+        )
+      );
+
+    return {
+      itemName: firstItem?.itemName || "",
+      itemType: firstItem?.itemType || "Gold",
+      itemCount: firstItem?.itemCount || "1",
+      itemWeightGram: firstItem?.itemWeightGram || "",
+      goldKarat: firstItem?.goldKarat || "",
+      lessWeightGram: firstItem?.lessWeightGram || "",
+      netWeightGram: firstNetWeight,
+      ratePerGram: firstItem?.ratePerGram || "",
+      actualLoanAmount: form.actualLoanAmount,
+      interestRate: form.interestRate,
+      girviDate: form.girviDate,
+      maturityDate: form.maturityDate,
+      remarks: form.remarks,
+    };
+  }
 
   function update(key: string, value: any) {
     setForm((prev) => {
@@ -222,19 +271,6 @@ export default function AddGirvi() {
         ...prev,
         [key]: value,
       };
-
-      if (key === "itemWeightGram" || key === "lessWeightGram") {
-        const gross = Number(
-          key === "itemWeightGram" ? value || 0 : next.itemWeightGram || 0
-        );
-        const less = Number(
-          key === "lessWeightGram" ? value || 0 : next.lessWeightGram || 0
-        );
-
-        const net = Math.max(gross - less, 0);
-
-        next.netWeightGram = net ? String(net) : "";
-      }
 
       if (
         key === "girviDate" &&
@@ -261,6 +297,69 @@ export default function AddGirvi() {
         maturityDate: "",
       }));
     }
+  }
+
+  function updateItem(index: number, key: keyof GirviItemForm, value: string) {
+    setItems((prev) => {
+      const next = [...prev];
+
+      next[index] = {
+        ...next[index],
+        [key]: value,
+      };
+
+      if (key === "itemWeightGram" || key === "lessWeightGram") {
+        const gross = Number(
+          key === "itemWeightGram"
+            ? value || 0
+            : next[index].itemWeightGram || 0
+        );
+
+        const less = Number(
+          key === "lessWeightGram"
+            ? value || 0
+            : next[index].lessWeightGram || 0
+        );
+
+        const net = Math.max(gross - less, 0);
+
+        next[index].netWeightGram = net ? String(net) : "";
+      }
+
+      return next;
+    });
+
+    const errorKey = `${key}_${index}`;
+
+    if (errors[errorKey]) {
+      setErrors((prev) => ({
+        ...prev,
+        [errorKey]: "",
+      }));
+    }
+  }
+
+  function addItemRow() {
+    setItems((prev) => [
+      ...prev,
+      {
+        itemName: "",
+        itemType: "Gold",
+        itemCount: "1",
+        itemWeightGram: "",
+        goldKarat: "",
+        lessWeightGram: "",
+        netWeightGram: "",
+        ratePerGram: "",
+      },
+    ]);
+  }
+
+  function removeItemRow(index: number) {
+    setItems((prev) => {
+      if (prev.length === 1) return prev;
+      return prev.filter((_, i) => i !== index);
+    });
   }
 
   function handlePhotoChange(file: File | null) {
@@ -302,40 +401,49 @@ export default function AddGirvi() {
     }
 
     if (step === 2) {
-  if (!form.itemName.trim()) {
-    newErrors.itemName = "Please enter item name";
-  }
+      items.forEach((item, index) => {
+        if (!item.itemName.trim()) {
+          newErrors[`itemName_${index}`] = "Please enter item name";
+        }
 
-  if (!form.itemCount || Number(form.itemCount) <= 0) {
-    newErrors.itemCount = "Enter valid No.Pc count";
-  }
+        if (!item.itemCount || Number(item.itemCount) <= 0) {
+          newErrors[`itemCount_${index}`] = "Enter valid No.Pc count";
+        }
 
-  if (!form.itemWeightGram || Number(form.itemWeightGram) <= 0) {
-    newErrors.itemWeightGram = "Enter valid gross weight";
-  }
+        if (!item.itemWeightGram || Number(item.itemWeightGram) <= 0) {
+          newErrors[`itemWeightGram_${index}`] = "Enter valid gross weight";
+        }
 
-  if (form.lessWeightGram !== "" && Number(form.lessWeightGram) < 0) {
-    newErrors.lessWeightGram = "Less weight cannot be negative";
-  }
+        if (item.lessWeightGram !== "" && Number(item.lessWeightGram) < 0) {
+          newErrors[`lessWeightGram_${index}`] =
+            "Less weight cannot be negative";
+        }
 
-  if (Number(form.lessWeightGram || 0) > Number(form.itemWeightGram || 0)) {
-    newErrors.lessWeightGram =
-      "Less weight cannot be greater than gross weight";
-  }
+        if (Number(item.lessWeightGram || 0) > Number(item.itemWeightGram || 0)) {
+          newErrors[`lessWeightGram_${index}`] =
+            "Less weight cannot be greater than gross weight";
+        }
 
-  if (!form.netWeightGram || Number(form.netWeightGram) <= 0) {
-    newErrors.netWeightGram = "Net weight must be greater than zero";
-  }
+        if (!item.netWeightGram || Number(item.netWeightGram) <= 0) {
+          newErrors[`netWeightGram_${index}`] =
+            "Net weight must be greater than zero";
+        }
 
-  if (!form.ratePerGram || Number(form.ratePerGram) <= 0) {
-    newErrors.ratePerGram = "Enter valid rate";
-  }
+        if (!item.ratePerGram || Number(item.ratePerGram) <= 0) {
+          newErrors[`ratePerGram_${index}`] = "Enter valid rate";
+        }
 
-  if (form.itemType === "Gold" && !form.goldKarat.trim()) {
-    newErrors.goldKarat = "Please enter gold karat";
-  }
-}
+        if (item.itemType === "Gold" && !item.goldKarat.trim()) {
+          newErrors[`goldKarat_${index}`] = "Please enter gold karat";
+        }
+      });
+    }
+
     if (step === 3) {
+      if (!form.actualLoanAmount || Number(form.actualLoanAmount) <= 0) {
+        newErrors.actualLoanAmount = "Actual loan amount is required";
+      }
+
       if (form.interestRate === "" || Number(form.interestRate) < 0) {
         newErrors.interestRate = "Enter valid interest rate";
       }
@@ -408,6 +516,8 @@ export default function AddGirvi() {
     setDownloadingInvoice(true);
 
     try {
+      const invoiceForm = getInvoiceForm();
+
       const file = await generateFrontendInvoicePdfFile({
         invoiceId,
         savedInvoiceNumber,
@@ -416,7 +526,7 @@ export default function AddGirvi() {
         customerName,
         customer,
         resolvedCustomerId,
-        form,
+        form: invoiceForm,
       });
 
       const url = window.URL.createObjectURL(file);
@@ -447,6 +557,8 @@ export default function AddGirvi() {
     setSendingInvoice(true);
 
     try {
+      const invoiceForm = getInvoiceForm();
+
       const file = await generateFrontendInvoicePdfFile({
         invoiceId,
         savedInvoiceNumber,
@@ -455,7 +567,7 @@ export default function AddGirvi() {
         customerName,
         customer,
         resolvedCustomerId,
-        form,
+        form: invoiceForm,
       });
 
       const message = `PawnSecure Invoice
@@ -464,7 +576,10 @@ Invoice No: ${
         savedInvoiceNumber || savedGirviData.invoiceNumber || `INV-${invoiceId}`
       }
 Customer: ${savedGirviData.customerName || customerName || "-"}
-Loan Amount: ${formatInvoiceCurrency(savedGirviData.loanAmount || totalValue)}
+Actual Loan Amount: ${formatInvoiceCurrency(
+        savedGirviData.actualLoanAmount || form.actualLoanAmount
+      )}
+Calculated Value: ${formatInvoiceCurrency(savedGirviData.loanAmount || totalValue)}
 
 Please find attached invoice PDF.`;
 
@@ -475,13 +590,17 @@ Please find attached invoice PDF.`;
         navAny.canShare &&
         navAny.canShare({ files: [file] })
       ) {
-        await navAny.share({
-          title: "PawnSecure Invoice",
-          text: message,
-          files: [file],
-        });
+        try {
+          await navAny.share({
+            title: "PawnSecure Invoice",
+            text: message,
+            files: [file],
+          });
 
-        return;
+          return;
+        } catch (shareErr) {
+          console.warn("Native share failed, falling back to download:", shareErr);
+        }
       }
 
       const url = window.URL.createObjectURL(file);
@@ -497,7 +616,7 @@ Please find attached invoice PDF.`;
       window.URL.revokeObjectURL(url);
 
       alert(
-        "PDF downloaded. Your browser does not support direct WhatsApp PDF sharing. Please attach the downloaded PDF manually in WhatsApp."
+        "PDF downloaded. If WhatsApp does not attach the PDF automatically, please attach the downloaded PDF manually."
       );
     } catch (err) {
       console.error("Invoice PDF share failed:", err);
@@ -521,6 +640,11 @@ Please find attached invoice PDF.`;
     const customerId =
       resolvedCustomerId || localStorage.getItem("ps_customer_id");
 
+    if (!customerId) {
+      alert("Customer not selected. Please select a customer.");
+      return;
+    }
+
     if (!token) {
       alert("Session expired. Please login again.");
       nav("/", { replace: true });
@@ -536,27 +660,51 @@ Please find attached invoice PDF.`;
     setErrors({});
 
     try {
+      const firstItem = items[0];
+
+      const firstNetWeight =
+        firstItem?.netWeightGram !== ""
+          ? Number(firstItem?.netWeightGram || 0)
+          : calculateNetWeight(firstItem?.itemWeightGram, firstItem?.lessWeightGram);
+
       const girviPayload = {
-  customerId: Number(customerId),
-  itemName: form.itemName.trim(),
-  itemType: form.itemType.toUpperCase(),
+        customerId: Number(customerId),
 
-  // ✅ No.Pc count
-  itemCount: Number(form.itemCount || 1),
+        actualLoanAmount: Number(form.actualLoanAmount),
 
-  itemWeightGram: Number(form.itemWeightGram),
+        interestRate: Number(form.interestRate),
+        girviDate: form.girviDate,
+        maturityDate: form.maturityDate,
+        remarks: form.remarks.trim(),
 
-  // ✅ new fields
-  goldKarat: form.goldKarat.trim(),
-  lessWeightGram: Number(form.lessWeightGram || 0),
-  netWeightGram: Number(form.netWeightGram || netWeight),
+        items: items.map((item) => {
+          const rowNet =
+            item.netWeightGram !== ""
+              ? Number(item.netWeightGram || 0)
+              : calculateNetWeight(item.itemWeightGram, item.lessWeightGram);
 
-  ratePerGram: Number(form.ratePerGram),
-  interestRate: Number(form.interestRate),
-  girviDate: form.girviDate,
-  maturityDate: form.maturityDate,
-  remarks: form.remarks.trim(),
-};
+          return {
+            itemName: item.itemName.trim(),
+            itemType: item.itemType.toUpperCase(),
+            itemCount: Number(item.itemCount || 1),
+            itemWeightGram: Number(item.itemWeightGram || 0),
+            goldKarat: item.goldKarat.trim(),
+            lessWeightGram: Number(item.lessWeightGram || 0),
+            netWeightGram: rowNet,
+            ratePerGram: Number(item.ratePerGram || 0),
+          };
+        }),
+
+        // Backward compatibility root fields
+        itemName: firstItem?.itemName?.trim() || "",
+        itemType: (firstItem?.itemType || "Gold").toUpperCase(),
+        itemCount: Number(firstItem?.itemCount || 1),
+        itemWeightGram: Number(firstItem?.itemWeightGram || 0),
+        goldKarat: firstItem?.goldKarat?.trim() || "",
+        lessWeightGram: Number(firstItem?.lessWeightGram || 0),
+        netWeightGram: firstNetWeight,
+        ratePerGram: Number(firstItem?.ratePerGram || 0),
+      };
 
       const formData = new FormData();
       formData.append("girvi", JSON.stringify(girviPayload));
@@ -631,12 +779,14 @@ Please find attached invoice PDF.`;
         Number(invoiceId)
       );
 
+      const invoiceForm = getInvoiceForm();
+
       const invoiceDataForFrontend = buildInvoiceDataFromBackend({
         invoiceDetails,
         savedGirvi,
         invoiceId,
         invoiceNumber,
-        form,
+        form: invoiceForm,
       });
 
       setSavedGirviData(invoiceDataForFrontend);
@@ -650,6 +800,57 @@ Please find attached invoice PDF.`;
     } finally {
       setLoading(false);
     }
+  }
+
+  function renderPhotoUpload() {
+    return (
+      <div>
+        <label className="text-xs md:text-sm font-bold text-gray-600 block mb-2 md:mb-3">
+          Item Photo
+        </label>
+
+        <div className="flex flex-wrap gap-3 md:gap-4">
+          {photoPreview && (
+            <div className="relative w-[100px] h-[100px] md:w-[120px] md:h-[120px] rounded-xl overflow-hidden border border-gray-200 group shadow-sm">
+              <img
+                src={photoPreview}
+                alt="Item"
+                className="w-full h-full object-cover"
+              />
+
+              <button
+                type="button"
+                onClick={() => {
+                  setPhoto(null);
+                  setPhotoPreview("");
+                }}
+                className="absolute top-1.5 right-1.5 bg-black/60 text-white w-7 h-7 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition shadow-md"
+              >
+                <FaTimes className="text-[12px]" />
+              </button>
+            </div>
+          )}
+
+          <label className="w-[100px] h-[100px] md:w-[120px] md:h-[120px] rounded-xl border-2 border-dashed border-purple-200 bg-purple-50/50 flex flex-col items-center justify-center gap-1.5 md:gap-2 cursor-pointer hover:bg-purple-50 transition text-[#4820C5]">
+            <FaPlus className="md:text-lg" />
+            <span className="text-xs md:text-sm font-semibold">Add</span>
+
+            <input
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(e) => handlePhotoChange(e.target.files?.[0] || null)}
+            />
+          </label>
+        </div>
+
+        {errors.photo && (
+          <p className="text-red-500 text-xs md:text-sm mt-2">
+            {errors.photo}
+          </p>
+        )}
+      </div>
+    );
   }
 
   function renderWizardCard() {
@@ -737,100 +938,206 @@ Please find attached invoice PDF.`;
             </h2>
 
             <div className="space-y-5 md:space-y-6">
-              <Input
-                label="Item Name *"
-                value={form.itemName}
-                onChange={(v: any) => update("itemName", v)}
-                error={errors.itemName}
-              />
+              {items.map((item, index) => {
+                const rowNet =
+                  item.netWeightGram !== ""
+                    ? Number(item.netWeightGram || 0)
+                    : calculateNetWeight(
+                        item.itemWeightGram,
+                        item.lessWeightGram
+                      );
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 md:gap-6">
+                const rowValue = rowNet * Number(item.ratePerGram || 0);
+
+                return (
+                  <div
+                    key={index}
+                    className="border border-gray-100 rounded-2xl p-4 md:p-5 bg-white shadow-sm space-y-5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-extrabold text-gray-900">
+                        Item {index + 1}
+                      </h3>
+
+                      {items.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeItemRow(index)}
+                          className="text-red-600 text-xs font-bold bg-red-50 px-3 py-2 rounded-xl"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+
+                    <Input
+                      label="Item Name *"
+                      value={item.itemName}
+                      onChange={(v: any) => updateItem(index, "itemName", v)}
+                      error={errors[`itemName_${index}`]}
+                    />
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 md:gap-6">
+                      <div>
+                        <label className="text-xs md:text-sm font-bold text-gray-600 block mb-1.5 md:mb-2">
+                          Item Type *
+                        </label>
+
+                        <div className="relative">
+                          <select
+                            value={item.itemType}
+                            onChange={(e) =>
+                              updateItem(index, "itemType", e.target.value)
+                            }
+                            className="w-full px-4 py-3.5 md:py-4 rounded-xl border border-gray-200 bg-white text-sm md:text-base font-medium outline-none focus:border-[#4820C5] focus:ring-1 focus:ring-[#4820C5] appearance-none"
+                          >
+                            <option value="Gold">Gold</option>
+                            <option value="Silver">Silver</option>
+                          </select>
+
+                          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 text-xs md:text-sm">
+                            ▼
+                          </div>
+                        </div>
+                      </div>
+
+                      <Input
+                        label="No.Pc Count *"
+                        type="number"
+                        value={item.itemCount}
+                        onChange={(v: any) =>
+                          updateItem(index, "itemCount", v)
+                        }
+                        error={errors[`itemCount_${index}`]}
+                      />
+
+                      <Input
+                        label="Rate per Gram (₹) *"
+                        type="number"
+                        value={item.ratePerGram}
+                        onChange={(v: any) =>
+                          updateItem(index, "ratePerGram", v)
+                        }
+                        error={errors[`ratePerGram_${index}`]}
+                      />
+                    </div>
+
+                    {item.itemType === "Gold" && (
   <div>
     <label className="text-xs md:text-sm font-bold text-gray-600 block mb-1.5 md:mb-2">
-      Item Type *
+      Gold Karat *
     </label>
 
     <div className="relative">
       <select
-        value={form.itemType}
-        onChange={(e) => update("itemType", e.target.value)}
-        className="w-full px-4 py-3.5 md:py-4 rounded-xl border border-gray-200 bg-white text-sm md:text-base font-medium outline-none focus:border-[#4820C5] focus:ring-1 focus:ring-[#4820C5] appearance-none"
+        value={item.goldKarat}
+        onChange={(e) => updateItem(index, "goldKarat", e.target.value)}
+        className={`w-full px-4 py-3.5 md:py-4 rounded-xl border bg-white text-sm md:text-base font-medium outline-none focus:border-[#4820C5] focus:ring-1 focus:ring-[#4820C5] appearance-none ${
+          errors[`goldKarat_${index}`]
+            ? "border-red-400 focus:ring-red-400"
+            : "border-gray-200"
+        }`}
       >
-        <option value="Gold">Gold</option>
-        <option value="Silver">Silver</option>
+        <option value="">Select Gold Karat</option>
+        <option value="9K">9K</option>
+        <option value="10K">10K</option>
+        <option value="11K">11K</option>
+        <option value="12K">12K</option>
+        <option value="13K">13K</option>
+        <option value="14K">14K</option>
+        <option value="15K">15K</option>
+        <option value="16K">16K</option>
+        <option value="17K">17K</option>
+        <option value="18K">18K</option>
+        <option value="19K">19K</option>
+        <option value="20K">20K</option>
+        <option value="21K">21K</option>
+        <option value="22K">22K</option>
+        <option value="23K">23K</option>
+        <option value="24K">24K</option>
       </select>
 
       <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 text-xs md:text-sm">
         ▼
       </div>
     </div>
+
+    {errors[`goldKarat_${index}`] && (
+      <p className="text-red-500 text-xs md:text-sm mt-1.5 font-medium">
+        {errors[`goldKarat_${index}`]}
+      </p>
+    )}
   </div>
+)}
 
-  <Input
-    label="No.Pc Count *"
-    type="number"
-    value={form.itemCount}
-    onChange={(v: any) => update("itemCount", v)}
-    error={errors.itemCount}
-  />
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 md:gap-6">
+                      <Input
+                        label="Gross Weight (Gram) *"
+                        type="number"
+                        value={item.itemWeightGram}
+                        onChange={(v: any) =>
+                          updateItem(index, "itemWeightGram", v)
+                        }
+                        error={errors[`itemWeightGram_${index}`]}
+                      />
 
-  <Input
-    label="Rate per Gram (₹) *"
-    type="number"
-    value={form.ratePerGram}
-    onChange={(v: any) => update("ratePerGram", v)}
-    error={errors.ratePerGram}
-  />
-</div>
+                      <Input
+                        label="Less Weight (Gram)"
+                        type="number"
+                        value={item.lessWeightGram}
+                        onChange={(v: any) =>
+                          updateItem(index, "lessWeightGram", v)
+                        }
+                        error={errors[`lessWeightGram_${index}`]}
+                      />
 
-              {form.itemType === "Gold" && (
-                <Input
-                  label="Gold Karat *"
-                  value={form.goldKarat}
-                  placeholder="Example: 22K / 24K / 916"
-                  onChange={(v: any) => update("goldKarat", v)}
-                  error={errors.goldKarat}
-                />
-              )}
+                      <Input
+                        label="Net Weight (Gram) *"
+                        type="number"
+                        value={item.netWeightGram}
+                        onChange={(v: any) =>
+                          updateItem(index, "netWeightGram", v)
+                        }
+                        error={errors[`netWeightGram_${index}`]}
+                      />
+                    </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 md:gap-6">
-                <Input
-                  label="Gross Weight (Gram) *"
-                  type="number"
-                  value={form.itemWeightGram}
-                  onChange={(v: any) => update("itemWeightGram", v)}
-                  error={errors.itemWeightGram}
-                />
+                    <div className="bg-green-50 border border-green-100 rounded-2xl p-4">
+                      <p className="text-xs font-bold text-green-700 uppercase tracking-wide">
+                        Item Value
+                      </p>
+                      <p className="text-2xl font-black text-green-700 mt-1">
+                        ₹{" "}
+                        {rowValue.toLocaleString("en-IN", {
+                          maximumFractionDigits: 2,
+                        })}
+                      </p>
+                      <p className="text-xs text-green-700 mt-1">
+                        Net Weight ({rowNet || 0} gm) × Rate ₹
+                        {item.ratePerGram || 0}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
 
-                <Input
-                  label="Less Weight (Gram)"
-                  type="number"
-                  value={form.lessWeightGram}
-                  onChange={(v: any) => update("lessWeightGram", v)}
-                  error={errors.lessWeightGram}
-                />
+              <button
+                type="button"
+                onClick={addItemRow}
+                className="w-full bg-purple-50 hover:bg-purple-100 text-[#4820C5] py-3.5 rounded-2xl font-extrabold transition"
+              >
+                + Add Another Item
+              </button>
 
-                <Input
-                  label="Net Weight (Gram) *"
-                  type="number"
-                  value={form.netWeightGram}
-                  onChange={(v: any) => update("netWeightGram", v)}
-                  error={errors.netWeightGram}
-                />
-              </div>
-
-              <div className="bg-green-50 border border-green-100 rounded-2xl p-4">
-                <p className="text-xs font-bold text-green-700 uppercase tracking-wide">
-                  Estimated Loan Value
+              <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+                <p className="text-xs font-bold text-blue-700 uppercase tracking-wide">
+                  Total Calculated Item Value
                 </p>
-                <p className="text-2xl font-black text-green-700 mt-1">
+                <p className="text-2xl font-black text-blue-700 mt-1">
                   ₹{" "}
                   {totalValue.toLocaleString("en-IN", {
                     maximumFractionDigits: 2,
                   })}
-                </p>
-                <p className="text-xs text-green-700 mt-1">
-                  Net Weight ({netWeight || 0} gm) × Rate ₹{form.ratePerGram || 0}
                 </p>
               </div>
 
@@ -840,56 +1147,7 @@ Please find attached invoice PDF.`;
                 onChange={(v: any) => update("remarks", v)}
               />
 
-              <div>
-                <label className="text-xs md:text-sm font-bold text-gray-600 block mb-2 md:mb-3">
-                  Item Photo
-                </label>
-
-                <div className="flex flex-wrap gap-3 md:gap-4">
-                  {photoPreview && (
-                    <div className="relative w-[100px] h-[100px] md:w-[120px] md:h-[120px] rounded-xl overflow-hidden border border-gray-200 group shadow-sm">
-                      <img
-                        src={photoPreview}
-                        alt="Item"
-                        className="w-full h-full object-cover"
-                      />
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPhoto(null);
-                          setPhotoPreview("");
-                        }}
-                        className="absolute top-1.5 right-1.5 bg-black/60 text-white w-7 h-7 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition shadow-md"
-                      >
-                        <FaTimes className="text-[12px]" />
-                      </button>
-                    </div>
-                  )}
-
-                  <label className="w-[100px] h-[100px] md:w-[120px] md:h-[120px] rounded-xl border-2 border-dashed border-purple-200 bg-purple-50/50 flex flex-col items-center justify-center gap-1.5 md:gap-2 cursor-pointer hover:bg-purple-50 transition text-[#4820C5]">
-                    <FaPlus className="md:text-lg" />
-                    <span className="text-xs md:text-sm font-semibold">
-                      Add
-                    </span>
-
-                    <input
-                      type="file"
-                      accept="image/*"
-                      hidden
-                      onChange={(e) =>
-                        handlePhotoChange(e.target.files?.[0] || null)
-                      }
-                    />
-                  </label>
-                </div>
-
-                {errors.photo && (
-                  <p className="text-red-500 text-xs md:text-sm mt-2">
-                    {errors.photo}
-                  </p>
-                )}
-              </div>
+              {renderPhotoUpload()}
             </div>
           </div>
         )}
@@ -913,6 +1171,15 @@ Please find attached invoice PDF.`;
                   })}
                 </div>
               </div>
+
+              <Input
+                label="Actual Loan Amount *"
+                type="number"
+                value={form.actualLoanAmount}
+                onChange={(v: any) => update("actualLoanAmount", v)}
+                error={errors.actualLoanAmount}
+                placeholder="Amount actually given to customer"
+              />
 
               <Input
                 label="Interest Rate (%) *"
@@ -951,47 +1218,53 @@ Please find attached invoice PDF.`;
             </h2>
 
             <div className="space-y-4 md:space-y-6">
-              <ItemSummaryCard
-  photo={photoPreview}
-  name={form.itemName}
-  type={form.itemType}
-  itemCount={form.itemCount}
-  karat={form.goldKarat}
-  grossWeight={`${form.itemWeightGram || 0} gram`}
-  lessWeight={`${form.lessWeightGram || 0} gram`}
-  netWeight={`${form.netWeightGram || netWeight || 0} gram`}
-/>
+              {items.map((item, index) => {
+                const rowNet =
+                  item.netWeightGram !== ""
+                    ? Number(item.netWeightGram || 0)
+                    : calculateNetWeight(
+                        item.itemWeightGram,
+                        item.lessWeightGram
+                      );
+
+                return (
+                  <ItemSummaryCard
+                    key={index}
+                    photo={index === 0 ? photoPreview : ""}
+                    name={item.itemName}
+                    type={item.itemType}
+                    itemCount={item.itemCount}
+                    karat={item.goldKarat}
+                    grossWeight={`${item.itemWeightGram || 0} gram`}
+                    lessWeight={`${item.lessWeightGram || 0} gram`}
+                    netWeight={`${rowNet || 0} gram`}
+                  />
+                );
+              })}
 
               <div className="bg-gray-50 rounded-2xl border border-gray-100 p-5 md:p-8 text-sm md:text-base">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 sm:gap-y-6">
                   <ReviewRow label="Customer" value={customerName} />
-                  <ReviewRow label="No.Pc Count" value={`${form.itemCount || 1}`} />
+                  <ReviewRow label="Total Items" value={`${items.length}`} />
+                  <ReviewRow
+                    label="Actual Loan Amount"
+                    value={`₹ ${Number(
+                      form.actualLoanAmount || 0
+                    ).toLocaleString("en-IN", {
+                      maximumFractionDigits: 2,
+                    })}`}
+                  />
                   <ReviewRow
                     label="Interest Rate"
                     value={`${form.interestRate}%`}
                   />
                   <ReviewRow label="Girvi Date" value={form.girviDate} />
                   <ReviewRow label="Maturity Date" value={form.maturityDate} />
-                  <ReviewRow
-                    label="Gross Weight"
-                    value={`${form.itemWeightGram || 0} gm`}
-                  />
-                  <ReviewRow
-                    label="Less Weight"
-                    value={`${form.lessWeightGram || 0} gm`}
-                  />
-                  <ReviewRow
-                    label="Net Weight"
-                    value={`${form.netWeightGram || netWeight || 0} gm`}
-                  />
-                  {form.itemType === "Gold" && (
-                    <ReviewRow label="Gold Karat" value={form.goldKarat || "-"} />
-                  )}
                 </div>
 
                 <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-200">
                   <ReviewRow
-                    label="Calculated Value"
+                    label="Calculated Item Value"
                     value={`₹ ${totalValue.toLocaleString("en-IN", {
                       maximumFractionDigits: 2,
                     })}`}
@@ -1418,11 +1691,10 @@ function ItemSummaryCard({
               {karat}
             </span>
           )}
-          
-<span className="px-2.5 py-1 md:px-3 md:py-1.5 rounded-full text-[10px] md:text-xs font-bold bg-green-50 text-green-700">
-    No.Pc: {itemCount || 1}
-  </span>
 
+          <span className="px-2.5 py-1 md:px-3 md:py-1.5 rounded-full text-[10px] md:text-xs font-bold bg-green-50 text-green-700">
+            No.Pc: {itemCount || 1}
+          </span>
         </div>
 
         <div className="mt-2 md:mt-3 text-xs md:text-sm text-gray-600 font-semibold space-y-1">

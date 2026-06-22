@@ -13,6 +13,7 @@ export type GirviInvoiceForm = {
   lessWeightGram?: string;
   netWeightGram?: string;
   ratePerGram: string;
+  actualLoanAmount?: string;
   interestRate: string;
   girviDate: string;
   maturityDate: string;
@@ -28,6 +29,21 @@ export type InvoicePdfInput = {
   customer: any;
   resolvedCustomerId: any;
   form: GirviInvoiceForm;
+};
+
+type InvoiceItem = {
+  id?: number | null;
+  itemName?: string;
+  itemType?: string;
+  itemCount?: number | string;
+  itemWeightGram?: number | string;
+  weightGram?: number | string;
+  goldKarat?: string;
+  lessWeightGram?: number | string;
+  netWeightGram?: number | string;
+  ratePerGram?: number | string;
+  itemValue?: number | string;
+  status?: string;
 };
 
 export function formatInvoiceCurrency(value: any) {
@@ -278,32 +294,54 @@ function normalizeImageSrc(src?: string, contentType?: string) {
   return `data:${contentType || "image/png"};base64,${src}`;
 }
 
-export function buildInvoiceDataFromBackend({
-  invoiceDetails,
+function normalizeInvoiceItems({
+  data,
   savedGirvi,
-  invoiceId,
-  invoiceNumber,
   form,
 }: {
-  invoiceDetails: any;
+  data: any;
   savedGirvi: any;
-  invoiceId: any;
-  invoiceNumber: string;
   form: GirviInvoiceForm;
-}) {
-  const data = invoiceDetails?.data || invoiceDetails || {};
+}): InvoiceItem[] {
+  const rawItems: InvoiceItem[] =
+    Array.isArray(data.items) && data.items.length > 0
+      ? data.items
+      : Array.isArray(savedGirvi?.items) && savedGirvi.items.length > 0
+      ? savedGirvi.items
+      : [];
 
-  const itemCount = firstValue(
-    data.itemCount,
-    savedGirvi?.itemCount,
-    form.itemCount,
-    1
-  );
+  if (rawItems.length > 0) {
+    return rawItems.map((item: InvoiceItem) => {
+      const gross = firstValue(item.itemWeightGram, item.weightGram, 0);
+      const less = firstValue(item.lessWeightGram, 0);
+      const net = firstValue(
+        item.netWeightGram,
+        calculateNetWeight(gross, less)
+      );
+      const rate = firstValue(item.ratePerGram, 0);
+      const value = firstValue(item.itemValue, toNumber(net) * toNumber(rate));
+
+      return {
+        id: item.id,
+        itemName: firstValue(item.itemName, "-"),
+        itemType: firstValue(item.itemType, "-"),
+        itemCount: firstValue(item.itemCount, 1),
+        itemWeightGram: gross,
+        goldKarat: firstValue(item.goldKarat, ""),
+        lessWeightGram: less,
+        netWeightGram: net,
+        ratePerGram: rate,
+        itemValue: value,
+        status: firstValue(item.status, "ACTIVE"),
+      };
+    });
+  }
 
   const grossWeight = firstValue(
     data.itemWeightGram,
     savedGirvi?.itemWeightGram,
-    form.itemWeightGram
+    form.itemWeightGram,
+    0
   );
 
   const lessWeight = firstValue(
@@ -323,8 +361,115 @@ export function buildInvoiceDataFromBackend({
   const ratePerGram = firstValue(
     data.ratePerGram,
     savedGirvi?.ratePerGram,
+    form.ratePerGram,
+    0
+  );
+
+  return [
+    {
+      id: null,
+      itemName: firstValue(data.itemName, savedGirvi?.itemName, form.itemName),
+      itemType: firstValue(data.itemType, savedGirvi?.itemType, form.itemType),
+      itemCount: firstValue(
+        data.itemCount,
+        savedGirvi?.itemCount,
+        form.itemCount,
+        1
+      ),
+      itemWeightGram: grossWeight,
+      goldKarat: firstValue(
+        data.goldKarat,
+        savedGirvi?.goldKarat,
+        form.goldKarat
+      ),
+      lessWeightGram: lessWeight,
+      netWeightGram: netWeight,
+      ratePerGram,
+      itemValue: toNumber(netWeight) * toNumber(ratePerGram),
+      status: firstValue(data.status, savedGirvi?.status, "ACTIVE"),
+    },
+  ];
+}
+
+function sumInvoiceItems(items: InvoiceItem[], key: keyof InvoiceItem) {
+  return items.reduce(
+    (sum: number, item: InvoiceItem) => sum + toNumber(item?.[key]),
+    0
+  );
+}
+
+export function buildInvoiceDataFromBackend({
+  invoiceDetails,
+  savedGirvi,
+  invoiceId,
+  invoiceNumber,
+  form,
+}: {
+  invoiceDetails: any;
+  savedGirvi: any;
+  invoiceId: any;
+  invoiceNumber: string;
+  form: GirviInvoiceForm;
+}) {
+  const data = invoiceDetails?.data || invoiceDetails || {};
+
+  const invoiceItems: InvoiceItem[] = normalizeInvoiceItems({
+    data,
+    savedGirvi,
+    form,
+  });
+
+  const firstItem: InvoiceItem = invoiceItems[0] || {};
+
+  const itemCount = firstValue(
+    data.itemCount,
+    savedGirvi?.itemCount,
+    firstItem.itemCount,
+    form.itemCount,
+    1
+  );
+
+  const grossWeight = firstValue(
+    data.itemWeightGram,
+    savedGirvi?.itemWeightGram,
+    firstItem.itemWeightGram,
+    form.itemWeightGram
+  );
+
+  const lessWeight = firstValue(
+    data.lessWeightGram,
+    savedGirvi?.lessWeightGram,
+    firstItem.lessWeightGram,
+    form.lessWeightGram,
+    0
+  );
+
+  const netWeight = firstValue(
+    data.netWeightGram,
+    savedGirvi?.netWeightGram,
+    firstItem.netWeightGram,
+    form.netWeightGram,
+    calculateNetWeight(grossWeight, lessWeight)
+  );
+
+  const ratePerGram = firstValue(
+    data.ratePerGram,
+    savedGirvi?.ratePerGram,
+    firstItem.ratePerGram,
     form.ratePerGram
   );
+
+  const calculatedLoanAmount =
+    invoiceItems.length > 0
+      ? invoiceItems.reduce(
+          (sum: number, item: InvoiceItem) =>
+            sum +
+            (item.itemValue !== undefined && item.itemValue !== null
+              ? toNumber(item.itemValue)
+              : toNumber(item.netWeightGram) * toNumber(item.ratePerGram)),
+          0
+        )
+      : Number(netWeight || 0) * Number(ratePerGram || 0);
 
   return {
     ...savedGirvi,
@@ -381,20 +526,53 @@ export function buildInvoiceDataFromBackend({
       savedGirvi?.customer?.photoContentType
     ),
 
-    itemName: firstValue(data.itemName, savedGirvi?.itemName, form.itemName),
-    itemType: firstValue(data.itemType, savedGirvi?.itemType, form.itemType),
+    itemName: firstValue(
+      data.itemName,
+      savedGirvi?.itemName,
+      firstItem.itemName,
+      form.itemName
+    ),
+    itemType: firstValue(
+      data.itemType,
+      savedGirvi?.itemType,
+      firstItem.itemType,
+      form.itemType
+    ),
     itemCount,
     itemWeightGram: grossWeight,
 
     goldKarat: firstValue(
       data.goldKarat,
       savedGirvi?.goldKarat,
+      firstItem.goldKarat,
       form.goldKarat
     ),
     lessWeightGram: lessWeight,
     netWeightGram: netWeight,
 
     ratePerGram,
+
+    items: invoiceItems,
+    totalItemCount: firstValue(
+      data.totalItemCount,
+      savedGirvi?.totalItemCount,
+      sumInvoiceItems(invoiceItems, "itemCount")
+    ),
+    totalGrossWeightGram: firstValue(
+      data.totalGrossWeightGram,
+      savedGirvi?.totalGrossWeightGram,
+      sumInvoiceItems(invoiceItems, "itemWeightGram")
+    ),
+    totalLessWeightGram: firstValue(
+      data.totalLessWeightGram,
+      savedGirvi?.totalLessWeightGram,
+      sumInvoiceItems(invoiceItems, "lessWeightGram")
+    ),
+    totalNetWeightGram: firstValue(
+      data.totalNetWeightGram,
+      savedGirvi?.totalNetWeightGram,
+      sumInvoiceItems(invoiceItems, "netWeightGram")
+    ),
 
     itemPhoto: firstValue(
       data.itemPhoto,
@@ -410,8 +588,15 @@ export function buildInvoiceDataFromBackend({
     loanAmount: firstValue(
       data.loanAmount,
       savedGirvi?.loanAmount,
-      Number(netWeight || 0) * Number(ratePerGram || 0)
+      calculatedLoanAmount
     ),
+
+    actualLoanAmount: firstValue(
+      data.actualLoanAmount,
+      savedGirvi?.actualLoanAmount,
+      form.actualLoanAmount
+    ),
+
     interestRate: firstValue(
       data.interestRate,
       savedGirvi?.interestRate,
@@ -584,30 +769,59 @@ function getInvoiceHtmlForPdf(input: InvoicePdfInput) {
     customer?.address ||
     "-";
 
-  const itemName = savedGirviData.itemName || form.itemName || "-";
-  const itemType = savedGirviData.itemType || form.itemType || "-";
-  const goldKarat = savedGirviData.goldKarat || form.goldKarat || "";
-  const itemCount = firstValue(savedGirviData.itemCount, form.itemCount, 1);
+  const invoiceItems: InvoiceItem[] =
+    Array.isArray(savedGirviData.items) && savedGirviData.items.length > 0
+      ? savedGirviData.items
+      : normalizeInvoiceItems({
+          data: savedGirviData,
+          savedGirvi: savedGirviData,
+          form,
+        });
 
-  const grossWeightValue =
-    savedGirviData.itemWeightGram || form.itemWeightGram || 0;
+  const totalItemCount = firstValue(
+    savedGirviData.totalItemCount,
+    sumInvoiceItems(invoiceItems, "itemCount")
+  );
 
-  const lessWeightValue =
-    savedGirviData.lessWeightGram || form.lessWeightGram || 0;
+  const totalGrossWeight = firstValue(
+    savedGirviData.totalGrossWeightGram,
+    sumInvoiceItems(invoiceItems, "itemWeightGram")
+  );
 
-  const netWeightValue =
-    savedGirviData.netWeightGram ||
-    form.netWeightGram ||
-    calculateNetWeight(grossWeightValue, lessWeightValue);
+  const totalLessWeight = firstValue(
+    savedGirviData.totalLessWeightGram,
+    sumInvoiceItems(invoiceItems, "lessWeightGram")
+  );
 
-  const ratePerGram = savedGirviData.ratePerGram || form.ratePerGram || 0;
+  const totalNetWeight = firstValue(
+    savedGirviData.totalNetWeightGram,
+    sumInvoiceItems(invoiceItems, "netWeightGram")
+  );
 
-  const grossWeight = toNumber(grossWeightValue);
-  const lessWeight = toNumber(lessWeightValue);
-  const netWeight = toNumber(netWeightValue);
+  const presentValue = invoiceItems.reduce(
+    (sum: number, item: InvoiceItem) => {
+      const rowNet = firstValue(
+        item.netWeightGram,
+        calculateNetWeight(item.itemWeightGram, item.lessWeightGram)
+      );
+      const rowRate = firstValue(item.ratePerGram, 0);
 
-  const presentValue = netWeight * toNumber(ratePerGram);
-  const loanAmount = savedGirviData.loanAmount || presentValue;
+      return (
+        sum +
+        (item.itemValue !== undefined && item.itemValue !== null
+          ? toNumber(item.itemValue)
+          : toNumber(rowNet) * toNumber(rowRate))
+      );
+    },
+    0
+  );
+
+  const loanAmount = firstValue(savedGirviData.loanAmount, presentValue);
+
+  const actualLoanAmount = firstValue(
+    savedGirviData.actualLoanAmount,
+    form.actualLoanAmount
+  );
 
   const girviDate = savedGirviData.girviDate || form.girviDate;
   const maturityDate = savedGirviData.maturityDate || form.maturityDate;
@@ -631,15 +845,9 @@ function getInvoiceHtmlForPdf(input: InvoicePdfInput) {
     savedGirviData.itemPhotoContentType
   );
 
-  const debtAmount = toNumber(loanAmount);
+  const debtAmount = toNumber(actualLoanAmount);
   const amountInWords = `${numberToWordsIndian(debtAmount)} ONLY`;
   const periodText = calculatePeriodText(girviDate, maturityDate);
-
-  const commodityName = `${itemName} ${itemType}${
-    String(itemType).toLowerCase() === "gold" && goldKarat
-      ? ` (${goldKarat})`
-      : ""
-  }`;
 
   const logoHtml = invoiceLogoDataUrl
     ? `<img
@@ -654,6 +862,47 @@ function getInvoiceHtmlForPdf(input: InvoicePdfInput) {
         "
       />`
     : `<span style="font-size:13px;font-weight:900;color:#312e81;">PS</span>`;
+
+  const itemRowsHtml = invoiceItems
+    .map((item: InvoiceItem) => {
+      const rowGross = firstValue(item.itemWeightGram, item.weightGram, 0);
+      const rowLess = firstValue(item.lessWeightGram, 0);
+      const rowNet = firstValue(
+        item.netWeightGram,
+        calculateNetWeight(rowGross, rowLess)
+      );
+      const rowRate = firstValue(item.ratePerGram, 0);
+      const rowValue = firstValue(
+        item.itemValue,
+        toNumber(rowNet) * toNumber(rowRate)
+      );
+
+      const rowItemType = firstValue(item.itemType, "-");
+      const rowGoldKarat = firstValue(item.goldKarat, "");
+      const rowCommodityName = `${firstValue(
+        item.itemName,
+        "-"
+      )} ${rowItemType}${
+        String(rowItemType).toLowerCase() === "gold" && rowGoldKarat
+          ? ` (${rowGoldKarat})`
+          : ""
+      }`;
+
+      return `
+        <tr>
+          ${td(rowCommodityName, "text-align:center;")}
+          ${td(
+            formatPlainAmount(firstValue(item.itemCount, 1)),
+            "text-align:center;"
+          )}
+          ${td(formatWeight(rowGross), "text-align:center;")}
+          ${td(formatWeight(rowLess), "text-align:center;")}
+          ${td(formatWeight(rowNet), "text-align:center;")}
+          ${td(formatPlainAmount(rowValue), "text-align:center;")}
+        </tr>
+      `;
+    })
+    .join("");
 
   return `
     <div
@@ -860,13 +1109,32 @@ function getInvoiceHtmlForPdf(input: InvoicePdfInput) {
           </thead>
 
           <tbody>
+            ${itemRowsHtml}
             <tr>
-              ${td(commodityName, "text-align:center;")}
-              ${td(formatPlainAmount(itemCount), "text-align:center;")}
-              ${td(formatWeight(grossWeight), "text-align:center;")}
-              ${td(formatWeight(lessWeight), "text-align:center;")}
-              ${td(formatWeight(netWeight), "text-align:center;")}
-              ${td(formatPlainAmount(presentValue), "text-align:center;")}
+              ${td(
+                "TOTAL",
+                "text-align:center;background:#f8fafc;font-weight:900;"
+              )}
+              ${td(
+                formatPlainAmount(totalItemCount),
+                "text-align:center;background:#f8fafc;font-weight:900;"
+              )}
+              ${td(
+                formatWeight(totalGrossWeight),
+                "text-align:center;background:#f8fafc;font-weight:900;"
+              )}
+              ${td(
+                formatWeight(totalLessWeight),
+                "text-align:center;background:#f8fafc;font-weight:900;"
+              )}
+              ${td(
+                formatWeight(totalNetWeight),
+                "text-align:center;background:#f8fafc;font-weight:900;"
+              )}
+              ${td(
+                formatPlainAmount(loanAmount),
+                "text-align:center;background:#f8fafc;font-weight:900;"
+              )}
             </tr>
           </tbody>
         </table>
@@ -1041,13 +1309,13 @@ function getInvoiceHtmlForPdf(input: InvoicePdfInput) {
             <span>${escapeHtml(formatPlainAmount(debtAmount))}</span>
 
             <span>No.Pc</span>
-            <span>${escapeHtml(formatPlainAmount(itemCount))}</span>
+            <span>${escapeHtml(formatPlainAmount(totalItemCount))}</span>
 
             <span>Gross Wt</span>
-            <span>${escapeHtml(formatWeight(grossWeight))}</span>
+            <span>${escapeHtml(formatWeight(totalGrossWeight))}</span>
 
             <span>Net Wt</span>
-            <span>${escapeHtml(formatWeight(netWeight))}</span>
+            <span>${escapeHtml(formatWeight(totalNetWeight))}</span>
           </div>
         </div>
 
