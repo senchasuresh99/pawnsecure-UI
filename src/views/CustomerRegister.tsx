@@ -516,7 +516,6 @@ export default function CustomerRegister() {
 
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Optimized from PNG to JPEG to significantly reduce file payload size
     return new Promise((resolve) => {
       canvas.toBlob(
         (blob) => {
@@ -532,7 +531,7 @@ export default function CustomerRegister() {
           resolve(file);
         },
         "image/jpeg",
-        0.90 // 90% quality is perfect for OCR
+        0.90
       );
     });
   }
@@ -564,8 +563,8 @@ export default function CustomerRegister() {
     let hasScanned = false;
     let isUnmounted = false;
 
-    // Added video constraints for continuous autofocus and zoom
-    const scanConfig = {
+    // Added `any` type assertion to bypass TypeScript DOM constraint strictness
+    const scanConfig: any = {
       fps: 15,
       qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
         const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
