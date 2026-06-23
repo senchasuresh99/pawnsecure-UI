@@ -1,4 +1,4 @@
-Import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGirvi } from "../girvi/GirviContext";
 import DealerSidebar from "../dealer/DealerSidebar";
@@ -1679,5 +1679,3 @@ function GuideBox({
     </div>
   );
 }
-
-This is the current running code
