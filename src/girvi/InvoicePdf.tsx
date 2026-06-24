@@ -1357,11 +1357,23 @@ function getDeclarationHtmlForPdf(input: InvoicePdfInput) {
   const customerDisplayName =
     savedGirviData.customerName || customerName || "_________________________";
 
-  const customerAddress =
+  const rawAddress =
     savedGirviData.customerAddress ||
     customer?.customerAddress ||
     customer?.address ||
-    "_________________________";
+    "";
+
+  // Logic to separate relation (S/O, D/O, etc.) from pure address
+  let pureAddress = rawAddress || "_________________________";
+  let relationText = "______________________________________";
+
+  const addressMatch = rawAddress.match(/^(S\/O|D\/O|W\/O|C\/O)[\s:]*([^,]+)[,\s]+(.*)/i);
+  if (addressMatch) {
+    relationText = addressMatch[2].trim();
+    pureAddress = addressMatch[3].trim();
+  } else if (savedGirviData.fatherName || customer?.fatherName) {
+    relationText = savedGirviData.fatherName || customer?.fatherName;
+  }
 
   const customerPhone =
     savedGirviData.customerPhone ||
@@ -1414,7 +1426,6 @@ function getDeclarationHtmlForPdf(input: InvoicePdfInput) {
         font-family:Arial, Helvetica, sans-serif;
         box-sizing:border-box;
         padding:18px 28px;
-        overflow:hidden;
         position:relative;
       "
     >
@@ -1422,50 +1433,51 @@ function getDeclarationHtmlForPdf(input: InvoicePdfInput) {
         background:#ffffff;
         border:1.5px solid #334155;
         border-radius:14px;
-        padding: 40px;
+        padding: 30px 40px;
         box-sizing: border-box;
-        height: 1087px;
         display: flex;
         flex-direction: column;
+        flex: 1;
+        min-height: 1087px;
         box-shadow:0 8px 22px rgba(15,23,42,0.10);
       ">
-        <div style="text-align:center; margin-bottom: 30px; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px;">
+        <div style="text-align:center; margin-bottom: 24px; border-bottom: 2px solid #e2e8f0; padding-bottom: 16px;">
           <h2 style="margin:0; font-size: 22px; font-weight: 900; text-transform: uppercase; color: #1e293b; letter-spacing: 0.5px;">Customer Declaration Form</h2>
           <p style="margin: 8px 0 0 0; font-size: 14px; font-weight: 700; color: #475569;">(For Gold Loan / Pawn Broker Transactions)</p>
         </div>
 
-        <div style="text-align: right; margin-bottom: 24px; font-size: 14px; font-weight: 700; color: #1e293b;">
+        <div style="text-align: right; margin-bottom: 20px; font-size: 14px; font-weight: 700; color: #1e293b;">
           Date: ${escapeHtml(formatInvoiceDate(girviDate))}
         </div>
 
-        <div style="font-size: 14px; line-height: 1.8; margin-bottom: 30px; text-align: justify; color: #1e293b;">
-          I, Mr./Ms. <strong style="text-decoration: underline;">${escapeHtml(customerDisplayName)}</strong> S/o, D/o, W/o ______________________________________<br/>
-          residing at <strong style="text-decoration: underline;">${escapeHtml(customerAddress)}</strong> hereby solemnly declare as follows:
+        <div style="font-size: 14px; line-height: 1.8; margin-bottom: 24px; text-align: justify; color: #1e293b;">
+          I, Mr./Ms. <strong style="text-decoration: underline;">${escapeHtml(customerDisplayName)}</strong> S/o, D/o, W/o <strong style="text-decoration: underline;">${escapeHtml(relationText)}</strong><br/>
+          residing at <strong style="text-decoration: underline;">${escapeHtml(pureAddress)}</strong> hereby solemnly declare as follows:
         </div>
 
-        <table style="width: 100%; font-size: 13px; line-height: 1.6; color: #334155; margin-bottom: 40px; border-collapse: collapse;">
+        <table style="width: 100%; font-size: 13px; line-height: 1.6; color: #334155; margin-bottom: 30px; border-collapse: collapse;">
           <tbody>
-            <tr><td style="width: 28px; vertical-align: top; font-weight: bold;">1.</td><td style="vertical-align: top; padding-bottom: 12px; text-align: justify;">I am the lawful owner or authorized possessor of the gold articles presented by me.</td></tr>
-            <tr><td style="width: 28px; vertical-align: top; font-weight: bold;">2.</td><td style="vertical-align: top; padding-bottom: 12px; text-align: justify;">The articles are not stolen, robbed, illegally obtained, or involved in any criminal case to the best of my knowledge.</td></tr>
-            <tr><td style="width: 28px; vertical-align: top; font-weight: bold;">3.</td><td style="vertical-align: top; padding-bottom: 12px; text-align: justify;">I have full legal right and authority to pledge these articles.</td></tr>
-            <tr><td style="width: 28px; vertical-align: top; font-weight: bold;">4.</td><td style="vertical-align: top; padding-bottom: 12px; text-align: justify;">I am voluntarily entering into this transaction without force, coercion, fraud, or undue influence.</td></tr>
-            <tr><td style="width: 28px; vertical-align: top; font-weight: bold;">5.</td><td style="vertical-align: top; padding-bottom: 12px; text-align: justify;">I have submitted valid identity and address proof and authorize the Pawn Broker to retain copies for record purposes.</td></tr>
-            <tr><td style="width: 28px; vertical-align: top; font-weight: bold;">6.</td><td style="vertical-align: top; padding-bottom: 12px; text-align: justify;">I understand that if any information provided by me is false, I shall be personally liable for all legal consequences.</td></tr>
-            <tr><td style="width: 28px; vertical-align: top; font-weight: bold;">7.</td><td style="vertical-align: top; padding-bottom: 12px; text-align: justify;">I authorize the Pawn Broker to provide my details, identification records, transaction records, photographs, and CCTV footage to lawful authorities whenever legally required.</td></tr>
-            <tr><td style="width: 28px; vertical-align: top; font-weight: bold;">8.</td><td style="vertical-align: top; padding-bottom: 12px; text-align: justify;">I consent to the maintenance of records including photographs, signatures, thumb impressions, identification documents, and CCTV footage for compliance purposes.</td></tr>
-            <tr><td style="width: 28px; vertical-align: top; font-weight: bold;">9.</td><td style="vertical-align: top; padding-bottom: 12px; text-align: justify;">In the event of any ownership dispute, police investigation, claim, or legal proceeding relating to the pledged articles, I shall indemnify and hold harmless the Pawn Broker from losses, claims, damages, costs, and legal expenses.</td></tr>
-            <tr><td style="width: 28px; vertical-align: top; font-weight: bold;">10.</td><td style="vertical-align: top; padding-bottom: 12px; text-align: justify;">Any dispute arising from this transaction shall be subject to the jurisdiction of the competent courts having jurisdiction over the Pawn Broker's business premises.</td></tr>
+            <tr><td style="width: 28px; vertical-align: top; font-weight: bold;">1.</td><td style="vertical-align: top; padding-bottom: 10px; text-align: justify;">I am the lawful owner or authorized possessor of the gold articles presented by me.</td></tr>
+            <tr><td style="width: 28px; vertical-align: top; font-weight: bold;">2.</td><td style="vertical-align: top; padding-bottom: 10px; text-align: justify;">The articles are not stolen, robbed, illegally obtained, or involved in any criminal case to the best of my knowledge.</td></tr>
+            <tr><td style="width: 28px; vertical-align: top; font-weight: bold;">3.</td><td style="vertical-align: top; padding-bottom: 10px; text-align: justify;">I have full legal right and authority to pledge these articles.</td></tr>
+            <tr><td style="width: 28px; vertical-align: top; font-weight: bold;">4.</td><td style="vertical-align: top; padding-bottom: 10px; text-align: justify;">I am voluntarily entering into this transaction without force, coercion, fraud, or undue influence.</td></tr>
+            <tr><td style="width: 28px; vertical-align: top; font-weight: bold;">5.</td><td style="vertical-align: top; padding-bottom: 10px; text-align: justify;">I have submitted valid identity and address proof and authorize the Pawn Broker to retain copies for record purposes.</td></tr>
+            <tr><td style="width: 28px; vertical-align: top; font-weight: bold;">6.</td><td style="vertical-align: top; padding-bottom: 10px; text-align: justify;">I understand that if any information provided by me is false, I shall be personally liable for all legal consequences.</td></tr>
+            <tr><td style="width: 28px; vertical-align: top; font-weight: bold;">7.</td><td style="vertical-align: top; padding-bottom: 10px; text-align: justify;">I authorize the Pawn Broker to provide my details, identification records, transaction records, photographs, and CCTV footage to lawful authorities whenever legally required.</td></tr>
+            <tr><td style="width: 28px; vertical-align: top; font-weight: bold;">8.</td><td style="vertical-align: top; padding-bottom: 10px; text-align: justify;">I consent to the maintenance of records including photographs, signatures, thumb impressions, identification documents, and CCTV footage for compliance purposes.</td></tr>
+            <tr><td style="width: 28px; vertical-align: top; font-weight: bold;">9.</td><td style="vertical-align: top; padding-bottom: 10px; text-align: justify;">In the event of any ownership dispute, police investigation, claim, or legal proceeding relating to the pledged articles, I shall indemnify and hold harmless the Pawn Broker from losses, claims, damages, costs, and legal expenses.</td></tr>
+            <tr><td style="width: 28px; vertical-align: top; font-weight: bold;">10.</td><td style="vertical-align: top; padding-bottom: 10px; text-align: justify;">Any dispute arising from this transaction shall be subject to the jurisdiction of the competent courts having jurisdiction over the Pawn Broker's business premises.</td></tr>
           </tbody>
         </table>
 
-        <div style="display: flex; gap: 30px; margin-bottom: 50px;">
+        <div style="display: flex; gap: 30px; margin-bottom: 30px;">
           <!-- Gold Article Details -->
           <div style="flex: 1; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; overflow: hidden;">
-            <div style="background: #eef2ff; color: #312e81; font-weight: 900; padding: 10px 14px; border-bottom: 1px solid #cbd5e1; font-size: 14px;">
+            <div style="background: #eef2ff; color: #312e81; font-weight: 900; padding: 8px 14px; border-bottom: 1px solid #cbd5e1; font-size: 14px;">
               Gold Article Details
             </div>
-            <div style="padding: 14px;">
-              <table style="width: 100%; font-size: 13px; line-height: 2;">
+            <div style="padding: 12px 14px;">
+              <table style="width: 100%; font-size: 13px; line-height: 1.8;">
                 <tr><td style="font-weight: 700; width: 140px; color: #475569;">Description:</td><td style="font-weight: 800;">${escapeHtml(itemDescriptions)}</td></tr>
                 <tr><td style="font-weight: 700; color: #475569;">Weight:</td><td style="font-weight: 800;">${escapeHtml(formatWeight(totalGrossWeight))} g</td></tr>
                 <tr><td style="font-weight: 700; color: #475569;">Quantity:</td><td style="font-weight: 800;">${escapeHtml(formatPlainAmount(totalItemCount))}</td></tr>
@@ -1476,26 +1488,26 @@ function getDeclarationHtmlForPdf(input: InvoicePdfInput) {
 
           <!-- Customer Details -->
           <div style="flex: 1; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; overflow: hidden;">
-            <div style="background: #eef2ff; color: #312e81; font-weight: 900; padding: 10px 14px; border-bottom: 1px solid #cbd5e1; font-size: 14px;">
+            <div style="background: #eef2ff; color: #312e81; font-weight: 900; padding: 8px 14px; border-bottom: 1px solid #cbd5e1; font-size: 14px;">
               Customer Details
             </div>
-            <div style="padding: 14px;">
-              <table style="width: 100%; font-size: 13px; line-height: 2;">
+            <div style="padding: 12px 14px;">
+              <table style="width: 100%; font-size: 13px; line-height: 1.8;">
                 <tr><td style="font-weight: 700; width: 140px; color: #475569;">Name:</td><td style="font-weight: 800;">${escapeHtml(customerDisplayName)}</td></tr>
                 <tr><td style="font-weight: 700; color: #475569;">Mobile No.:</td><td style="font-weight: 800;">${escapeHtml(customerPhone)}</td></tr>
                 <tr><td style="font-weight: 700; color: #475569;">Aadhaar / PAN No.:</td><td style="font-weight: 800;">${escapeHtml(aadhaarPan)}</td></tr>
-                <tr><td style="font-weight: 700; vertical-align: top; color: #475569;">Address:</td><td style="font-weight: 800; line-height: 1.4; padding-top: 5px;">${escapeHtml(customerAddress)}</td></tr>
+                <tr><td style="font-weight: 700; vertical-align: top; color: #475569;">Address:</td><td style="font-weight: 800; line-height: 1.4; padding-top: 3px;">${escapeHtml(pureAddress)}</td></tr>
               </table>
             </div>
           </div>
         </div>
 
-        <div style="margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; padding-top: 40px;">
+        <div style="margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; padding-top: 20px;">
             <div style="font-size: 10px; color: #64748b; font-weight: 800;">
                 Generated by PawnSecure • Customer Declaration Record
             </div>
             <div style="text-align: center; width: 220px;">
-              <div style="border-bottom: 1.5px solid #1e293b; height: 40px; margin-bottom: 8px;"></div>
+              <div style="border-bottom: 1.5px solid #1e293b; height: 30px; margin-bottom: 8px;"></div>
               <div style="font-size: 14px; font-weight: 900; color: #1e293b;">Customer Signature</div>
             </div>
         </div>
