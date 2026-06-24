@@ -15,12 +15,14 @@ import {
   FaFileInvoice,
   FaDownload,
   FaWhatsapp,
+  FaFileSignature,
 } from "react-icons/fa";
 import {
   LOGO_URL,
   imageUrlToDataUrl,
   buildInvoiceDataFromBackend,
   generateFrontendInvoicePdfFile,
+  generateThirdPartyAuthPdfFile,
 } from "./InvoicePdf";
 
 type GirviItemDTO = {
@@ -186,7 +188,12 @@ export default function GirviList() {
   const [editItems, setEditItems] = useState<GirviItemEditForm[]>([]);
 
   const [invoiceLogoDataUrl, setInvoiceLogoDataUrl] = useState("");
+  
   const [downloadingPdfGirviId, setDownloadingPdfGirviId] = useState<
+    number | string | null
+  >(null);
+
+  const [downloadingThirdPartyId, setDownloadingThirdPartyId] = useState<
     number | string | null
   >(null);
 
@@ -280,7 +287,6 @@ export default function GirviList() {
     return net > 0 ? net : 0;
   }
 
-  
   function getPrimaryItem(item: GirviResponseDTO) {
     return item.items && item.items.length > 0 ? item.items[0] : null;
   }
@@ -1027,6 +1033,69 @@ export default function GirviList() {
     }
   }
 
+  async function downloadThirdPartyAuthPdf(item: GirviResponseDTO) {
+    const rowKey = getGirviRowKey(item);
+    setDownloadingThirdPartyId(rowKey);
+
+    try {
+      const invoiceId = getGirviInvoiceId(item);
+      if (!invoiceId) {
+        throw new Error("Invoice ID not found for this Girvi.");
+      }
+
+      const dealerId = localStorage.getItem("ps_dealer_id");
+      const token = localStorage.getItem("ps_token");
+      if (!dealerId || !token) throw new Error("Session expired. Please login again.");
+
+      const res = await fetch(`${API_BASE}/invoices/${invoiceId}/details`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-DEALER-ID": dealerId,
+        },
+      });
+
+      if (!res.ok) throw new Error("Unable to load invoice details");
+
+      const invoiceDetails = await res.json();
+      const form = buildInvoiceFormFromGirvi(item);
+      const invoiceNumber = invoiceDetails?.invoiceNumber || getGirviInvoiceNumber(item, invoiceId);
+
+      const savedGirviData = buildInvoiceDataFromBackend({
+        invoiceDetails,
+        savedGirvi: item,
+        invoiceId,
+        invoiceNumber,
+        form,
+      });
+
+      const file = await generateThirdPartyAuthPdfFile({
+        invoiceId: Number(invoiceId),
+        savedInvoiceNumber: invoiceNumber,
+        savedGirviData,
+        invoiceLogoDataUrl,
+        customerName: item.customerName || "Customer",
+        customer: item.customer || {},
+        resolvedCustomerId: item.customerId,
+        form,
+      });
+
+      const url = window.URL.createObjectURL(file);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = file.name;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error("3rd Party PDF download failed:", err);
+      alert(err?.message || "Could not download 3rd Party Authorization PDF.");
+    } finally {
+      setDownloadingThirdPartyId(null);
+    }
+  }
+
   async function prepareWhatsAppShare(item: GirviResponseDTO) {
     const rowKey = getGirviRowKey(item);
     setSendingWhatsAppGirviId(rowKey);
@@ -1186,6 +1255,8 @@ Please find attached invoice PDF.`;
               handleRenewGirvi={handleRenewGirvi}
               downloadGirviInvoicePdf={downloadGirviInvoicePdf}
               downloadingPdfGirviId={downloadingPdfGirviId}
+              downloadThirdPartyAuthPdf={downloadThirdPartyAuthPdf}
+              downloadingThirdPartyId={downloadingThirdPartyId}
               preparedShareData={preparedShareData}
               prepareWhatsAppShare={prepareWhatsAppShare}
               executeWhatsAppShare={executeWhatsAppShare}
@@ -1289,6 +1360,8 @@ Please find attached invoice PDF.`;
             handleRenewGirvi={handleRenewGirvi}
             downloadGirviInvoicePdf={downloadGirviInvoicePdf}
             downloadingPdfGirviId={downloadingPdfGirviId}
+            downloadThirdPartyAuthPdf={downloadThirdPartyAuthPdf}
+            downloadingThirdPartyId={downloadingThirdPartyId}
             preparedShareData={preparedShareData}
             prepareWhatsAppShare={prepareWhatsAppShare}
             executeWhatsAppShare={executeWhatsAppShare}
@@ -1351,6 +1424,8 @@ function RecordsPanel({
   handleRenewGirvi,
   downloadGirviInvoicePdf,
   downloadingPdfGirviId,
+  downloadThirdPartyAuthPdf,
+  downloadingThirdPartyId,
   preparedShareData,
   prepareWhatsAppShare,
   executeWhatsAppShare,
@@ -1415,6 +1490,7 @@ function RecordsPanel({
               const imageSrc = getImageSrc(item);
               const rowKey = getGirviRowKey(item);
               const pdfLoading = downloadingPdfGirviId === rowKey;
+              const isThirdPartyLoading = downloadingThirdPartyId === rowKey;
               const whatsAppLoading = sendingWhatsAppGirviId === rowKey;
               const isPrepared = !!preparedShareData[rowKey];
 
@@ -1611,7 +1687,7 @@ function RecordsPanel({
                           ) : isPrepared ? (
                             <>
                               <FaWhatsapp />
-                              Share Now
+                              Share
                             </>
                           ) : (
                             <>
@@ -1620,6 +1696,21 @@ function RecordsPanel({
                             </>
                           )}
                         </button>
+
+                        <div className="col-span-2">
+                          <button
+                            type="button"
+                            onClick={() => downloadThirdPartyAuthPdf(item)}
+                            disabled={isThirdPartyLoading}
+                            className="w-full mt-1 bg-orange-50 hover:bg-orange-100 text-orange-700 px-2 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400"
+                          >
+                            {isThirdPartyLoading ? (
+                              <><FaDownload className="animate-pulse" /> Generating...</>
+                            ) : (
+                              <><FaFileSignature /> 3rd Party Auth</>
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1662,6 +1753,8 @@ function MobileRecordsPanel({
   handleRenewGirvi,
   downloadGirviInvoicePdf,
   downloadingPdfGirviId,
+  downloadThirdPartyAuthPdf,
+  downloadingThirdPartyId,
   preparedShareData,
   prepareWhatsAppShare,
   executeWhatsAppShare,
@@ -1714,6 +1807,7 @@ function MobileRecordsPanel({
           const imageSrc = getImageSrc(item);
           const rowKey = getGirviRowKey(item);
           const pdfLoading = downloadingPdfGirviId === rowKey;
+          const isThirdPartyLoading = downloadingThirdPartyId === rowKey;
           const whatsAppLoading = sendingWhatsAppGirviId === rowKey;
           const isPrepared = !!preparedShareData[rowKey];
 
@@ -1874,7 +1968,7 @@ function MobileRecordsPanel({
                   ) : isPrepared ? (
                     <>
                       <FaWhatsapp className="text-xs" />
-                      Share Now
+                      Share
                     </>
                   ) : (
                     <>
@@ -1883,6 +1977,21 @@ function MobileRecordsPanel({
                     </>
                   )}
                 </button>
+
+                <div className="col-span-2">
+                  <button
+                    type="button"
+                    onClick={() => downloadThirdPartyAuthPdf(item)}
+                    disabled={isThirdPartyLoading}
+                    className="w-full bg-orange-50 hover:bg-orange-100 text-orange-700 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400"
+                  >
+                    {isThirdPartyLoading ? (
+                      <><FaDownload className="animate-pulse" /> Generating...</>
+                    ) : (
+                      <><FaFileSignature className="text-xs" /> 3rd Party Auth Form</>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           );
