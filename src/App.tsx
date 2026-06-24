@@ -8,6 +8,7 @@ import AdminDashboard from "./admin/AdminDashboard";
 
 import DealerDashboard from "./dealer/DealerDashboard";
 import CustomerReviews from "./views/CustomerReviews";
+import DealerPartialDashboard from "./dealer/DealerPartialDashboard";
 
 /* ✅ GIRVI FLOW IMPORTS */
 import CustomerDetails from "./girvi/CustomerDetails";
@@ -43,6 +44,7 @@ export default function App() {
 
         {/* ✅ DEALER */}
         <Route path="/dealer/dashboard" element={<DealerDashboard />} />
+        <Route path="/dealer/dashboard-partial" element={<DealerPartialDashboard />} />
         <Route path="/dealer/customer-search" element={<CustomerReviews />} />
 
         {/* ✅ GIRVI FLOW */}

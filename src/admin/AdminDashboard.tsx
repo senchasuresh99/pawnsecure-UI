@@ -16,6 +16,8 @@ import {
 
 const API_BASE = "https://pawnsecure.onrender.com/api";
 
+type DashboardControl = "FULLVIEW" | "PARTIALITY";
+
 type Dealer = {
   id: number;
   shopName: string;
@@ -23,6 +25,7 @@ type Dealer = {
   phoneNumber: string;
   status: "APPROVED" | "PENDING" | "REJECTED";
   subscriptionEnd?: string;
+  dashboardControl?: DashboardControl;
 };
 
 type DealerProfile = {
@@ -39,6 +42,7 @@ type DealerProfile = {
   subscriptionStart?: string;
   subscriptionEnd?: string;
   subscriptionActive?: boolean;
+  dashboardControl?: DashboardControl;
 };
 
 type MetalRateForm = {
@@ -106,12 +110,17 @@ export default function AdminDashboard() {
   const [message, setMessage] = useState("");
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
+  const [approveModal, setApproveModal] = useState(false);
+  const [approveDealerTarget, setApproveDealerTarget] =
+    useState<Dealer | null>(null);
+  const [selectedDashboardControl, setSelectedDashboardControl] =
+    useState<DashboardControl>("PARTIALITY");
+
   const [dealerDetailsModal, setDealerDetailsModal] = useState(false);
   const [dealerDetailsLoading, setDealerDetailsLoading] = useState(false);
   const [dealerDetailsError, setDealerDetailsError] = useState("");
-  const [selectedDealer, setSelectedDealer] = useState<DealerProfile | null>(
-    null
-  );
+  const [selectedDealer, setSelectedDealer] =
+    useState<DealerProfile | null>(null);
   const [selectedDealerId, setSelectedDealerId] = useState<number | string>("");
 
   const [popup, setPopup] = useState({
@@ -174,24 +183,47 @@ export default function AdminDashboard() {
     localStorage.removeItem("ps_role");
     localStorage.removeItem("ps_dealer_id");
     localStorage.removeItem("ps_dealer_name");
+    localStorage.removeItem("ps_dashboard_control");
 
     navigate("/", { replace: true });
   }
 
-  function openDealerDashboard(dealer: Dealer | DealerProfile) {
-  const dealerName =
-    "shopName" in dealer && dealer.shopName
-      ? dealer.shopName
-      : "name" in dealer && dealer.name
-      ? dealer.name
-      : "Dealer";
+  function openApproveModal(dealer: Dealer) {
+    setApproveDealerTarget(dealer);
+    setSelectedDashboardControl(dealer.dashboardControl || "PARTIALITY");
+    setApproveModal(true);
+  }
 
-  navigate(
-    `/dealer/dashboard?adminView=true&dealerId=${dealer.id}&dealerName=${encodeURIComponent(
-      dealerName
-    )}`
-  );
-}
+  function closeApproveModal() {
+    setApproveModal(false);
+    setApproveDealerTarget(null);
+    setSelectedDashboardControl("PARTIALITY");
+  }
+
+  function openDealerDashboard(dealer: Dealer | DealerProfile) {
+    const dealerName =
+      "shopName" in dealer && dealer.shopName
+        ? dealer.shopName
+        : "name" in dealer && dealer.name
+        ? dealer.name
+        : "Dealer";
+
+    const dashboardControl =
+      "dashboardControl" in dealer && dealer.dashboardControl
+        ? dealer.dashboardControl
+        : "FULLVIEW";
+
+    const path =
+      dashboardControl === "PARTIALITY"
+        ? "/dealer/dashboard-partial"
+        : "/dealer/dashboard";
+
+    navigate(
+      `${path}?adminView=true&dealerId=${dealer.id}&dealerName=${encodeURIComponent(
+        dealerName
+      )}`
+    );
+  }
 
   function getDealerIdDisplay(id?: string | number | null) {
     if (!id) return "-";
@@ -297,14 +329,30 @@ export default function AdminDashboard() {
     }
   }
 
-  async function approveDealer(id: number) {
-    try {
-      const res = await fetch(`${API_BASE}/admin/approve/${id}`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("ps_token")}`,
-        },
+  async function approveDealer() {
+    if (!approveDealerTarget?.id) {
+      setPopup({
+        show: true,
+        type: "error",
+        message: "Dealer not selected for approval",
       });
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `${API_BASE}/admin/approve/${approveDealerTarget.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("ps_token")}`,
+          },
+          body: JSON.stringify({
+            dashboardControl: selectedDashboardControl,
+          }),
+        }
+      );
 
       const msg = await res.text();
 
@@ -314,6 +362,7 @@ export default function AdminDashboard() {
       }
 
       setPopup({ show: true, type: "success", message: msg });
+      closeApproveModal();
       loadDealers();
     } catch {
       setPopup({
@@ -647,8 +696,8 @@ export default function AdminDashboard() {
               <p className="text-sm opacity-90">Welcome Admin 👋</p>
               <h1 className="text-2xl font-bold mt-1">Manage Dealers</h1>
               <p className="text-sm opacity-80 mt-2">
-                Approve dealer accounts, renew subscriptions and send
-                announcements.
+                Approve dealer accounts, choose dashboard view, renew
+                subscriptions and send announcements.
               </p>
             </div>
 
@@ -748,6 +797,12 @@ export default function AdminDashboard() {
                             <p className="text-xs text-gray-400">
                               Dealer ID: DP{dealer.id}
                             </p>
+
+                            {dealer.dashboardControl && (
+                              <p className="text-xs text-purple-600 font-bold mt-1">
+                                Dashboard: {dealer.dashboardControl}
+                              </p>
+                            )}
                           </div>
 
                           <div className="col-span-2">
@@ -781,7 +836,7 @@ export default function AdminDashboard() {
                               </button>
 
                               <button
-                                onClick={() => approveDealer(dealer.id)}
+                                onClick={() => openApproveModal(dealer)}
                                 disabled={!canApprove}
                                 className={`px-3 py-2 rounded-lg text-xs font-bold ${
                                   !canApprove
@@ -819,6 +874,12 @@ export default function AdminDashboard() {
                               <p className="text-xs text-gray-500 mt-1">
                                 Phone: {dealer.phoneNumber || "-"}
                               </p>
+
+                              {dealer.dashboardControl && (
+                                <p className="text-xs text-purple-600 font-bold mt-1">
+                                  Dashboard: {dealer.dashboardControl}
+                                </p>
+                              )}
                             </div>
 
                             <StatusBadge status={dealer.status} />
@@ -838,7 +899,7 @@ export default function AdminDashboard() {
                             </button>
 
                             <button
-                              onClick={() => approveDealer(dealer.id)}
+                              onClick={() => openApproveModal(dealer)}
                               disabled={!canApprove}
                               className={`py-2 rounded-xl text-xs font-bold ${
                                 !canApprove
@@ -1012,6 +1073,12 @@ export default function AdminDashboard() {
                       <p className="text-xs text-gray-500 mt-1">
                         Phone: {dealer.phoneNumber || "-"}
                       </p>
+
+                      {dealer.dashboardControl && (
+                        <p className="text-xs text-purple-600 font-bold mt-1">
+                          Dashboard: {dealer.dashboardControl}
+                        </p>
+                      )}
                     </div>
 
                     <div className="shrink-0">
@@ -1033,7 +1100,7 @@ export default function AdminDashboard() {
                     </button>
 
                     <button
-                      onClick={() => approveDealer(dealer.id)}
+                      onClick={() => openApproveModal(dealer)}
                       disabled={!canApprove}
                       className={`py-2 rounded-xl text-xs font-bold ${
                         !canApprove
@@ -1062,6 +1129,68 @@ export default function AdminDashboard() {
           )}
         </div>
       </div>
+
+      {/* ================= APPROVE MODAL ================= */}
+      {approveModal && approveDealerTarget && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[999] p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <h2 className="text-xl font-bold mb-2">Approve Dealer</h2>
+
+            <p className="text-sm text-gray-500 mb-4">
+              Select dashboard view before approving this dealer.
+            </p>
+
+            <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 mb-4">
+              <p className="text-xs text-gray-400 font-bold uppercase">
+                Dealer
+              </p>
+
+              <p className="text-sm font-bold text-gray-900 mt-1">
+                {approveDealerTarget.shopName || `DP${approveDealerTarget.id}`}
+              </p>
+
+              <p className="text-xs text-gray-500 mt-1">
+                Dealer ID: DP{approveDealerTarget.id}
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">
+                Dashboard View
+              </label>
+
+              <select
+                value={selectedDashboardControl}
+                onChange={(e) =>
+                  setSelectedDashboardControl(e.target.value as DashboardControl)
+                }
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none bg-gray-50 focus:bg-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+              >
+                <option value="FULLVIEW">Full View</option>
+                <option value="PARTIALITY">Partiality View</option>
+              </select>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                type="button"
+                onClick={closeApproveModal}
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-semibold"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={approveDealer}
+                className="px-4 py-2 rounded-lg font-bold text-white bg-purple-600 hover:bg-purple-700"
+              >
+                Approve Dealer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ================= DEALER DETAILS MODAL ================= */}
       {dealerDetailsModal && (
@@ -1096,7 +1225,9 @@ export default function AdminDashboard() {
 
                 <button
                   type="button"
-                  onClick={() => selectedDealerId && viewDealerDetails(selectedDealerId)}
+                  onClick={() =>
+                    selectedDealerId && viewDealerDetails(selectedDealerId)
+                  }
                   className="mt-4 bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-xl text-sm font-bold"
                 >
                   Retry
@@ -1172,14 +1303,16 @@ export default function AdminDashboard() {
                     value={selectedDealer.shopAddress}
                   />
 
-                  <AdminDealerDetailRow
-                    label="Role"
-                    value={selectedDealer.role}
-                  />
+                  <AdminDealerDetailRow label="Role" value={selectedDealer.role} />
 
                   <AdminDealerDetailRow
                     label="Status"
                     value={selectedDealer.status}
+                  />
+
+                  <AdminDealerDetailRow
+                    label="Dashboard View"
+                    value={selectedDealer.dashboardControl}
                   />
 
                   <AdminDealerDetailRow
@@ -1194,6 +1327,16 @@ export default function AdminDashboard() {
                 </div>
 
                 <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+                  {selectedDealer.status === "APPROVED" && (
+                    <button
+                      type="button"
+                      onClick={() => openDealerDashboard(selectedDealer)}
+                      className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold"
+                    >
+                      Open Dashboard
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     onClick={() => setDealerDetailsModal(false)}

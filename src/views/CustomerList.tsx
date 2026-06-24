@@ -86,6 +86,12 @@ export default function CustomerList() {
   const dealerId =
     query.get("dealerId") || localStorage.getItem("ps_dealer_id") || "-";
 
+  const dashboardControl = String(
+    localStorage.getItem("ps_dashboard_control") || "FULLVIEW"
+  ).toUpperCase();
+
+  const isPartialityDashboard = dashboardControl === "PARTIALITY";
+
   const todayDate = new Date().toLocaleDateString("en-IN", {
     day: "2-digit",
     month: "long",
@@ -420,6 +426,13 @@ export default function CustomerList() {
               </div>
             </div>
 
+            {isPartialityDashboard && (
+              <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-2xl px-5 py-4 mb-6 text-sm font-semibold">
+                Partiality view: You can view customer details. Girvi actions
+                are disabled.
+              </div>
+            )}
+
             <div className="flex gap-3 mb-6">
               <button
                 type="button"
@@ -487,6 +500,7 @@ export default function CustomerList() {
               totalPages={calculatedTotalPages}
               setPage={setPage}
               setSize={setSize}
+              isPartialityDashboard={isPartialityDashboard}
             />
           </div>
         </main>
@@ -553,6 +567,13 @@ export default function CustomerList() {
               </button>
             </div>
           </div>
+
+          {isPartialityDashboard && (
+            <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-2xl px-4 py-3 mb-4 text-xs font-semibold">
+              Partiality view: Girvi actions are disabled. View Details is
+              available.
+            </div>
+          )}
 
           <div className="flex gap-2 mb-4">
             <button
@@ -621,10 +642,14 @@ export default function CustomerList() {
             totalPages={calculatedTotalPages}
             setPage={setPage}
             setSize={setSize}
+            isPartialityDashboard={isPartialityDashboard}
           />
         </div>
 
-        <DealerMobileBottomNav active="customers" isAdminView={isAdminView} />
+        <DealerMobileBottomNav
+          active={isPartialityDashboard ? undefined : "customers"}
+          isAdminView={isAdminView}
+        />
       </div>
 
       {/* ================= MODAL DETAILS ================= */}
@@ -688,9 +713,13 @@ export default function CustomerList() {
                 />
               </div>
 
-              <InfoCard label="Total Girvi" value="0" />
-              <InfoCard label="Active Loan" value="₹ 0" />
-              <InfoCard label="Since" value="Today" />
+              {!isPartialityDashboard && (
+                <>
+                  <InfoCard label="Total Girvi" value="0" />
+                  <InfoCard label="Active Loan" value="₹ 0" />
+                  <InfoCard label="Since" value="Today" />
+                </>
+              )}
             </div>
 
             {/* ================= REVIEWS SECTION ================= */}
@@ -763,39 +792,47 @@ export default function CustomerList() {
               )}
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  navigate("/dealer/details", {
-                    state: {
-                      customerId: selectedCustomer.id,
-                      customerName: selectedCustomer.fullName,
-                      returnTo: "/dealer/customers",
-                    },
-                  });
-                }}
-                className="flex-1 min-w-[120px] bg-[#7128E6] hover:bg-[#5b1abf] text-white font-bold py-3.5 rounded-2xl transition shadow-lg shadow-purple-200/50 flex items-center justify-center gap-2 text-sm"
-              >
-                <FaPlus /> New Girvi
-              </button>
+            {isPartialityDashboard && (
+              <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-2xl text-xs font-semibold mb-3 text-center">
+                Girvi actions are not available in Partiality view.
+              </div>
+            )}
 
-              <button
-                type="button"
-                onClick={() =>
-                  navigate("/dealer/customer", {
-                    state: {
-                      customerId: selectedCustomer.id,
-                      customerName: selectedCustomer.fullName,
-                      returnTo: "/dealer/customers",
-                    },
-                  })
-                }
-                className="flex-1 min-w-[120px] bg-purple-50 text-purple-700 font-bold py-3.5 rounded-2xl transition flex items-center justify-center gap-2 text-sm hover:bg-purple-100"
-              >
-                <FaBox className="opacity-70" /> View Girvi
-              </button>
-            </div>
+            {!isPartialityDashboard && (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigate("/dealer/details", {
+                      state: {
+                        customerId: selectedCustomer.id,
+                        customerName: selectedCustomer.fullName,
+                        returnTo: "/dealer/customers",
+                      },
+                    });
+                  }}
+                  className="flex-1 min-w-[120px] bg-[#7128E6] hover:bg-[#5b1abf] text-white font-bold py-3.5 rounded-2xl transition shadow-lg shadow-purple-200/50 flex items-center justify-center gap-2 text-sm"
+                >
+                  <FaPlus /> New Girvi
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate("/dealer/customer", {
+                      state: {
+                        customerId: selectedCustomer.id,
+                        customerName: selectedCustomer.fullName,
+                        returnTo: "/dealer/customers",
+                      },
+                    })
+                  }
+                  className="flex-1 min-w-[120px] bg-purple-50 text-purple-700 font-bold py-3.5 rounded-2xl transition flex items-center justify-center gap-2 text-sm hover:bg-purple-100"
+                >
+                  <FaBox className="opacity-70" /> View Girvi
+                </button>
+              </div>
+            )}
 
             <div className="flex gap-2 mt-2">
               <button
@@ -842,6 +879,7 @@ function CustomerCards({
   totalPages,
   setPage,
   setSize,
+  isPartialityDashboard,
 }: any) {
   return (
     <>
@@ -918,21 +956,29 @@ function CustomerCards({
                   View Details
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    navigate("/dealer/details", {
-                      state: {
-                        customerId: c.id,
-                        customerName: c.fullName,
-                        returnTo: "/dealer/customers",
-                      },
-                    })
-                  }
-                  className="bg-[#7128E6] hover:bg-[#5b1abf] text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 shadow-sm transition"
-                >
-                  <FaPlus /> New Girvi
-                </button>
+                {!isPartialityDashboard && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate("/dealer/details", {
+                        state: {
+                          customerId: c.id,
+                          customerName: c.fullName,
+                          returnTo: "/dealer/customers",
+                        },
+                      })
+                    }
+                    className="bg-[#7128E6] hover:bg-[#5b1abf] text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 shadow-sm transition"
+                  >
+                    <FaPlus /> New Girvi
+                  </button>
+                )}
+
+                {isPartialityDashboard && (
+                  <span className="text-[11px] text-yellow-700 bg-yellow-50 border border-yellow-200 px-3 py-2 rounded-xl font-bold">
+                    Girvi Disabled
+                  </span>
+                )}
               </div>
             </div>
           ))}

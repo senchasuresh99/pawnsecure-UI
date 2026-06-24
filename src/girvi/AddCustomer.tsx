@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useGirvi } from "./GirviContext";
+import { useGirvi } from "../girvi/GirviContext";
 import DealerSidebar from "../dealer/DealerSidebar";
 import MobileDealerSidebar from "../dealer/MobileDealerSidebar";
+import DealerMobileBottomNav from "../dealer/DealerMobileBottomNav";
 import {
   FaArrowLeft,
   FaSave,
@@ -12,11 +13,6 @@ import {
   FaPhoneAlt,
   FaMapMarkerAlt,
   FaCheckCircle,
-  FaHome,
-  FaUserFriends,
-  FaRupeeSign,
-  FaCoins,
-  FaEllipsisH,
 } from "react-icons/fa";
 
 const API_BASE = "https://pawnsecure.onrender.com/api";
@@ -51,16 +47,20 @@ export default function AddCustomer() {
   const isAdminView = query.get("adminView") === "true";
 
   const dealerName =
-  query.get("dealerName") ||
-  localStorage.getItem("ps_dealer_name") ||
-  "Dealer";
+    query.get("dealerName") ||
+    localStorage.getItem("ps_dealer_name") ||
+    "Dealer";
 
-const dealerIdForSidebar =
-  query.get("dealerId") ||
-  localStorage.getItem("ps_dealer_id") ||
-  "-";
+  const dealerIdForSidebar =
+    query.get("dealerId") || localStorage.getItem("ps_dealer_id") || "-";
 
-const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+
+  const dashboardControl = String(
+    localStorage.getItem("ps_dashboard_control") || "FULLVIEW"
+  ).toUpperCase();
+
+  const isPartialityDashboard = dashboardControl === "PARTIALITY";
 
   const todayDate = new Date().toLocaleDateString("en-IN", {
     day: "2-digit",
@@ -282,6 +282,7 @@ const [showMobileSidebar, setShowMobileSidebar] = useState(false);
         localStorage.removeItem("ps_role");
         localStorage.removeItem("ps_dealer_id");
         localStorage.removeItem("ps_dealer_name");
+        localStorage.removeItem("ps_dashboard_control");
 
         showPopup("error", "Session expired. Please login again.");
 
@@ -323,15 +324,80 @@ const [showMobileSidebar, setShowMobileSidebar] = useState(false);
         };
       }
 
-      setCustomer(savedCustomer);
+      const customerId =
+        savedCustomer.id ||
+        savedCustomer.customerId ||
+        savedCustomer.customer_id ||
+        savedCustomer.customer?.id ||
+        savedCustomer.customer?.customerId ||
+        "";
+
+      if (!customerId) {
+        showPopup(
+          "error",
+          "Customer saved, but customer ID was not returned by backend."
+        );
+        return;
+      }
+
+      const normalizedCustomer = {
+        ...savedCustomer,
+        id: customerId,
+        customerId: customerId,
+        fullName:
+          savedCustomer.fullName ||
+          savedCustomer.name ||
+          savedCustomer.customerName ||
+          form.name,
+        name:
+          savedCustomer.name ||
+          savedCustomer.fullName ||
+          savedCustomer.customerName ||
+          form.name,
+        phoneNumber:
+          savedCustomer.phoneNumber ||
+          savedCustomer.mobile ||
+          savedCustomer.phone ||
+          form.phone,
+        maskedAadhaar:
+          savedCustomer.maskedAadhaar ||
+          savedCustomer.masked_aadhaar ||
+          aadhaarValue,
+        dob: savedCustomer.dob || form.dob,
+        gender: savedCustomer.gender || normalizeGender(form.gender),
+        address: savedCustomer.address || form.address,
+      };
+
+      setCustomer(normalizedCustomer);
+
+      localStorage.setItem("ps_customer_id", String(customerId));
+      localStorage.setItem(
+        "ps_selected_customer",
+        JSON.stringify(normalizedCustomer)
+      );
 
       showPopup(
         "success",
-        savedCustomer.message || "Customer saved successfully"
+        normalizedCustomer.message || "Customer saved successfully"
       );
 
       setTimeout(() => {
-        navigate("/dealer/details");
+        if (isPartialityDashboard) {
+          navigate("/dealer/customer-search", {
+            state: {
+              mode: "RENEWAL_EXTEND",
+              customer: normalizedCustomer,
+            },
+            replace: true,
+          });
+          return;
+        }
+
+        navigate("/dealer/details", {
+          state: {
+            customer: normalizedCustomer,
+          },
+        });
       }, 900);
     } catch (err) {
       console.error("Save customer failed:", err);
@@ -368,13 +434,11 @@ const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   function renderFormCard() {
     return (
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 xl:p-8">
-        {/* VERIFIED STATUS */}
         <div className="bg-green-50 border border-green-100 text-green-700 rounded-2xl px-4 py-3 text-sm font-semibold mb-6 flex items-center gap-2">
           <FaCheckCircle />
           Aadhaar details loaded successfully
         </div>
 
-        {/* PROGRESS MOBILE / CONTENT */}
         <div className="mb-6">
           <div className="flex justify-between text-xs font-semibold text-gray-500 mb-2">
             <span>Form Completion</span>
@@ -389,7 +453,6 @@ const [showMobileSidebar, setShowMobileSidebar] = useState(false);
           </div>
         </div>
 
-        {/* AADHAAR DISPLAY */}
         <div className="bg-purple-50 border border-purple-100 rounded-2xl p-4 mb-6 flex items-center gap-3">
           <div className="w-11 h-11 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
             <FaIdCard />
@@ -410,7 +473,6 @@ const [showMobileSidebar, setShowMobileSidebar] = useState(false);
           </div>
         </div>
 
-        {/* FORM SECTIONS */}
         <Section title="Personal Details">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
@@ -526,13 +588,18 @@ const [showMobileSidebar, setShowMobileSidebar] = useState(false);
         <div className="bg-gradient-to-br from-purple-700 to-indigo-600 text-white rounded-3xl p-6">
           <h3 className="font-bold text-lg mb-2">Next Step</h3>
           <p className="text-sm opacity-85">
-            After saving this customer, the dealer can continue to Girvi details
-            and add pledged item information.
+            {isPartialityDashboard
+              ? "After saving this customer, you can continue to customer review."
+              : "After saving this customer, the dealer can continue to Girvi details and add pledged item information."}
           </p>
 
           <div className="mt-5 bg-white/10 rounded-2xl p-4">
             <p className="text-xs opacity-80">Current Step</p>
-            <p className="font-bold mt-1">Customer Registration</p>
+            <p className="font-bold mt-1">
+              {isPartialityDashboard
+                ? "Customer Registration / Review"
+                : "Customer Registration"}
+            </p>
           </div>
         </div>
       </div>
@@ -566,7 +633,6 @@ const [showMobileSidebar, setShowMobileSidebar] = useState(false);
           </header>
 
           <div className="p-5 xl:p-6 max-w-[1400px] w-full mx-auto flex-1">
-            {/* Compact Banner */}
             <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-3xl px-8 py-5 mb-6">
               <div className="flex items-center justify-between gap-6">
                 <div>
@@ -575,7 +641,9 @@ const [showMobileSidebar, setShowMobileSidebar] = useState(false);
                     Customer Details
                   </h1>
                   <p className="text-sm opacity-80 mt-1">
-                    Complete customer profile before continuing to Girvi details.
+                    {isPartialityDashboard
+                      ? "Complete customer profile before customer review."
+                      : "Complete customer profile before continuing to Girvi details."}
                   </p>
                 </div>
 
@@ -602,147 +670,88 @@ const [showMobileSidebar, setShowMobileSidebar] = useState(false);
         </main>
       </div>
 
-{/* ================= MOBILE VIEW ================= */}
-<div className="lg:hidden pb-32 bg-[#f4f5f7] min-h-screen">
-  <MobileDealerSidebar
-    open={showMobileSidebar}
-    onClose={() => setShowMobileSidebar(false)}
-    isAdminView={isAdminView}
-    dealerName={dealerName}
-    dealerId={dealerIdForSidebar}
-  />
+      {/* ================= MOBILE VIEW ================= */}
+      <div className="lg:hidden pb-32 bg-[#f4f5f7] min-h-screen">
+        <MobileDealerSidebar
+          open={showMobileSidebar}
+          onClose={() => setShowMobileSidebar(false)}
+          isAdminView={isAdminView}
+          dealerName={dealerName}
+          dealerId={dealerIdForSidebar}
+        />
 
-  <div className="max-w-md mx-auto bg-[#f4f5f7] min-h-screen">
-    {/* Mobile Header */}
-    <header className="h-16 bg-white border-b border-gray-200 px-4 flex items-center justify-between sticky top-0 z-30 shrink-0">
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => {
-            if (isAdminView) {
-              navigate("/admin/dashboard", { replace: true });
-              return;
-            }
+        <div className="max-w-md mx-auto bg-[#f4f5f7] min-h-screen">
+          <header className="h-16 bg-white border-b border-gray-200 px-4 flex items-center justify-between sticky top-0 z-30 shrink-0">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  if (isAdminView) {
+                    navigate("/admin/dashboard", { replace: true });
+                    return;
+                  }
 
-            setShowMobileSidebar(true);
-          }}
-          className="w-10 h-10 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-xl text-gray-700 active:bg-gray-100"
-        >
-          {isAdminView ? "←" : "☰"}
-        </button>
+                  setShowMobileSidebar(true);
+                }}
+                className="w-10 h-10 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-xl text-gray-700 active:bg-gray-100"
+              >
+                {isAdminView ? "←" : "☰"}
+              </button>
 
-        <div>
-          <h2 className="text-base font-bold text-gray-900">
-            Register Customer
-          </h2>
-          <p className="text-[11px] text-gray-500">
-            Save profile before Girvi
-          </p>
-        </div>
-      </div>
+              <div>
+                <h2 className="text-base font-bold text-gray-900">
+                  Register Customer
+                </h2>
+                <p className="text-[11px] text-gray-500">
+                  {isPartialityDashboard
+                    ? "Save profile before review"
+                    : "Save profile before Girvi"}
+                </p>
+              </div>
+            </div>
 
-      <div className="text-right leading-tight">
-        <p className="text-xs font-semibold text-gray-800">{todayDate}</p>
-        <p className="text-[10px] text-gray-400">{todayDay}</p>
-      </div>
-    </header>
+            <div className="text-right leading-tight">
+              <p className="text-xs font-semibold text-gray-800">
+                {todayDate}
+              </p>
+              <p className="text-[10px] text-gray-400">{todayDay}</p>
+            </div>
+          </header>
 
-    {/* Purple Banner */}
-    <div className="px-4 pt-4">
-      <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-3xl px-5 py-5 mb-5 shadow-sm">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-xs opacity-80">Customer Onboarding</p>
-            <h1 className="text-2xl font-bold mt-1">Customer Details</h1>
-            <p className="text-sm opacity-80 mt-1">
-              Complete customer profile before continuing to Girvi details.
-            </p>
+          <div className="px-4 pt-4">
+            <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-3xl px-5 py-5 mb-5 shadow-sm">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs opacity-80">Customer Onboarding</p>
+                  <h1 className="text-2xl font-bold mt-1">
+                    Customer Details
+                  </h1>
+                  <p className="text-sm opacity-80 mt-1">
+                    {isPartialityDashboard
+                      ? "Complete customer profile before customer review."
+                      : "Complete customer profile before continuing to Girvi details."}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => navigate("/dealer/customer-register")}
+                  className="w-11 h-11 bg-white/20 active:bg-white/30 rounded-2xl flex items-center justify-center transition shrink-0"
+                  title="Back"
+                >
+                  <FaArrowLeft />
+                </button>
+              </div>
+            </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => navigate("/dealer/customer-register")}
-            className="w-11 h-11 bg-white/20 active:bg-white/30 rounded-2xl flex items-center justify-center transition shrink-0"
-            title="Back"
-          >
-            <FaArrowLeft />
-          </button>
+          <div className="px-4 relative z-10">{renderFormCard()}</div>
+
+          <div className="px-4 mt-4">{renderPreviewCard()}</div>
         </div>
+
+        <DealerMobileBottomNav active="register" isAdminView={isAdminView} />
       </div>
-    </div>
-
-    <div className="px-4 relative z-10">
-      {renderFormCard()}
-    </div>
-
-    <div className="px-4 mt-4">
-      {renderPreviewCard()}
-    </div>
-  </div>
-
-  {/* Mobile Bottom Navigation */}
-  {!isAdminView && (
-    <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 flex justify-around py-3 z-50 shadow-xl">
-      <button
-        type="button"
-        onClick={() => navigate("/dealer/dashboard")}
-        className="text-gray-500 flex flex-col items-center text-xs"
-      >
-        <FaHome className="text-xl mb-1" />
-        Dashboard
-      </button>
-
-      <button
-        type="button"
-        onClick={() => navigate("/dealer/customer-register")}
-        className="text-purple-700 flex flex-col items-center text-xs font-semibold"
-      >
-        <FaUserFriends className="text-xl mb-1" />
-        Customers
-      </button>
-
-      <button
-        type="button"
-        onClick={() => navigate("/dealer/customer")}
-        className="text-gray-500 flex flex-col items-center text-xs"
-      >
-        <FaRupeeSign className="text-xl mb-1" />
-        Girvi
-      </button>
-
-      <button
-        type="button"
-        disabled
-        title="Collections feature is currently disabled"
-        className="text-gray-300 flex flex-col items-center text-xs cursor-not-allowed"
-      >
-        <FaCoins className="text-xl mb-1" />
-        Collections
-      </button>
-
-      <button
-        type="button"
-        onClick={() => navigate("/dealer/more")}
-        className="text-gray-500 flex flex-col items-center text-xs"
-      >
-        <FaEllipsisH className="text-xl mb-1" />
-        More
-      </button>
-    </div>
-  )}
-
-  {isAdminView && (
-    <div className="fixed bottom-0 left-0 w-full bg-white border-t p-3 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-50">
-      <button
-        type="button"
-        onClick={() => navigate("/admin/dashboard", { replace: true })}
-        className="w-full bg-purple-600 active:bg-purple-700 text-white py-3 rounded-xl font-bold transition"
-      >
-        Back to Admin Dashboard
-      </button>
-    </div>
-  )}
-</div>
 
       {/* POPUP */}
       {popup && (
@@ -994,11 +1003,7 @@ function SummaryRow({ label, value, multiline }: any) {
   return (
     <div className="border-b border-gray-200 py-3">
       <p className="text-sm font-medium text-gray-500">{label}</p>
-      <p
-        className={`text-sm ${
-          multiline ? "break-words" : "truncate"
-        }`}
-      >
+      <p className={`text-sm ${multiline ? "break-words" : "truncate"}`}>
         {value}
       </p>
     </div>

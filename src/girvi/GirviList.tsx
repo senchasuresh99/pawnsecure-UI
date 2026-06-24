@@ -1159,13 +1159,13 @@ Please find attached invoice PDF.`;
                 <p className="text-xs text-gray-400">{todayDay}</p>
               </div>
 
-              <button
+              {/* <button
                 type="button"
                 onClick={goToAddGirvi}
                 className="bg-[#4820C5] hover:bg-[#3917a3] text-white px-5 py-3 rounded-xl font-bold text-sm flex items-center gap-2 shadow-sm transition"
               >
                 <FaPlus /> Add New Girvi
-              </button>
+              </button> */}
             </div>
           </header>
 

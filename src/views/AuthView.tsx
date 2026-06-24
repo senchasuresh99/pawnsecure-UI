@@ -16,84 +16,100 @@ export default function AuthView() {
 
   const navigate = useNavigate();
 
-  async function handleLogin() {
-    if (!email || !password) {
-      setPopupError("Please enter email and password");
+async function handleLogin() {
+  if (!email || !password) {
+    setPopupError("Please enter email and password");
+    return;
+  }
+
+  setLoading(true);
+  setPopupError("");
+
+  try {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const responseText = await res.text();
+    const lower = responseText.toLowerCase();
+
+    if (res.status === 404 || lower.includes("not found")) {
+      setPopupError("Account not found. Please register first.");
       return;
     }
 
-    setLoading(true);
-    setPopupError("");
+    if (res.status === 401 || lower.includes("invalid")) {
+      setPopupError("Invalid password.");
+      return;
+    }
+
+    if (res.status === 403 || lower.includes("await")) {
+      setPopupError("Your account is pending admin approval.");
+      return;
+    }
+
+    if (!res.ok) {
+      setPopupError("Login failed. Please try again.");
+      return;
+    }
+
+    let data: any;
 
     try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+      data = JSON.parse(responseText);
+    } catch {
+      setPopupError("Invalid login response. Please check backend login API.");
+      return;
+    }
 
-      const responseText = await res.text();
-      const lower = responseText.toLowerCase();
+    if (!data.token || !data.role) {
+      setPopupError("Invalid login response. Token or role missing.");
+      return;
+    }
 
-      if (res.status === 404 || lower.includes("not found")) {
-        setPopupError("Account not found. Please register first.");
-        return;
-      }
+    const role = String(data.role || "");
+    const dashboardControl = String(
+      data.dashboardControl || "PARTIALITY"
+    ).toUpperCase();
 
-      if (res.status === 401 || lower.includes("invalid")) {
-        setPopupError("Invalid password.");
-        return;
-      }
+    // ✅ Save login details
+    localStorage.setItem("ps_token", data.token);
+    localStorage.setItem("ps_role", role);
+    localStorage.setItem("ps_dealer_id", String(data.id || ""));
+    localStorage.setItem("ps_dealer_name", data.name || "Dealer");
+    localStorage.setItem("ps_dashboard_control", dashboardControl);
 
-      if (res.status === 403 || lower.includes("await")) {
-        setPopupError("Your account is pending admin approval.");
-        return;
-      }
+    // ✅ ADMIN LOGIN
+    if (role === "ADMIN" || role === "ROLE_ADMIN") {
+      navigate("/admin/dashboard", { replace: true });
+      return;
+    }
 
-      if (!res.ok) {
-        setPopupError("Login failed. Please try again.");
-        return;
-      }
-
-      let data: any;
-
-      try {
-        data = JSON.parse(responseText);
-      } catch {
-        setPopupError("Invalid login response. Please check backend login API.");
-        return;
-      }
-
-      if (!data.token || !data.role) {
-        setPopupError("Invalid login response. Token or role missing.");
-        return;
-      }
-
-      // ✅ Save login details from login endpoint
-      localStorage.setItem("ps_token", data.token);
-      localStorage.setItem("ps_role", data.role);
-      localStorage.setItem("ps_dealer_id", String(data.id || ""));
-      localStorage.setItem("ps_dealer_name", data.name || "Dealer");
-
-      // ✅ ADMIN LOGIN
-      if (data.role === "ADMIN" || data.role === "ROLE_ADMIN") {
-        navigate("/admin/dashboard", { replace: true });
-        return;
-      }
-
-      // ✅ DEALER LOGIN
-      if (data.role === "DEALER" || data.role === "ROLE_DEALER") {
+    // ✅ DEALER LOGIN BASED ON DASHBOARD CONTROL ENUM
+    if (role === "DEALER" || role === "ROLE_DEALER") {
+      if (dashboardControl === "FULLVIEW") {
         navigate("/dealer/dashboard", { replace: true });
         return;
       }
 
-      setPopupError("Your account is pending admin approval.");
-    } catch {
-      setPopupError("Server unavailable. Please try again later.");
-    } finally {
-      setLoading(false);
+      if (dashboardControl === "PARTIALITY") {
+        navigate("/dealer/dashboard-partial", { replace: true });
+        return;
+      }
+
+      setPopupError("Invalid dashboard access type assigned by admin.");
+      return;
     }
+
+    setPopupError("Your account is pending admin approval.");
+  } catch {
+    setPopupError("Server unavailable. Please try again later.");
+  } finally {
+    setLoading(false);
   }
+}
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">

@@ -31,9 +31,19 @@ export default function CustomerReviews() {
     "Dealer";
 
   const dealerId =
-    query.get("dealerId") ||
-    localStorage.getItem("ps_dealer_id") ||
-    "";
+    query.get("dealerId") || localStorage.getItem("ps_dealer_id") || "";
+
+  const dealerIdForHeader = String(dealerId || "").replace(/^DP/i, "");
+
+  const dashboardControl = String(
+    localStorage.getItem("ps_dashboard_control") || "FULLVIEW"
+  ).toUpperCase();
+
+  const isPartialityDashboard = dashboardControl === "PARTIALITY";
+
+  const dashboardPath = isPartialityDashboard
+    ? "/dealer/dashboard-partial"
+    : "/dealer/dashboard";
 
   const todayDate = new Date().toLocaleDateString("en-IN", {
     day: "2-digit",
@@ -129,6 +139,7 @@ export default function CustomerReviews() {
     localStorage.removeItem("ps_role");
     localStorage.removeItem("ps_dealer_id");
     localStorage.removeItem("ps_dealer_name");
+    localStorage.removeItem("ps_dashboard_control");
 
     setTimeout(() => {
       navigate("/", { replace: true });
@@ -155,6 +166,7 @@ export default function CustomerReviews() {
     localStorage.removeItem("ps_role");
     localStorage.removeItem("ps_dealer_id");
     localStorage.removeItem("ps_dealer_name");
+    localStorage.removeItem("ps_dashboard_control");
 
     navigate("/", { replace: true });
   }
@@ -381,6 +393,7 @@ export default function CustomerReviews() {
       const res = await fetch(`${API_BASE}/customers/search?aadhaar=${aadhaar}`, {
         headers: {
           Authorization: `Bearer ${token}`,
+          "X-DEALER-ID": dealerIdForHeader,
         },
       });
 
@@ -399,7 +412,7 @@ export default function CustomerReviews() {
 
         try {
           const data = await res.json();
-          message = data.message || message;
+          message = data.message || data.error || message;
         } catch {
           message = await res.text();
         }
@@ -467,6 +480,7 @@ export default function CustomerReviews() {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
+          "X-DEALER-ID": dealerIdForHeader,
         },
         body: formData,
       });
@@ -481,7 +495,8 @@ export default function CustomerReviews() {
 
         try {
           const errorData = await res.json();
-          errorMessage = errorData.message || errorMessage;
+          errorMessage =
+            errorData.message || errorData.error || JSON.stringify(errorData);
         } catch {
           errorMessage = (await res.text()) || errorMessage;
         }
@@ -523,6 +538,7 @@ export default function CustomerReviews() {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
+          "X-DEALER-ID": dealerIdForHeader,
         },
       });
 
@@ -536,7 +552,7 @@ export default function CustomerReviews() {
 
         try {
           const data = await res.json();
-          message = data.message || message;
+          message = data.message || data.error || message;
         } catch {
           message = await res.text();
         }
@@ -683,18 +699,6 @@ export default function CustomerReviews() {
                         placeholder="Enter Aadhaar number"
                       />
                     </div>
-
-                    {/* <button
-                      type="button"
-                      onClick={() => {
-                        setScannerError("");
-                        setShowScanner(true);
-                      }}
-                      className="col-span-12 md:col-span-3 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-2xl font-bold flex items-center justify-center gap-2 py-4"
-                    >
-                      <FaQrcode />
-                      Scan QR
-                    </button> */}
                   </div>
 
                   <button
@@ -719,7 +723,7 @@ export default function CustomerReviews() {
                       setComment={setComment}
                       submitReview={submitReview}
                       submitting={submitting}
-                      currentDealerId={dealerId}
+                      currentDealerId={dealerIdForHeader}
                       currentDealerName={dealerName}
                       deleteReview={deleteReview}
                       deletingReviewId={deletingReviewId}
@@ -770,7 +774,7 @@ export default function CustomerReviews() {
                 onClick={() =>
                   isAdminView
                     ? navigate("/admin/dashboard", { replace: true })
-                    : navigate("/dealer/dashboard")
+                    : navigate(dashboardPath)
                 }
               >
                 <FaArrowLeft className="text-xl" />
@@ -841,18 +845,6 @@ export default function CustomerReviews() {
                 />
               </div>
 
-              {/* <button
-                type="button"
-                onClick={() => {
-                  setScannerError("");
-                  setShowScanner(true);
-                }}
-                className="mt-3 w-full bg-purple-100 text-purple-700 py-3 rounded-xl font-bold flex items-center justify-center gap-2 text-sm"
-              >
-                <FaQrcode />
-                Scan QR
-              </button> */}
-
               <button
                 type="button"
                 onClick={searchCustomer}
@@ -876,7 +868,7 @@ export default function CustomerReviews() {
                 setComment={setComment}
                 submitReview={submitReview}
                 submitting={submitting}
-                currentDealerId={dealerId}
+                currentDealerId={dealerIdForHeader}
                 currentDealerName={dealerName}
                 deleteReview={deleteReview}
                 deletingReviewId={deletingReviewId}
@@ -913,7 +905,10 @@ export default function CustomerReviews() {
           </div>
         </div>
 
-        <DealerMobileBottomNav active="customers" isAdminView={isAdminView} />
+        <DealerMobileBottomNav
+          active={isPartialityDashboard ? "review" : "customers"}
+          isAdminView={isAdminView}
+        />
       </div>
 
       {showScanner && (
@@ -1061,7 +1056,7 @@ function CustomerResult({
     const loggedDealerName = (currentDealerName || "").trim().toLowerCase();
 
     if (reviewDealerId && currentDealerId) {
-      return String(reviewDealerId) === String(currentDealerId);
+      return String(reviewDealerId).replace(/^DP/i, "") === String(currentDealerId).replace(/^DP/i, "");
     }
 
     return reviewDealerName && reviewDealerName === loggedDealerName;

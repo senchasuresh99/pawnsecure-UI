@@ -6,9 +6,20 @@ import {
   FaRupeeSign,
   FaCoins,
   FaEllipsisH,
+  FaUserPlus,
+  FaUserCheck,
 } from "react-icons/fa";
 
-type BottomNavKey = "home" | "customers" | "girvi" | "collect" | "more";
+type DashboardControl = "FULLVIEW" | "PARTIALITY";
+
+type BottomNavKey =
+  | "home"
+  | "customers"
+  | "girvi"
+  | "collect"
+  | "more"
+  | "register"
+  | "review";
 
 type BottomAction = {
   key: BottomNavKey;
@@ -33,6 +44,10 @@ export default function DealerMobileBottomNav({
   const navigate = useNavigate();
   const location = useLocation();
 
+  const dashboardControl = String(
+    localStorage.getItem("ps_dashboard_control") || "FULLVIEW"
+  ).toUpperCase() as DashboardControl;
+
   if (isAdminView) {
     return (
       <div className="fixed bottom-0 left-0 w-full bg-white border-t p-3 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-50">
@@ -47,7 +62,7 @@ export default function DealerMobileBottomNav({
     );
   }
 
-  const bottomActions: BottomAction[] = [
+  const fullViewBottomActions: BottomAction[] = [
     {
       key: "home",
       label: "Home",
@@ -82,6 +97,34 @@ export default function DealerMobileBottomNav({
     },
   ];
 
+  const partialityBottomActions: BottomAction[] = [
+    {
+      key: "home",
+      label: "Home",
+      icon: <FaHome />,
+      path: "/dealer/dashboard-partial",
+    },
+    {
+      key: "register",
+      label: "Register",
+      icon: <FaUserPlus />,
+      path: "/dealer/customer-register",
+      state: { mode: "CUSTOMER_REVIEW" },
+    },
+    {
+      key: "review",
+      label: "Review",
+      icon: <FaUserCheck />,
+      path: "/dealer/customer-search",
+      state: { mode: "RENEWAL_EXTEND" },
+    },
+  ];
+
+  const bottomActions =
+    dashboardControl === "PARTIALITY"
+      ? partialityBottomActions
+      : fullViewBottomActions;
+
   const visibleActions = bottomActions.filter(
     (item) => showCollect || item.key !== "collect"
   );
@@ -92,6 +135,25 @@ export default function DealerMobileBottomNav({
     if (active) return active === item.key;
 
     const pathname = location.pathname;
+
+    if (dashboardControl === "PARTIALITY") {
+      if (item.key === "home") {
+        return pathname === "/dealer/dashboard-partial";
+      }
+
+      if (item.key === "register") {
+        return (
+          pathname === "/dealer/customer-register" ||
+          pathname === "/dealer/add-customer"
+        );
+      }
+
+      if (item.key === "review") {
+        return pathname === "/dealer/customer-search";
+      }
+
+      return false;
+    }
 
     if (item.key === "home") {
       return pathname === "/dealer/dashboard";
@@ -149,7 +211,9 @@ export default function DealerMobileBottomNav({
             type="button"
             disabled={item.disabled}
             onClick={() => handleNavigate(item)}
-            className={`flex flex-col items-center text-[10px] w-16 transition ${
+            className={`flex flex-col items-center text-[10px] transition ${
+              dashboardControl === "PARTIALITY" ? "w-24" : "w-16"
+            } ${
               item.disabled
                 ? "text-gray-300 font-medium cursor-not-allowed opacity-60"
                 : activeItem
@@ -158,7 +222,7 @@ export default function DealerMobileBottomNav({
             }`}
           >
             <span className="text-xl mb-1">{item.icon}</span>
-            {item.label}
+            <span>{item.label}</span>
           </button>
         );
       })}

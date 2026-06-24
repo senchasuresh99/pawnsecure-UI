@@ -24,6 +24,8 @@ type DealerSidebarProps = {
   isAdminView?: boolean;
 };
 
+type DashboardControl = "FULLVIEW" | "PARTIALITY";
+
 type DealerProfile = {
   id: number;
   name: string;
@@ -38,6 +40,15 @@ type DealerProfile = {
   subscriptionStart?: string;
   subscriptionEnd?: string;
   subscriptionActive?: boolean;
+  dashboardControl?: DashboardControl;
+};
+
+type MenuItem = {
+  label: string;
+  icon: React.ReactNode;
+  path: string;
+  disabled: boolean;
+  state?: any;
 };
 
 export default function DealerSidebar({
@@ -46,6 +57,9 @@ export default function DealerSidebar({
   const navigate = useNavigate();
   const location = useLocation();
 
+  const query = new URLSearchParams(location.search);
+  const queryDealerId = query.get("dealerId");
+
   const [dealerProfile, setDealerProfile] = useState<DealerProfile | null>(
     null
   );
@@ -53,7 +67,18 @@ export default function DealerSidebar({
   const [profileError, setProfileError] = useState("");
   const [showDealerDetails, setShowDealerDetails] = useState(false);
 
-  const menuItems = [
+  const dashboardControl = String(
+    dealerProfile?.dashboardControl ||
+      localStorage.getItem("ps_dashboard_control") ||
+      "FULLVIEW"
+  ).toUpperCase() as DashboardControl;
+
+  const dashboardPath =
+    dashboardControl === "PARTIALITY"
+      ? "/dealer/dashboard-partial"
+      : "/dealer/dashboard";
+
+  const fullViewMenuItems: MenuItem[] = [
     {
       label: "Dashboard",
       icon: <FaHome />,
@@ -85,6 +110,32 @@ export default function DealerSidebar({
       disabled: true,
     },
   ];
+
+  const partialityMenuItems: MenuItem[] = [
+    {
+      label: "Dashboard",
+      icon: <FaHome />,
+      path: "/dealer/dashboard-partial",
+      disabled: false,
+    },
+    {
+      label: "Register Customer",
+      icon: <FaUserFriends />,
+      path: "/dealer/customer-register",
+      disabled: false,
+      state: { mode: "CUSTOMER_REVIEW" },
+    },
+    {
+      label: "Customer Review",
+      icon: <FaShieldAlt />,
+      path: "/dealer/customer-search",
+      disabled: false,
+      state: { mode: "RENEWAL_EXTEND" },
+    },
+  ];
+
+  const menuItems =
+    dashboardControl === "PARTIALITY" ? partialityMenuItems : fullViewMenuItems;
 
   function isActive(path: string) {
     return location.pathname === path;
@@ -130,8 +181,25 @@ export default function DealerSidebar({
     });
   }
 
+  function navigateWithAdminQuery(path: string, state?: any) {
+    if (isAdminView) {
+      const search = location.search || "";
+      navigate(`${path}${search}`, state ? { state } : undefined);
+      return;
+    }
+
+    if (state) {
+      navigate(path, { state });
+      return;
+    }
+
+    navigate(path);
+  }
+
   async function fetchDealerProfile() {
-    const rawDealerId = localStorage.getItem("ps_dealer_id") || "-";
+    const rawDealerId =
+      queryDealerId || localStorage.getItem("ps_dealer_id") || "-";
+
     const cleanDealerId = normalizeDealerId(rawDealerId);
 
     if (!cleanDealerId) {
@@ -166,6 +234,10 @@ export default function DealerSidebar({
 
       localStorage.setItem("ps_dealer_id", String(data.id));
       localStorage.setItem("ps_dealer_name", data.name);
+
+      if (data.dashboardControl) {
+        localStorage.setItem("ps_dashboard_control", data.dashboardControl);
+      }
     } catch (error) {
       console.error("Failed to fetch dealer profile", error);
       setProfileError("Unable to load dealer profile");
@@ -176,7 +248,8 @@ export default function DealerSidebar({
 
   useEffect(() => {
     fetchDealerProfile();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryDealerId]);
 
   function handleLogout() {
     if (isAdminView) {
@@ -188,6 +261,7 @@ export default function DealerSidebar({
     localStorage.removeItem("ps_role");
     localStorage.removeItem("ps_dealer_id");
     localStorage.removeItem("ps_dealer_name");
+    localStorage.removeItem("ps_dashboard_control");
 
     navigate("/", { replace: true });
   }
@@ -198,7 +272,7 @@ export default function DealerSidebar({
     "Dealer";
 
   const displayDealerId = getDealerIdDisplay(
-    dealerProfile?.id || localStorage.getItem("ps_dealer_id")
+    dealerProfile?.id || queryDealerId || localStorage.getItem("ps_dealer_id")
   );
 
   return (
@@ -242,9 +316,15 @@ export default function DealerSidebar({
             <p className="font-bold text-sm truncate">
               {profileLoading ? "Loading..." : displayName}
             </p>
+
             <p className="text-xs text-white/85">
               Dealer ID: {displayDealerId}
             </p>
+
+            <p className="text-[10px] text-white/80 mt-0.5">
+              Dashboard: {dashboardControl}
+            </p>
+
             <p className="text-[10px] text-white/70 mt-0.5">
               Click to view profile
             </p>
@@ -258,20 +338,27 @@ export default function DealerSidebar({
           </div>
         )}
 
+        {/* Partiality Banner */}
+        {dashboardControl === "PARTIALITY" && (
+          <div className="mb-5 bg-purple-50 border border-purple-100 text-purple-700 px-4 py-3 rounded-xl text-xs font-semibold">
+            Partiality access: Customer registration and review only.
+          </div>
+        )}
+
         {/* Navigation */}
         <nav className="space-y-3 flex-1">
           {menuItems.map((item) => {
             const active = isActive(item.path);
+
             const disabled =
-              item.disabled ||
-              (isAdminView && item.path !== "/dealer/dashboard");
+              item.disabled || (isAdminView && item.path !== dashboardPath);
 
             return (
               <button
                 key={item.path}
                 onClick={() => {
                   if (disabled) return;
-                  navigate(item.path);
+                  navigateWithAdminQuery(item.path, item.state);
                 }}
                 disabled={disabled}
                 className={`w-full px-4 py-3.5 rounded-xl flex items-center gap-3 font-semibold text-sm transition ${
@@ -352,15 +439,28 @@ export default function DealerSidebar({
                     <h3 className="text-xl font-bold text-gray-900 truncate">
                       {displayName}
                     </h3>
+
                     <p className="text-sm text-gray-500">
                       Dealer ID: {displayDealerId}
                     </p>
 
-                    {dealerProfile?.status && (
-                      <span className="inline-block mt-2 bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full">
-                        {dealerProfile.status}
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      {dealerProfile?.status && (
+                        <span className="inline-block bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full">
+                          {dealerProfile.status}
+                        </span>
+                      )}
+
+                      <span
+                        className={`inline-block text-xs font-bold px-3 py-1 rounded-full ${
+                          dashboardControl === "FULLVIEW"
+                            ? "bg-purple-100 text-purple-700"
+                            : "bg-yellow-100 text-yellow-700"
+                        }`}
+                      >
+                        {dashboardControl}
                       </span>
-                    )}
+                    </div>
                   </div>
                 </div>
 
@@ -400,6 +500,12 @@ export default function DealerSidebar({
                     icon={<FaMapMarkerAlt />}
                     label="Shop Address"
                     value={dealerProfile?.shopAddress}
+                  />
+
+                  <ProfileRow
+                    icon={<FaShieldAlt />}
+                    label="Dashboard View"
+                    value={dashboardControl}
                   />
 
                   <ProfileRow

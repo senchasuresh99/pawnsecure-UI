@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   FaHome,
   FaUserFriends,
@@ -28,6 +28,8 @@ type MobileDealerSidebarProps = {
   dealerId: string;
 };
 
+type DashboardControl = "FULLVIEW" | "PARTIALITY";
+
 type DealerProfile = {
   id: number;
   name: string;
@@ -42,6 +44,16 @@ type DealerProfile = {
   subscriptionStart?: string;
   subscriptionEnd?: string;
   subscriptionActive?: boolean;
+  dashboardControl?: DashboardControl;
+};
+
+type MenuItem = {
+  label: string;
+  icon: ReactNode;
+  path: string;
+  state?: any;
+  color: string;
+  bg: string;
 };
 
 export default function MobileDealerSidebar({
@@ -58,6 +70,88 @@ export default function MobileDealerSidebar({
   );
   const [profileLoading, setProfileLoading] = useState(false);
   const [showDealerDetails, setShowDealerDetails] = useState(false);
+
+  const dashboardControl = String(
+    dealerProfile?.dashboardControl ||
+      localStorage.getItem("ps_dashboard_control") ||
+      "FULLVIEW"
+  ).toUpperCase() as DashboardControl;
+
+  const fullViewMenuItems: MenuItem[] = [
+    {
+      label: "Dashboard",
+      icon: <FaHome />,
+      path: "/dealer/dashboard",
+      color: "text-purple-600",
+      bg: "bg-purple-100",
+    },
+    {
+      label: "View Girvi",
+      icon: <FaEye />,
+      path: "/dealer/customer",
+      color: "text-indigo-600",
+      bg: "bg-indigo-100",
+    },
+    {
+      label: "Register Customer",
+      icon: <FaUserPlus />,
+      path: "/dealer/customer-register",
+      state: { mode: "CUSTOMER_REVIEW" },
+      color: "text-blue-600",
+      bg: "bg-blue-100",
+    },
+    {
+      label: "View Customers",
+      icon: <FaUserFriends />,
+      path: "/dealer/customers",
+      color: "text-red-600",
+      bg: "bg-red-100",
+    },
+    {
+      label: "Due Collections",
+      icon: <FaCoins />,
+      path: "/dealer/due-today",
+      color: "text-green-600",
+      bg: "bg-green-100",
+    },
+    {
+      label: "Customer Review",
+      icon: <FaUserCheck />,
+      path: "/dealer/customer-search",
+      state: { mode: "RENEWAL_EXTEND" },
+      color: "text-orange-600",
+      bg: "bg-orange-100",
+    },
+  ];
+
+  const partialityMenuItems: MenuItem[] = [
+    {
+      label: "Dashboard",
+      icon: <FaHome />,
+      path: "/dealer/dashboard-partial",
+      color: "text-purple-600",
+      bg: "bg-purple-100",
+    },
+    {
+      label: "Register Customer",
+      icon: <FaUserPlus />,
+      path: "/dealer/customer-register",
+      state: { mode: "CUSTOMER_REVIEW" },
+      color: "text-blue-600",
+      bg: "bg-blue-100",
+    },
+    {
+      label: "Customer Review",
+      icon: <FaUserCheck />,
+      path: "/dealer/customer-search",
+      state: { mode: "RENEWAL_EXTEND" },
+      color: "text-orange-600",
+      bg: "bg-orange-100",
+    },
+  ];
+
+  const menuItems =
+    dashboardControl === "PARTIALITY" ? partialityMenuItems : fullViewMenuItems;
 
   function normalizeDealerId(id: string | null | undefined) {
     if (!id || id === "-") return "";
@@ -130,7 +224,11 @@ export default function MobileDealerSidebar({
       setDealerProfile(data);
 
       localStorage.setItem("ps_dealer_id", String(data.id));
-      localStorage.setItem("ps_dealer_name", data.name);
+      localStorage.setItem("ps_dealer_name", data.name || "Dealer");
+
+      if (data.dashboardControl) {
+        localStorage.setItem("ps_dashboard_control", data.dashboardControl);
+      }
     } catch (error) {
       console.error("Failed to fetch dealer profile", error);
     } finally {
@@ -142,6 +240,7 @@ export default function MobileDealerSidebar({
     if (open) {
       fetchDealerProfile();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, dealerId]);
 
   if (!open) return null;
@@ -153,9 +252,10 @@ export default function MobileDealerSidebar({
 
     if (state) {
       navigate(path, { state });
-    } else {
-      navigate(path);
+      return;
     }
+
+    navigate(path);
   }
 
   function handleLogout() {
@@ -170,6 +270,7 @@ export default function MobileDealerSidebar({
     localStorage.removeItem("ps_role");
     localStorage.removeItem("ps_dealer_id");
     localStorage.removeItem("ps_dealer_name");
+    localStorage.removeItem("ps_dashboard_control");
 
     navigate("/", { replace: true });
   }
@@ -183,53 +284,6 @@ export default function MobileDealerSidebar({
   const displayDealerId = getDealerIdDisplay(
     dealerProfile?.id || normalizeDealerId(dealerId)
   );
-
-  const menuItems = [
-    {
-      label: "Dashboard",
-      icon: <FaHome />,
-      path: "/dealer/dashboard",
-      color: "text-purple-600",
-      bg: "bg-purple-100",
-    },
-    {
-      label: "View Girvi",
-      icon: <FaEye />,
-      path: "/dealer/customer",
-      color: "text-indigo-600",
-      bg: "bg-indigo-100",
-    },
-    {
-      label: "Register Customer",
-      icon: <FaUserPlus />,
-      path: "/dealer/customer-register",
-      state: { mode: "CUSTOMER_REVIEW" },
-      color: "text-blue-600",
-      bg: "bg-blue-100",
-    },
-    {
-      label: "View Customers",
-      icon: <FaUserFriends />,
-      path: "/dealer/customers",
-      color: "text-red-600",
-      bg: "bg-red-100",
-    },
-    {
-      label: "Due Collections",
-      icon: <FaCoins />,
-      path: "/dealer/due-today",
-      color: "text-green-600",
-      bg: "bg-green-100",
-    },
-    {
-      label: "Customer Review",
-      icon: <FaUserCheck />,
-      path: "/dealer/customer-search",
-      state: { mode: "RENEWAL_EXTEND" },
-      color: "text-orange-600",
-      bg: "bg-orange-100",
-    },
-  ];
 
   return (
     <div className="fixed inset-0 z-[999] lg:hidden">
@@ -262,11 +316,15 @@ export default function MobileDealerSidebar({
               <h2 className="text-lg font-extrabold leading-tight">
                 PawnSecure
               </h2>
-              <p className="text-xs opacity-80">Dealer Panel</p>
+              <p className="text-xs opacity-80">
+                {dashboardControl === "PARTIALITY"
+                  ? "Partiality Panel"
+                  : "Dealer Panel"}
+              </p>
             </div>
           </div>
 
-          {/* ✅ Clickable Dealer Profile Card */}
+          {/* Dealer Profile Card */}
           <button
             type="button"
             onClick={() => setShowDealerDetails(true)}
@@ -285,6 +343,10 @@ export default function MobileDealerSidebar({
                 Dealer ID: {displayDealerId}
               </p>
 
+              <p className="text-[10px] opacity-80 mt-0.5">
+                Dashboard: {dashboardControl}
+              </p>
+
               <p className="text-[10px] opacity-70 mt-0.5">
                 Tap to view profile
               </p>
@@ -294,6 +356,12 @@ export default function MobileDealerSidebar({
           {isAdminView && (
             <div className="mt-4 bg-yellow-300 text-yellow-900 px-3 py-1.5 rounded-lg text-xs font-bold inline-block">
               Admin Preview Mode
+            </div>
+          )}
+
+          {dashboardControl === "PARTIALITY" && (
+            <div className="mt-3 bg-white/15 border border-white/10 text-white px-3 py-2 rounded-xl text-[11px] font-semibold">
+              Limited access: Customer register and review only.
             </div>
           )}
         </div>
@@ -344,7 +412,7 @@ export default function MobileDealerSidebar({
         </div>
       </aside>
 
-      {/* ✅ Dealer Details Modal */}
+      {/* Dealer Details Modal */}
       {showDealerDetails && (
         <div className="absolute inset-0 z-[1000] bg-black/50 flex items-end justify-center">
           <div className="w-full max-w-md bg-white rounded-t-3xl shadow-2xl max-h-[85vh] overflow-y-auto animate-in slide-in-from-bottom duration-200">
@@ -379,15 +447,28 @@ export default function MobileDealerSidebar({
                   <h3 className="text-xl font-bold truncate">
                     {displayName}
                   </h3>
+
                   <p className="text-sm text-white/85">
                     Dealer ID: {displayDealerId}
                   </p>
 
-                  {dealerProfile?.status && (
-                    <span className="inline-block mt-2 bg-green-100 text-green-700 text-xs font-bold px-2.5 py-1 rounded-full">
-                      {dealerProfile.status}
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    {dealerProfile?.status && (
+                      <span className="inline-block bg-green-100 text-green-700 text-xs font-bold px-2.5 py-1 rounded-full">
+                        {dealerProfile.status}
+                      </span>
+                    )}
+
+                    <span
+                      className={`inline-block text-xs font-bold px-2.5 py-1 rounded-full ${
+                        dashboardControl === "FULLVIEW"
+                          ? "bg-purple-100 text-purple-700"
+                          : "bg-yellow-100 text-yellow-700"
+                      }`}
+                    >
+                      {dashboardControl}
                     </span>
-                  )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -431,6 +512,12 @@ export default function MobileDealerSidebar({
               />
 
               <ProfileRow
+                icon={<FaShieldAlt />}
+                label="Dashboard View"
+                value={dashboardControl}
+              />
+
+              <ProfileRow
                 icon={<FaCalendarAlt />}
                 label="Subscription Start"
                 value={formatDateTime(dealerProfile?.subscriptionStart)}
@@ -454,7 +541,7 @@ function ProfileRow({
   label,
   value,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value?: string | number | null;
 }) {
@@ -468,6 +555,7 @@ function ProfileRow({
         <p className="text-[11px] uppercase tracking-wide text-gray-400 font-bold">
           {label}
         </p>
+
         <p className="text-sm font-semibold text-gray-800 break-words mt-0.5">
           {value || "-"}
         </p>
