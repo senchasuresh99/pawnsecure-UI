@@ -3,8 +3,7 @@ import { Link } from "react-router-dom";
 import TermsModal from "../components/TermsModal";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-
-const API_BASE = "https://pawnsecure.onrender.com/api";
+import { API_BASE } from "../config/api";
 
 // ✅ WhatsApp details
 const waNumber = 918290818133;

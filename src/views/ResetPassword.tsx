@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-
-const API_BASE = "https://pawnsecure.onrender.com/api";
+import { API_BASE } from "../config/api";
 
 export default function ResetPassword() {
   const [params] = useSearchParams();

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
+import { API_BASE } from "../config/api";
 import {
   FaChartBar,
   FaCoins,
@@ -13,8 +14,6 @@ import {
   FaEye,
   FaSyncAlt,
 } from "react-icons/fa";
-
-const API_BASE = "https://pawnsecure.onrender.com/api";
 
 type DashboardControl = "FULLVIEW" | "PARTIALITY";
 

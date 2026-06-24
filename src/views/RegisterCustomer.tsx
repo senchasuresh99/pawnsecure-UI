@@ -1,7 +1,6 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-
-const API_BASE = "https://pawnsecure.onrender.com/api";
+import { API_BASE } from "../config/api";
 
 export default function RegisterCustomer() {
   const navigate = useNavigate();

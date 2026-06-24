@@ -17,6 +17,7 @@ import {
 import DealerSidebar from "../dealer/DealerSidebar";
 import MobileDealerSidebar from "../dealer/MobileDealerSidebar";
 import { useGirvi } from "./GirviContext";
+import { API_BASE } from "../config/api";
 import {
   LOGO_URL,
   imageUrlToDataUrl,
@@ -24,8 +25,6 @@ import {
   generateFrontendInvoicePdfFile,
   formatInvoiceCurrency,
 } from "./InvoicePdf";
-
-const API_BASE = "https://pawnsecure.onrender.com/api";
 
 type GirviItemForm = {
   itemName: string;

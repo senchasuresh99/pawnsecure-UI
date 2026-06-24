@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import DealerSidebar from "../dealer/DealerSidebar";
 import MobileDealerSidebar from "../dealer/MobileDealerSidebar";
 import DealerMobileBottomNav from "../dealer/DealerMobileBottomNav";
+import { API_BASE } from "../config/api";
 import {
   FaSearch,
   FaUser,
@@ -17,7 +18,6 @@ import {
   FaCheckCircle,
 } from "react-icons/fa";
 
-const API_BASE = "https://pawnsecure.onrender.com/api";
 const REVIEW_API = `${API_BASE}/reviews`;
 
 /* ================= TYPES ================= */
@@ -603,7 +603,7 @@ export default function CustomerList() {
                   : "bg-white border border-gray-200 text-gray-700"
               }`}
             >
-              All
+              All Customers
             </button>
           </div>
 

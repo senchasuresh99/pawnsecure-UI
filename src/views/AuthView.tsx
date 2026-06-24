@@ -2,8 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-
-const API_BASE = "https://pawnsecure.onrender.com/api";
+import { API_BASE } from "../config/api";
 
 export default function AuthView() {
   const [email, setEmail] = useState("");

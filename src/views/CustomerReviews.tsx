@@ -14,8 +14,7 @@ import {
   FaSignOutAlt,
   FaTrash,
 } from "react-icons/fa";
-
-const API_BASE = "https://pawnsecure.onrender.com/api";
+import { API_BASE } from "../config/api";
 
 export default function CustomerReviews() {
   const navigate = useNavigate();

@@ -17,8 +17,7 @@ import {
   FaSignOutAlt,
   FaPhoneAlt,
 } from "react-icons/fa";
-
-const API_BASE = "https://pawnsecure.onrender.com/api";
+import { API_BASE } from "../config/api";
 
 type ParsedAadhaarQR = {
   fullName?: string;

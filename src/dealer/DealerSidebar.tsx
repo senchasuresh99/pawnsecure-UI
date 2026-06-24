@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { API_BASE } from "../config/api";
 import {
   FaHome,
   FaUserFriends,
@@ -17,8 +18,6 @@ import {
   FaCalendarAlt,
   FaUserCircle,
 } from "react-icons/fa";
-
-const API_BASE = "https://pawnsecure.onrender.com/api";
 
 type DealerSidebarProps = {
   isAdminView?: boolean;

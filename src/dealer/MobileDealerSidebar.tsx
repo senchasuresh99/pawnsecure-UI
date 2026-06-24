@@ -17,8 +17,7 @@ import {
   FaCalendarAlt,
 } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
-
-const API_BASE = "https://pawnsecure.onrender.com/api";
+import { API_BASE } from "../config/api";
 
 type MobileDealerSidebarProps = {
   open: boolean;

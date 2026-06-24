@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import DealerSidebar from "../dealer/DealerSidebar";
 import MobileDealerSidebar from "../dealer/MobileDealerSidebar";
 import DealerMobileBottomNav from "../dealer/DealerMobileBottomNav";
+import { API_BASE } from "../config/api";
 import {
   FaBox,
   FaEdit,
@@ -21,8 +22,6 @@ import {
   buildInvoiceDataFromBackend,
   generateFrontendInvoicePdfFile,
 } from "./InvoicePdf";
-
-const API_BASE = "https://pawnsecure.onrender.com/api";
 
 type GirviItemDTO = {
   id?: number;
