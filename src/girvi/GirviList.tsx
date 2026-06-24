@@ -1033,6 +1033,7 @@ export default function GirviList() {
     }
   }
 
+  // --- NEW FUNCTION TO DOWNLOAD ONLY 3RD PARTY PDF ---
   async function downloadThirdPartyAuthPdf(item: GirviResponseDTO) {
     const rowKey = getGirviRowKey(item);
     setDownloadingThirdPartyId(rowKey);
@@ -1040,7 +1041,7 @@ export default function GirviList() {
     try {
       const invoiceId = getGirviInvoiceId(item);
       if (!invoiceId) {
-        throw new Error("Invoice ID not found for this Girvi.");
+        throw new Error("Invoice ID not found. Cannot generate authorization form.");
       }
 
       const dealerId = localStorage.getItem("ps_dealer_id");
@@ -1055,7 +1056,7 @@ export default function GirviList() {
         },
       });
 
-      if (!res.ok) throw new Error("Unable to load invoice details");
+      if (!res.ok) throw new Error("Unable to load invoice details for the form.");
 
       const invoiceDetails = await res.json();
       const form = buildInvoiceFormFromGirvi(item);
@@ -1069,6 +1070,7 @@ export default function GirviList() {
         form,
       });
 
+      // ONLY generates the third party form
       const file = await generateThirdPartyAuthPdfFile({
         invoiceId: Number(invoiceId),
         savedInvoiceNumber: invoiceNumber,
@@ -1226,14 +1228,6 @@ Please find attached invoice PDF.`;
                 </p>
                 <p className="text-xs text-gray-400">{todayDay}</p>
               </div>
-
-              {/* <button
-                type="button"
-                onClick={goToAddGirvi}
-                className="bg-[#4820C5] hover:bg-[#3917a3] text-white px-5 py-3 rounded-xl font-bold text-sm flex items-center gap-2 shadow-sm transition"
-              >
-                <FaPlus /> Add New Girvi
-              </button> */}
             </div>
           </header>
 
@@ -1705,9 +1699,9 @@ function RecordsPanel({
                             className="w-full mt-1 bg-orange-50 hover:bg-orange-100 text-orange-700 px-2 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400"
                           >
                             {isThirdPartyLoading ? (
-                              <><FaDownload className="animate-pulse" /> Generating...</>
+                              <><FaDownload className="animate-pulse" /> Loading...</>
                             ) : (
-                              <><FaFileSignature /> 3rd Party Auth</>
+                              <><FaFileSignature /> 3rd Party Auth Only</>
                             )}
                           </button>
                         </div>
@@ -1986,9 +1980,9 @@ function MobileRecordsPanel({
                     className="w-full bg-orange-50 hover:bg-orange-100 text-orange-700 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400"
                   >
                     {isThirdPartyLoading ? (
-                      <><FaDownload className="animate-pulse" /> Generating...</>
+                      <><FaDownload className="animate-pulse" /> Loading...</>
                     ) : (
-                      <><FaFileSignature className="text-xs" /> 3rd Party Auth Form</>
+                      <><FaFileSignature className="text-xs" /> 3rd Party Auth Only</>
                     )}
                   </button>
                 </div>
