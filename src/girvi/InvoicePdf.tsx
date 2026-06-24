@@ -1344,6 +1344,139 @@ function getInvoiceHtmlForPdf(input: InvoicePdfInput) {
   `;
 }
 
+function getDeclarationHtmlForPdf(input: InvoicePdfInput) {
+  const {
+    savedGirviData,
+    customerName,
+    customer,
+    form,
+  } = input;
+
+  if (!savedGirviData) return "";
+
+  const customerDisplayName =
+    savedGirviData.customerName || customerName || "_________________________";
+
+  const customerAddress =
+    savedGirviData.customerAddress ||
+    customer?.customerAddress ||
+    customer?.address ||
+    "_________________________";
+
+  const customerPhone =
+    savedGirviData.customerPhone ||
+    savedGirviData.phoneNumber ||
+    savedGirviData.customerPhoneNumber ||
+    customer?.phoneNumber ||
+    customer?.phone ||
+    "_________________________";
+
+  const aadhaarPan =
+    savedGirviData.customerAadhaar ||
+    customer?.aadhaarNumber ||
+    savedGirviData.customerPan ||
+    customer?.panNumber ||
+    "_________________________";
+
+  const girviDate = savedGirviData.girviDate || form.girviDate;
+
+  const invoiceItems: InvoiceItem[] =
+    Array.isArray(savedGirviData.items) && savedGirviData.items.length > 0
+      ? savedGirviData.items
+      : normalizeInvoiceItems({
+          data: savedGirviData,
+          savedGirvi: savedGirviData,
+          form,
+        });
+
+  const totalItemCount = firstValue(
+    savedGirviData.totalItemCount,
+    sumInvoiceItems(invoiceItems, "itemCount")
+  );
+
+  const totalGrossWeight = firstValue(
+    savedGirviData.totalGrossWeightGram,
+    sumInvoiceItems(invoiceItems, "itemWeightGram")
+  );
+
+  const itemDescriptions = invoiceItems
+    .map((item) => firstValue(item.itemName, "-"))
+    .join(", ");
+
+  return `
+    <div
+      id="frontend-declaration-pdf"
+      style="
+        width:794px;
+        min-height:1123px;
+        background:#ffffff;
+        color:#111827;
+        font-family:Arial, Helvetica, sans-serif;
+        box-sizing:border-box;
+        padding:40px 48px;
+        overflow:hidden;
+        position:relative;
+      "
+    >
+      <div style="text-align:center; margin-bottom: 30px;">
+        <h2 style="margin:0; font-size: 20px; text-transform: uppercase; text-decoration: underline; color: #1e293b;">Customer Declaration Form</h2>
+        <p style="margin: 8px 0 0 0; font-size: 14px; font-weight: bold; color: #475569;">(For Gold Loan / Pawn Broker Transactions)</p>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; margin-bottom: 20px; font-size: 14px; font-weight: bold;">
+        Date: ${escapeHtml(formatInvoiceDate(girviDate))}
+      </div>
+
+      <div style="font-size: 14px; line-height: 2; margin-bottom: 30px; text-align: justify;">
+        I, Mr./Ms. <strong>${escapeHtml(customerDisplayName)}</strong> S/o, D/o, W/o _________________________________
+        residing at <strong>${escapeHtml(customerAddress)}</strong> hereby solemnly declare as follows:
+      </div>
+
+      <ol style="font-size: 13px; line-height: 1.8; margin-bottom: 40px; padding-left: 20px; text-align: justify; color: #334155;">
+        <li style="margin-bottom: 8px;">I am the lawful owner or authorized possessor of the gold articles presented by me.</li>
+        <li style="margin-bottom: 8px;">The articles are not stolen, robbed, illegally obtained, or involved in any criminal case to the best of my knowledge.</li>
+        <li style="margin-bottom: 8px;">I have full legal right and authority to pledge these articles.</li>
+        <li style="margin-bottom: 8px;">I am voluntarily entering into this transaction without force, coercion, fraud, or undue influence.</li>
+        <li style="margin-bottom: 8px;">I have submitted valid identity and address proof and authorize the Pawn Broker to retain copies for record purposes.</li>
+        <li style="margin-bottom: 8px;">I understand that if any information provided by me is false, I shall be personally liable for all legal consequences.</li>
+        <li style="margin-bottom: 8px;">I authorize the Pawn Broker to provide my details, identification records, transaction records, photographs, and CCTV footage to lawful authorities whenever legally required.</li>
+        <li style="margin-bottom: 8px;">I consent to the maintenance of records including photographs, signatures, thumb impressions, identification documents, and CCTV footage for compliance purposes.</li>
+        <li style="margin-bottom: 8px;">In the event of any ownership dispute, police investigation, claim, or legal proceeding relating to the pledged articles, I shall indemnify and hold harmless the Pawn Broker from losses, claims, damages, costs, and legal expenses.</li>
+        <li style="margin-bottom: 8px;">Any dispute arising from this transaction shall be subject to the jurisdiction of the competent courts having jurisdiction over the Pawn Broker's business premises.</li>
+      </ol>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px;">
+        <div style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px;">
+          <h3 style="margin: 0 0 12px 0; font-size: 15px; border-bottom: 1px solid #cbd5e1; padding-bottom: 8px; color: #1e293b;">Gold Article Details</h3>
+          <table style="width: 100%; font-size: 13px; line-height: 2;">
+            <tr><td style="font-weight: bold; width: 120px;">Description:</td><td>${escapeHtml(itemDescriptions)}</td></tr>
+            <tr><td style="font-weight: bold;">Weight:</td><td>${escapeHtml(formatWeight(totalGrossWeight))} g</td></tr>
+            <tr><td style="font-weight: bold;">Quantity:</td><td>${escapeHtml(formatPlainAmount(totalItemCount))}</td></tr>
+            <tr><td style="font-weight: bold;">Identification Marks:</td><td>___________________</td></tr>
+          </table>
+        </div>
+
+        <div style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px;">
+          <h3 style="margin: 0 0 12px 0; font-size: 15px; border-bottom: 1px solid #cbd5e1; padding-bottom: 8px; color: #1e293b;">Customer Details</h3>
+          <table style="width: 100%; font-size: 13px; line-height: 2;">
+            <tr><td style="font-weight: bold; width: 120px;">Name:</td><td>${escapeHtml(customerDisplayName)}</td></tr>
+            <tr><td style="font-weight: bold;">Mobile No.:</td><td>${escapeHtml(customerPhone)}</td></tr>
+            <tr><td style="font-weight: bold;">Aadhaar / PAN No.:</td><td>${escapeHtml(aadhaarPan)}</td></tr>
+            <tr><td style="font-weight: bold; vertical-align: top;">Address:</td><td style="line-height: 1.4; padding-top: 5px;">${escapeHtml(customerAddress)}</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; margin-top: 60px;">
+        <div style="text-align: center;">
+          <div style="border-bottom: 1px solid #000; width: 200px; margin-bottom: 8px;"></div>
+          <div style="font-size: 14px; font-weight: bold;">Customer Signature</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 export async function generateFrontendInvoicePdfFile(input: InvoicePdfInput) {
   const invoiceNumber =
     input.savedInvoiceNumber ||
@@ -1355,7 +1488,12 @@ export async function generateFrontendInvoicePdfFile(input: InvoicePdfInput) {
   container.style.left = "-10000px";
   container.style.top = "0";
   container.style.background = "#ffffff";
-  container.innerHTML = getInvoiceHtmlForPdf(input);
+  
+  // Inject both templates into the DOM container
+  container.innerHTML = `
+    ${getInvoiceHtmlForPdf(input)}
+    ${getDeclarationHtmlForPdf(input)}
+  `;
 
   document.body.appendChild(container);
 
@@ -1363,27 +1501,42 @@ export async function generateFrontendInvoicePdfFile(input: InvoicePdfInput) {
     const invoiceElement = container.querySelector(
       "#frontend-invoice-pdf"
     ) as HTMLElement;
+    const declarationElement = container.querySelector(
+      "#frontend-declaration-pdf"
+    ) as HTMLElement;
 
-    if (!invoiceElement) {
-      throw new Error("Invoice template not found.");
+    if (!invoiceElement || !declarationElement) {
+      throw new Error("PDF templates not found.");
     }
 
-    await waitForImagesToLoad(invoiceElement);
+    await waitForImagesToLoad(container);
 
-    const canvas = await html2canvas(invoiceElement, {
+    const pdf = new jsPDF("p", "mm", "a4");
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+
+    // Capture Invoice Page
+    const invoiceCanvas = await html2canvas(invoiceElement, {
       scale: 3,
       useCORS: true,
       allowTaint: false,
       backgroundColor: "#ffffff",
     });
 
-    const imgData = canvas.toDataURL("image/png");
+    const invoiceImgData = invoiceCanvas.toDataURL("image/png");
+    pdf.addImage(invoiceImgData, "PNG", 0, 0, pdfWidth, pdfHeight);
 
-    const pdf = new jsPDF("p", "mm", "a4");
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = pdf.internal.pageSize.getHeight();
+    // Capture Declaration Page
+    const declarationCanvas = await html2canvas(declarationElement, {
+      scale: 3,
+      useCORS: true,
+      allowTaint: false,
+      backgroundColor: "#ffffff",
+    });
 
-    pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+    const declarationImgData = declarationCanvas.toDataURL("image/png");
+    pdf.addPage();
+    pdf.addImage(declarationImgData, "PNG", 0, 0, pdfWidth, pdfHeight);
 
     const blob = pdf.output("blob");
 
