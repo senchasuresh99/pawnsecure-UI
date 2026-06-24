@@ -1411,6 +1411,11 @@ function getDeclarationHtmlForPdf(input: InvoicePdfInput) {
     sumInvoiceItems(invoiceItems, "itemWeightGram")
   );
 
+  const totalNetWeight = firstValue(
+    savedGirviData.totalNetWeightGram,
+    sumInvoiceItems(invoiceItems, "netWeightGram")
+  );
+
   const itemDescriptions = invoiceItems
     .map((item) => firstValue(item.itemName, "-"))
     .join(", ");
@@ -1471,7 +1476,6 @@ function getDeclarationHtmlForPdf(input: InvoicePdfInput) {
         </table>
 
         <div style="display: flex; gap: 30px; margin-bottom: 30px;">
-          <!-- Gold Article Details -->
           <div style="flex: 1; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; overflow: hidden;">
             <div style="background: #eef2ff; color: #312e81; font-weight: 900; padding: 8px 14px; border-bottom: 1px solid #cbd5e1; font-size: 14px;">
               Gold Article Details
@@ -1479,14 +1483,14 @@ function getDeclarationHtmlForPdf(input: InvoicePdfInput) {
             <div style="padding: 12px 14px;">
               <table style="width: 100%; font-size: 13px; line-height: 1.8;">
                 <tr><td style="font-weight: 700; width: 140px; color: #475569;">Description:</td><td style="font-weight: 800;">${escapeHtml(itemDescriptions)}</td></tr>
-                <tr><td style="font-weight: 700; color: #475569;">Weight:</td><td style="font-weight: 800;">${escapeHtml(formatWeight(totalGrossWeight))} g</td></tr>
+                <tr><td style="font-weight: 700; color: #475569;">Gross Weight:</td><td style="font-weight: 800;">${escapeHtml(formatWeight(totalGrossWeight))} g</td></tr>
+                <tr><td style="font-weight: 700; color: #475569;">Net Weight:</td><td style="font-weight: 800;">${escapeHtml(formatWeight(totalNetWeight))} g</td></tr>
                 <tr><td style="font-weight: 700; color: #475569;">Quantity:</td><td style="font-weight: 800;">${escapeHtml(formatPlainAmount(totalItemCount))}</td></tr>
                 <tr><td style="font-weight: 700; color: #475569;">Identification Marks:</td><td style="font-weight: 800; border-bottom: 1px dashed #94a3b8; padding-top: 6px;"></td></tr>
               </table>
             </div>
           </div>
 
-          <!-- Customer Details -->
           <div style="flex: 1; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; overflow: hidden;">
             <div style="background: #eef2ff; color: #312e81; font-weight: 900; padding: 8px 14px; border-bottom: 1px solid #cbd5e1; font-size: 14px;">
               Customer Details
