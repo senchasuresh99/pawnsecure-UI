@@ -189,7 +189,7 @@ export default function GirviList() {
   const [editItems, setEditItems] = useState<GirviItemEditForm[]>([]);
 
   const [invoiceLogoDataUrl, setInvoiceLogoDataUrl] = useState("");
-  
+
   const [downloadingPdfGirviId, setDownloadingPdfGirviId] = useState<
     number | string | null
   >(null);
@@ -1041,7 +1041,7 @@ export default function GirviList() {
     try {
       const invoiceId = getGirviInvoiceId(item);
       if (!invoiceId) {
-        throw new Error("Invoice ID not found for this Girvi.");
+        throw new Error("Invoice ID not found. Cannot generate authorization form.");
       }
 
       const dealerId = localStorage.getItem("ps_dealer_id");
@@ -1056,7 +1056,7 @@ export default function GirviList() {
         },
       });
 
-      if (!res.ok) throw new Error("Unable to load invoice details");
+      if (!res.ok) throw new Error("Unable to load invoice details for the form.");
 
       const invoiceDetails = await res.json();
       const form = buildInvoiceFormFromGirvi(item);
@@ -1070,7 +1070,7 @@ export default function GirviList() {
         form,
       });
 
-      // Pass formatted data locally to our internal generator
+      // ONLY generates the third party form
       const file = await generateThirdPartyAuthPdfFile({
         invoiceId: Number(invoiceId),
         savedInvoiceNumber: invoiceNumber,
@@ -2535,47 +2535,18 @@ function formatInvoiceDateString(value?: string) {
 }
 
 function getThirdPartyAuthHtmlForPdf(input: any) {
-  const {
-    invoiceId,
-    savedInvoiceNumber,
-    savedGirviData,
-    customerName,
-    customer,
-    form,
-  } = input;
-
+  const { invoiceId, savedInvoiceNumber, savedGirviData, customerName, customer, form } = input;
   if (!savedGirviData) return "";
 
-  const invoiceNumber =
-    savedInvoiceNumber || savedGirviData.invoiceNumber || `INV-${invoiceId}`;
-
-  const shopName =
-    savedGirviData.shopName ||
-    savedGirviData.dealerShopName ||
-    localStorage.getItem("ps_dealer_name") ||
-    "SHREE PAWN BROKER";
-
-  const shopAddress =
-    savedGirviData.shopAddress ||
-    savedGirviData.dealerShopAddress ||
-    localStorage.getItem("ps_shop_address") ||
-    "_________________________";
-
-  const customerDisplayName =
-    savedGirviData.customerName || customerName || "_________________________";
-
-  const rawAddress =
-    savedGirviData.customerAddress ||
-    customer?.customerAddress ||
-    customer?.address ||
-    "";
-
+  const invoiceNumber = savedInvoiceNumber || savedGirviData.invoiceNumber || `INV-${invoiceId}`;
+  const shopName = savedGirviData.shopName || savedGirviData.dealerShopName || localStorage.getItem("ps_dealer_name") || "SHREE PAWN BROKER";
+  const shopAddress = savedGirviData.shopAddress || savedGirviData.dealerShopAddress || localStorage.getItem("ps_shop_address") || "_________________________";
+  const customerDisplayName = savedGirviData.customerName || customerName || "_________________________";
+  
+  const rawAddress = savedGirviData.customerAddress || customer?.customerAddress || customer?.address || "";
   let pureAddress = rawAddress || "_________________________";
   let relationText = "______________________________________";
-
-  const addressMatch = rawAddress.match(
-    /^(S\/O|D\/O|W\/O|C\/O)[\s:]*([^,]+)[,\s]+(.*)/i
-  );
+  const addressMatch = rawAddress.match(/^(S\/O|D\/O|W\/O|C\/O)[\s:]*([^,]+)[,\s]+(.*)/i);
   if (addressMatch) {
     relationText = addressMatch[2].trim();
     pureAddress = addressMatch[3].trim();
@@ -2584,7 +2555,6 @@ function getThirdPartyAuthHtmlForPdf(input: any) {
   }
 
   const girviDate = savedGirviData.girviDate || form?.girviDate;
-  
   let loanAmount = 0;
   if (savedGirviData.actualLoanAmount !== undefined && savedGirviData.actualLoanAmount !== null && savedGirviData.actualLoanAmount !== "") {
     loanAmount = savedGirviData.actualLoanAmount;
@@ -2595,103 +2565,59 @@ function getThirdPartyAuthHtmlForPdf(input: any) {
   }
 
   return `
-    <div id="frontend-thirdparty-pdf" style="width:794px; min-height:1123px; background:#ffffff; color:#000000; font-family:Arial, sans-serif; box-sizing:border-box; padding:50px; position:relative;">
-        <h1 style="text-align:center; text-transform:uppercase; font-size:24px; margin-bottom:5px; text-decoration:underline;">${escapeHtmlString(
-          shopName
-        )}</h1>
-        <h2 style="text-align:center; font-size:18px; margin-top:0; margin-bottom:5px;">THIRD PARTY AUTHORIZATION LETTER</h2>
-        <p style="text-align:center; font-size:14px; font-weight:bold; margin-top:0; margin-bottom:30px;">(For Pawn Broker / Gold Loan Closure & Release of Pledged Articles)</p>
-
-        <div style="text-align:right; font-weight:bold; margin-bottom:20px; font-size: 14px;">Date: ${formatInvoiceDateString(
-          new Date().toISOString()
-        )}</div>
-
-        <div style="margin-bottom:25px; line-height:1.6; font-size: 14px;">
-            <strong>To,</strong><br/>
-            The Manager / Proprietor<br/>
-            <strong>${escapeHtmlString(shopName)}</strong><br/>
-            Address: ${escapeHtmlString(shopAddress)}
+    <div id="frontend-thirdparty-pdf" style="width:794px; height:1123px; background:#ffffff; color:#111827; font-family:Arial, sans-serif; box-sizing:border-box; padding:40px; position:relative;">
+        <div style="text-align:center; margin-bottom: 15px;">
+            <h1 style="text-transform:uppercase; font-size:20px; font-weight:900; margin:0 0 5px 0;">${escapeHtmlString(shopName)}</h1>
+            <h2 style="font-size:16px; font-weight:bold; margin:0; text-decoration:underline;">THIRD PARTY AUTHORIZATION LETTER</h2>
         </div>
 
-        <div style="font-weight:bold; text-decoration:underline; margin-bottom:25px; text-align:center; font-size:15px;">
+        <div style="text-align:right; font-size:12px; font-weight:bold; margin-bottom: 10px;">Date: ${formatInvoiceDateString(new Date().toISOString())}</div>
+
+        <div style="font-size:12px; line-height:1.4; margin-bottom:15px;">
+            <strong>To,</strong> The Manager, <strong>${escapeHtmlString(shopName)}</strong>, Address: ${escapeHtmlString(shopAddress)}
+        </div>
+
+        <div style="font-weight:bold; text-decoration:underline; text-align:center; font-size:13px; margin-bottom:15px;">
             Subject: Authorization for Third Party to Close My Loan and Collect Pledged Gold Articles
         </div>
 
-        <div style="line-height:2; margin-bottom:20px; text-align:justify; font-size: 14px;">
-            I, Mr./Ms. <strong>${escapeHtmlString(
-              customerDisplayName
-            )}</strong> S/o, D/o, W/o <strong>${escapeHtmlString(
-    relationText
-  )}</strong><br/>
-            residing at <strong>${escapeHtmlString(pureAddress)}</strong><br/>
-            holder of ID Proof No. ______________________________________ am the borrower and lawful owner of the pledged gold articles under:
+        <div style="font-size:13px; line-height:1.6; margin-bottom:15px; text-align:justify;">
+            I, <strong>${escapeHtmlString(customerDisplayName)}</strong> S/o, D/o, W/o <strong>${escapeHtmlString(relationText)}</strong> residing at <strong>${escapeHtmlString(pureAddress)}</strong> am the borrower and lawful owner of the pledged gold articles under Loan Ticket No.: <strong>${escapeHtmlString(invoiceNumber)}</strong>, Date of Pledge: ${formatInvoiceDateString(girviDate)}, Amount Borrowed: ${formatPlainAmountString(loanAmount)}.
         </div>
 
-        <ul style="line-height:2; margin-bottom:25px; list-style-type:disc; padding-left:40px; font-size: 14px;">
-            <li><strong>Loan Ticket No.:</strong> ${escapeHtmlString(
-              invoiceNumber
-            )}</li>
-            <li><strong>Loan Account No.:</strong> ${escapeHtmlString(
-              savedGirviData.customerId || "________"
-            )}</li>
-            <li><strong>Date of Pledge:</strong> ${escapeHtmlString(
-              formatInvoiceDateString(girviDate)
-            )}</li>
-            <li><strong>Amount Borrowed:</strong> ${formatPlainAmountString(
-              loanAmount
-            )}</li>
-        </ul>
-
-        <div style="line-height:1.8; margin-bottom:20px; text-align:justify; font-size: 14px;">
-            Due to my personal reasons, I am unable to visit your office for closure of the above loan account. Therefore, I hereby authorize:
-        </div>
-
-        <div style="border:1px solid #000; padding:20px; margin-bottom:25px;">
-            <h3 style="margin-top:0; font-size:15px; text-decoration:underline; margin-bottom:15px;">Authorized Representative Details</h3>
-            <table style="width:100%; line-height:2.2; font-size: 14px;">
-                <tr><td style="width:220px; font-weight:bold;">Name:</td><td>_________________________________________________</td></tr>
-                <tr><td style="font-weight:bold;">Father/Husband Name:</td><td>_________________________________________________</td></tr>
-                <tr><td style="font-weight:bold;">Address:</td><td>_________________________________________________</td></tr>
-                <tr><td style="font-weight:bold;">Mobile No.:</td><td>_________________________________________________</td></tr>
-                <tr><td style="font-weight:bold;">ID Proof Type & No.:</td><td>_________________________________________________</td></tr>
+        <div style="border:1px solid #000; padding:10px; margin-bottom:15px;">
+            <h3 style="margin:0 0 10px 0; font-size:13px; text-decoration:underline;">Authorized Representative Details</h3>
+            <table style="width:100%; font-size:12px; line-height:2;">
+                <tr><td>Name: _________________________________________________</td></tr>
+                <tr><td>Father/Husband Name: _____________________________________</td></tr>
+                <tr><td>Address: ________________________________________________</td></tr>
+                <tr><td>Mobile No.: _____________________________________________</td></tr>
             </table>
         </div>
 
-        <div style="line-height:1.8; margin-bottom:50px; text-align:justify; font-size: 14px;">
-            to act on my behalf for payment of dues, closure of the loan account, collection of pledged gold articles, and signing necessary documents related to the release of the pledged articles. I confirm that the above representative is acting with my full knowledge and consent. I shall remain fully responsible for all actions performed by the authorized representative under this authorization.
+        <div style="font-size:13px; line-height:1.5; margin-bottom:20px; text-align:justify;">
+            I hereby authorize the above person to act on my behalf for payment of dues, closure of the loan account, and collection of pledged gold articles. I remain fully responsible for all actions performed by them.
         </div>
 
-        <div style="display:flex; justify-content:space-between; margin-bottom:60px; font-size: 14px;">
-            <div style="text-align:center;">
-                <div style="border-bottom:1px solid #000; width:220px; height:40px; margin-bottom:5px;"></div>
-                <strong>Borrower's Signature</strong><br/>
-                Name: ${escapeHtmlString(customerDisplayName)}
-            </div>
-            <div style="text-align:center;">
-                <div style="border-bottom:1px solid #000; width:220px; height:40px; margin-bottom:5px;"></div>
-                <strong>Authorized Representative Signature</strong><br/>
-                Name: ______________________
-            </div>
-        </div>
+        <table style="width:100%; font-size:12px; margin-top:20px;">
+            <tr>
+                <td style="width:50%; text-align:center;">
+                    <div style="height:30px;"></div>
+                    <strong>Borrower's Signature</strong>
+                </td>
+                <td style="width:50%; text-align:center;">
+                    <div style="height:30px;"></div>
+                    <strong>Authorized Rep. Signature</strong>
+                </td>
+            </tr>
+        </table>
 
-        <div style="display:flex; justify-content:space-between; font-size: 14px;">
-            <div style="width:45%;">
-                <strong>Witness No. 1</strong><br/><br/>
-                Name: __________________________<br/><br/>
-                Address: ________________________<br/>
-                _________________________________<br/><br/>
-                Signature: _______________________<br/><br/>
-                Mobile No: ______________________
-            </div>
-            <div style="width:45%;">
-                <strong>Witness No. 2</strong><br/><br/>
-                Name: __________________________<br/><br/>
-                Address: ________________________<br/>
-                _________________________________<br/><br/>
-                Signature: _______________________<br/><br/>
-                Mobile No: ______________________
-            </div>
-        </div>
+        <table style="width:100%; font-size:11px; margin-top:30px;">
+            <tr>
+                <td><strong>Witness 1:</strong> __________________</td>
+                <td><strong>Witness 2:</strong> __________________</td>
+            </tr>
+        </table>
     </div>
   `;
 }
