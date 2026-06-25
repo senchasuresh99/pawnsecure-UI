@@ -1701,7 +1701,7 @@ function RecordsPanel({
                             {isThirdPartyLoading ? (
                               <><FaDownload className="animate-pulse" /> Loading...</>
                             ) : (
-                              <><FaFileSignature /> 3rd Party Auth Only</>
+                              <><FaFileSignature className="text-xs" /> 3rd Party Auth Only</>
                             )}
                           </button>
                         </div>
@@ -1977,7 +1977,7 @@ function MobileRecordsPanel({
                     type="button"
                     onClick={() => downloadThirdPartyAuthPdf(item)}
                     disabled={isThirdPartyLoading}
-                    className="w-full bg-orange-50 hover:bg-orange-100 text-orange-700 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400"
+                    className="w-full mt-1 bg-orange-50 hover:bg-orange-100 text-orange-700 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400"
                   >
                     {isThirdPartyLoading ? (
                       <><FaDownload className="animate-pulse" /> Loading...</>
@@ -2550,106 +2550,90 @@ function getThirdPartyAuthHtmlForPdf(input: any) {
   if (addressMatch) {
     relationText = addressMatch[2].trim();
     pureAddress = addressMatch[3].trim();
-  } else if (savedGirviData.fatherName || customer?.fatherName) {
-    relationText = savedGirviData.fatherName || customer?.fatherName;
   }
 
   const girviDate = savedGirviData.girviDate || form?.girviDate;
-  let loanAmount = 0;
-  if (savedGirviData.actualLoanAmount !== undefined && savedGirviData.actualLoanAmount !== null && savedGirviData.actualLoanAmount !== "") {
-    loanAmount = savedGirviData.actualLoanAmount;
-  } else if (form?.actualLoanAmount !== undefined && form?.actualLoanAmount !== null && form?.actualLoanAmount !== "") {
-     loanAmount = form.actualLoanAmount;
-  } else {
-     loanAmount = savedGirviData.loanAmount;
-  }
+  const loanAmount = savedGirviData.actualLoanAmount || form?.actualLoanAmount || savedGirviData.loanAmount || 0;
 
   return `
-    <div id="frontend-thirdparty-pdf" style="width:794px; height:1123px; background:#ffffff; color:#111827; font-family:Arial, sans-serif; box-sizing:border-box; padding:48px 56px; position:relative; overflow:hidden;">
-        <div style="text-align:center; margin-bottom: 20px;">
-            <h1 style="text-transform:uppercase; font-size:22px; font-weight:900; margin:0 0 5px 0;">${escapeHtmlString(shopName)}</h1>
-            <h2 style="font-size:16px; font-weight:bold; margin:0; text-decoration:underline;">THIRD PARTY AUTHORIZATION LETTER</h2>
-            <p style="font-size:12px; font-weight:bold; margin:4px 0 0 0; color:#475569;">(For Pawn Broker / Gold Loan Closure & Release of Pledged Articles)</p>
+    <div id="frontend-thirdparty-pdf" style="width:794px; min-height:1050px; max-height:1120px; background:#ffffff; color:#111827; font-family:Arial, sans-serif; box-sizing:border-box; padding:30px 40px; position:relative;">
+        <div style="text-align:center; margin-bottom: 10px;">
+            <h1 style="text-transform:uppercase; font-size:18px; font-weight:900; margin:0 0 5px 0;">${escapeHtmlString(shopName)}</h1>
+            <h2 style="font-size:15px; font-weight:bold; margin:0; text-decoration:underline;">THIRD PARTY AUTHORIZATION LETTER</h2>
         </div>
 
-        <div style="text-align:right; font-size:13px; font-weight:bold; margin-bottom: 15px;">Date: ${formatInvoiceDateString(new Date().toISOString())}</div>
+        <div style="text-align:right; font-size:12px; font-weight:bold; margin-bottom: 10px;">Date: ${formatInvoiceDateString(new Date().toISOString())}</div>
 
-        <div style="font-size:13px; line-height:1.5; margin-bottom:20px;">
-            <strong>To,</strong><br/>
-            The Manager / Proprietor<br/>
-            <strong>${escapeHtmlString(shopName)}</strong><br/>
-            Address: ${escapeHtmlString(shopAddress)}
+        <div style="font-size:12px; line-height:1.4; margin-bottom:15px;">
+            <strong>To,</strong> The Manager, <strong>${escapeHtmlString(shopName)}</strong>, Address: ${escapeHtmlString(shopAddress)}
         </div>
 
-        <div style="font-weight:bold; text-decoration:underline; text-align:center; font-size:14px; margin-bottom:20px;">
+        <div style="font-weight:bold; text-decoration:underline; text-align:center; font-size:13px; margin-bottom:15px;">
             Subject: Authorization for Third Party to Close My Loan and Collect Pledged Gold Articles
         </div>
 
-        <div style="font-size:13px; line-height:1.8; margin-bottom:15px;">
-            I, Mr./Ms. <strong>${escapeHtmlString(customerDisplayName)}</strong> S/o, D/o, W/o <strong>${escapeHtmlString(relationText)}</strong><br/>
-            residing at <strong>${escapeHtmlString(pureAddress)}</strong><br/>
-            holder of ID Proof No. ______________________________________ am the borrower and lawful owner of the pledged gold articles under:
+        <div style="font-size:13px; line-height:1.6; margin-bottom:12px; text-align:justify;">
+            I, <strong>${escapeHtmlString(customerDisplayName)}</strong> S/o, D/o, W/o <strong>${escapeHtmlString(relationText)}</strong> residing at <strong>${escapeHtmlString(pureAddress)}</strong><br/> holder of ID Proof No. ______________________________________ am the borrower and lawful owner of the pledged gold articles under:
         </div>
 
-        <ul style="font-size:13px; line-height:1.8; margin-bottom:20px; list-style-type:disc; padding-left:40px;">
+        <ul style="font-size:13px; line-height:1.8; margin-bottom:15px; list-style-type:disc; padding-left:40px;">
             <li><strong>Loan Ticket No.:</strong> ${escapeHtmlString(invoiceNumber)}</li>
             <li><strong>Loan Account No.:</strong> ________________________</li>
-            <li><strong>Date of Pledge:</strong> ${escapeHtmlString(formatInvoiceDateString(girviDate))}</li>
+            <li><strong>Date of Pledge:</strong> ${formatInvoiceDateString(girviDate)}</li>
             <li><strong>Amount Borrowed:</strong> ${formatPlainAmountString(loanAmount)}</li>
         </ul>
 
-        <div style="font-size:13px; line-height:1.6; margin-bottom:15px;">
+        <div style="font-size:13px; line-height:1.5; margin-bottom:12px;">
             Due to my personal reasons, I am unable to visit your office for closure of the above loan account. Therefore, I hereby authorize:
         </div>
 
-        <div style="border:1.5px solid #1e293b; padding:16px 20px; margin-bottom:20px; border-radius:4px;">
-            <h3 style="margin:0 0 12px 0; font-size:14px; text-decoration:underline;">Authorized Representative Details</h3>
-            <table style="width:100%; font-size:13px; line-height:2.2;">
-                <tr><td style="font-weight:bold; width:180px;">Name:</td><td style="border-bottom:1px solid #111827;"></td></tr>
-                <tr><td style="font-weight:bold;">Father/Husband Name:</td><td style="border-bottom:1px solid #111827;"></td></tr>
-                <tr><td style="font-weight:bold;">Address:</td><td style="border-bottom:1px solid #111827;"></td></tr>
-                <tr><td style="font-weight:bold;">Mobile No.:</td><td style="border-bottom:1px solid #111827;"></td></tr>
-                <tr><td style="font-weight:bold;">ID Proof Type & No.:</td><td style="border-bottom:1px solid #111827;"></td></tr>
+        <div style="border:1px solid #1e293b; padding:12px 16px; margin-bottom:15px; border-radius:4px;">
+            <h3 style="margin:0 0 10px 0; font-size:13px; text-decoration:underline;">Authorized Representative Details</h3>
+            <table style="width:100%; font-size:12px; line-height:2;">
+                <tr><td>Name: _________________________________________________</td></tr>
+                <tr><td>Father/Husband Name: _____________________________________</td></tr>
+                <tr><td>Address: ________________________________________________</td></tr>
+                <tr><td>Mobile No.: _____________________________________________</td></tr>
             </table>
         </div>
 
-        <div style="font-size:13px; line-height:1.6; text-align:justify; margin-bottom: 40px;">
-            to act on my behalf for payment of dues, closure of the loan account, collection of pledged gold articles, and signing necessary documents related to the release of the pledged articles. I confirm that the above representative is acting with my full knowledge and consent. I shall remain fully responsible for all actions performed by the authorized representative under this authorization.
+        <div style="font-size:13px; line-height:1.5; text-align:justify; margin-bottom: 25px;">
+            I hereby authorize the above person to act on my behalf for payment of dues, closure of the loan account, and collection of pledged gold articles. I confirm that the above representative is acting with my full knowledge and consent. I remain fully responsible for all actions performed by them under this authorization.
         </div>
 
-        <table style="width:100%; font-size:13px; margin-bottom:40px; border-collapse:collapse;">
+        <table style="width:100%; font-size:13px; margin-bottom:25px; border-collapse:collapse;">
             <tr>
                 <td style="width:50%; text-align:center;">
-                    <div style="border-bottom:1px solid #111827; height:40px; margin:0 auto 8px auto; width:220px;"></div>
+                    <div style="height:30px; border-bottom:1px solid #000; width:80%; margin:0 auto;"></div>
                     <strong>Borrower's Signature</strong><br/>
                     <div style="margin-top:4px;">Name: ${escapeHtmlString(customerDisplayName)}</div>
                 </td>
                 <td style="width:50%; text-align:center;">
-                    <div style="border-bottom:1px solid #111827; height:40px; margin:0 auto 8px auto; width:220px;"></div>
-                    <strong>Authorized Representative Signature</strong><br/>
-                    <div style="margin-top:4px;">Name: <span style="display:inline-block; border-bottom:1px solid #111827; width:150px;"></span></div>
+                    <div style="height:30px; border-bottom:1px solid #000; width:80%; margin:0 auto;"></div>
+                    <strong>Authorized Rep. Signature</strong><br/>
+                    <div style="margin-top:4px;">Name: ______________________</div>
                 </td>
             </tr>
         </table>
 
-        <table style="width:100%; font-size:13px; border-collapse:collapse;">
+        <table style="width:100%; font-size:12px; border-collapse:collapse;">
             <tr>
                 <td style="width:45%; vertical-align:top;">
-                    <strong style="display:block; margin-bottom:12px;">Witness No. 1</strong>
-                    <div style="margin-bottom:12px;">Name: <span style="display:inline-block; border-bottom:1px solid #111827; width:270px;"></span></div>
-                    <div style="margin-bottom:12px;">Address: <span style="display:inline-block; border-bottom:1px solid #111827; width:255px;"></span></div>
-                    <div style="margin-bottom:12px;"><span style="display:inline-block; border-bottom:1px solid #111827; width:100%;"></span></div>
-                    <div style="margin-bottom:12px;">Signature: <span style="display:inline-block; border-bottom:1px solid #111827; width:245px;"></span></div>
-                    <div>Mobile No: <span style="display:inline-block; border-bottom:1px solid #111827; width:240px;"></span></div>
+                    <strong style="display:block; margin-bottom:8px;">Witness No. 1</strong>
+                    <div style="margin-bottom:8px;">Name: ____________________________</div>
+                    <div style="margin-bottom:8px;">Address: __________________________</div>
+                    <div style="margin-bottom:8px;">__________________________________</div>
+                    <div style="margin-bottom:8px;">Signature: ________________________</div>
+                    <div>Mobile No: _______________________</div>
                 </td>
                 <td style="width:10%;"></td>
                 <td style="width:45%; vertical-align:top;">
-                    <strong style="display:block; margin-bottom:12px;">Witness No. 2</strong>
-                    <div style="margin-bottom:12px;">Name: <span style="display:inline-block; border-bottom:1px solid #111827; width:270px;"></span></div>
-                    <div style="margin-bottom:12px;">Address: <span style="display:inline-block; border-bottom:1px solid #111827; width:255px;"></span></div>
-                    <div style="margin-bottom:12px;"><span style="display:inline-block; border-bottom:1px solid #111827; width:100%;"></span></div>
-                    <div style="margin-bottom:12px;">Signature: <span style="display:inline-block; border-bottom:1px solid #111827; width:245px;"></span></div>
-                    <div>Mobile No: <span style="display:inline-block; border-bottom:1px solid #111827; width:240px;"></span></div>
+                    <strong style="display:block; margin-bottom:8px;">Witness No. 2</strong>
+                    <div style="margin-bottom:8px;">Name: ____________________________</div>
+                    <div style="margin-bottom:8px;">Address: __________________________</div>
+                    <div style="margin-bottom:8px;">__________________________________</div>
+                    <div style="margin-bottom:8px;">Signature: ________________________</div>
+                    <div>Mobile No: _______________________</div>
                 </td>
             </tr>
         </table>
