@@ -824,7 +824,7 @@ export default function DealerDashboard() {
               </div>
             </div>
 
-            {/* Desktop Live Metal Rates */}
+            {/* Desktop Live Metal Rates
             <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm mb-5">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
@@ -901,7 +901,7 @@ export default function DealerDashboard() {
                   </div>
                 ))}
               </div>
-            </div>
+            </div> */}
 
             {/* Desktop Activities */}
             <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm">
@@ -1171,7 +1171,7 @@ export default function DealerDashboard() {
             </div>
           </div>
 
-          <div className="mt-4 px-4">
+          {/* <div className="mt-4 px-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-1.5">
                 <h2 className="text-base font-bold text-gray-900">
@@ -1240,7 +1240,7 @@ export default function DealerDashboard() {
                 </div>
               ))}
             </div>
-          </div>
+          </div> */}
 
           {/* Mobile Activities */}
           <div className="mx-4 mt-4 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
