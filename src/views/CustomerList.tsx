@@ -30,6 +30,11 @@ type CustomerResponseDTO = {
   kycStatus?: string;
   aadhaarLastFour?: string;
   maskedAadhaar?: string;
+  
+  // Added fields for cleaner history tracking
+  totalGirvi?: number;
+  activeLoan?: number;
+  createdAt?: string; 
 };
 
 type ReviewResponseDTO = {
@@ -713,12 +718,32 @@ export default function CustomerList() {
                 />
               </div>
 
+              {/* CLEAN CONDITIONAL RENDERING FOR HISTORY STATS */}
               {!isPartialityDashboard && (
-                <>
-                  <InfoCard label="Total Girvi" value="0" />
-                  <InfoCard label="Active Loan" value="₹ 0" />
-                  <InfoCard label="Since" value="Today" />
-                </>
+                selectedCustomer.totalGirvi && selectedCustomer.totalGirvi > 0 ? (
+                  <>
+                    <InfoCard label="Total Girvi" value={String(selectedCustomer.totalGirvi)} />
+                    <InfoCard 
+                      label="Active Loan" 
+                      value={`₹ ${Number(selectedCustomer.activeLoan || 0).toLocaleString('en-IN')}`} 
+                    />
+                    <InfoCard 
+                      label="Member Since" 
+                      value={selectedCustomer.createdAt ? formatReviewDate(selectedCustomer.createdAt) : "-"} 
+                    />
+                  </>
+                ) : (
+                  <div className="col-span-2 sm:col-span-3 bg-gray-50 border border-gray-100 text-gray-500 text-[11px] sm:text-xs py-3 px-4 rounded-2xl text-center font-semibold flex items-center justify-center gap-2 mt-1">
+                    <FaUser className="text-gray-400 shrink-0" />
+                    <span>New Customer • No active history</span>
+                    {selectedCustomer.createdAt && (
+                      <>
+                        <span className="text-gray-300">|</span>
+                        <span>Member Since: {formatReviewDate(selectedCustomer.createdAt)}</span>
+                      </>
+                    )}
+                  </div>
+                )
               )}
             </div>
 
