@@ -207,8 +207,12 @@ export default function GirviList() {
   >({});
 
   function goToAddGirvi() {
-    navigate("/dealer/details", {
-      state: { returnTo: "/dealer/customer" },
+    // Navigate to the customers list to enforce selection before accessing the form
+    navigate("/dealer/customers", {
+      state: { 
+        action: "SELECT_FOR_NEW_GIRVI",
+        returnTo: "/dealer/customer" 
+      },
     });
   }
 
