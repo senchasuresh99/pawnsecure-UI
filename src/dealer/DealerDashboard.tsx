@@ -375,6 +375,7 @@ export default function DealerDashboard() {
               "";
 
             const amount =
+              girvi.actualLoanAmount ||
               girvi.loanAmount ||
               girvi.principalAmount ||
               girvi.totalAmount ||
@@ -394,7 +395,7 @@ export default function DealerDashboard() {
             return {
               title: "New Girvi Created",
               name: accountNo ? `${customerName} (${accountNo})` : customerName,
-              amount: formatCurrency(amount),
+              amount: formatCurrency(girvi.actualLoanAmount),
               time: formatActivityTime(createdTime),
               icon: <FaCalendarAlt />,
               bg: "bg-green-100",
