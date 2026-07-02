@@ -1236,43 +1236,44 @@ Please find attached invoice PDF.`;
 
           <div className="p-6 xl:p-8 max-w-[1400px] w-full mx-auto flex-1">
             <RecordsPanel
-              loading={loading}
-              error={error}
-              filteredList={filteredList}
-              totalElements={totalElements}
-              search={search}
-              setSearch={setSearch}
-              getImageSrc={getImageSrc}
-              formatCurrency={formatCurrency}
-              formatDate={formatDate}
-              formatWeight={formatWeight}
-              formatCount={formatCount}
-              getStatusClass={getStatusClass}
-              openEditModal={openEditModal}
-              handleRenewGirvi={handleRenewGirvi}
-              downloadGirviInvoicePdf={downloadGirviInvoicePdf}
-              downloadingPdfGirviId={downloadingPdfGirviId}
-              downloadThirdPartyAuthPdf={downloadThirdPartyAuthPdf}
-              downloadingThirdPartyId={downloadingThirdPartyId}
-              preparedShareData={preparedShareData}
-              prepareWhatsAppShare={prepareWhatsAppShare}
-              executeWhatsAppShare={executeWhatsAppShare}
-              sendingWhatsAppGirviId={sendingWhatsAppGirviId}
-              getGirviRowKey={getGirviRowKey}
-              getDisplayItemName={getDisplayItemName}
-              getDisplayItemType={getDisplayItemType}
-              getDisplayGoldKarat={getDisplayGoldKarat}
-              getDisplayItemCount={getDisplayItemCount}
-              getDisplayGrossWeight={getDisplayGrossWeight}
-              getDisplayLessWeight={getDisplayLessWeight}
-              getDisplayNetWeight={getDisplayNetWeight}
-              getDisplayActualLoanAmount={getDisplayActualLoanAmount}
-              page={page}
-              size={size}
-              totalPages={totalPages}
-              setPage={setPage}
-              setSize={setSize}
-            />
+  loading={loading}
+  error={error}
+  filteredList={filteredList}
+  totalElements={totalElements}
+  search={search}
+  setSearch={setSearch}
+  goToAddGirvi={goToAddGirvi}
+  getImageSrc={getImageSrc}
+  formatCurrency={formatCurrency}
+  formatDate={formatDate}
+  formatWeight={formatWeight}
+  formatCount={formatCount}
+  getStatusClass={getStatusClass}
+  openEditModal={openEditModal}
+  handleRenewGirvi={handleRenewGirvi}
+  downloadGirviInvoicePdf={downloadGirviInvoicePdf}
+  downloadingPdfGirviId={downloadingPdfGirviId}
+  downloadThirdPartyAuthPdf={downloadThirdPartyAuthPdf}
+  downloadingThirdPartyId={downloadingThirdPartyId}
+  preparedShareData={preparedShareData}
+  prepareWhatsAppShare={prepareWhatsAppShare}
+  executeWhatsAppShare={executeWhatsAppShare}
+  sendingWhatsAppGirviId={sendingWhatsAppGirviId}
+  getGirviRowKey={getGirviRowKey}
+  getDisplayItemName={getDisplayItemName}
+  getDisplayItemType={getDisplayItemType}
+  getDisplayGoldKarat={getDisplayGoldKarat}
+  getDisplayItemCount={getDisplayItemCount}
+  getDisplayGrossWeight={getDisplayGrossWeight}
+  getDisplayLessWeight={getDisplayLessWeight}
+  getDisplayNetWeight={getDisplayNetWeight}
+  getDisplayActualLoanAmount={getDisplayActualLoanAmount}
+  page={page}
+  size={size}
+  totalPages={totalPages}
+  setPage={setPage}
+  setSize={setSize}
+/>
           </div>
         </main>
       </div>
@@ -1411,6 +1412,7 @@ function RecordsPanel({
   totalElements,
   search,
   setSearch,
+  goToAddGirvi,
   getImageSrc,
   formatCurrency,
   formatDate,
@@ -1445,25 +1447,35 @@ function RecordsPanel({
   return (
     <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 sm:p-8">
       <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 mb-8">
-        <div>
-          <h2 className="text-xl font-bold text-gray-900">Pledge Inventory</h2>
-          <p className="text-sm text-gray-400 font-medium mt-0.5">
-            Showing continuous listings ({totalElements} overall items)
-          </p>
-        </div>
+  <div>
+    <h2 className="text-xl font-bold text-gray-900">Pledge Inventory</h2>
+    <p className="text-sm text-gray-400 font-medium mt-0.5">
+      Showing continuous listings ({totalElements} overall items)
+    </p>
+  </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full xl:w-auto">
-          <div className="w-full sm:w-80 flex items-center border border-gray-200 rounded-xl px-4 py-3 bg-gray-50/50 focus-within:border-[#4820C5] focus-within:ring-1 focus-within:ring-[#4820C5] transition">
-            <FaSearch className="text-gray-400 mr-3 shrink-0 text-sm" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full outline-none bg-transparent text-sm font-medium text-gray-700"
-              placeholder="Search by customer, item, status..."
-            />
-          </div>
-        </div>
-      </div>
+  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full xl:w-auto">
+    <div className="w-full sm:w-80 flex items-center border border-gray-200 rounded-xl px-4 py-3 bg-gray-50/50 focus-within:border-[#4820C5] focus-within:ring-1 focus-within:ring-[#4820C5] transition">
+      <FaSearch className="text-gray-400 mr-3 shrink-0 text-sm" />
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="w-full outline-none bg-transparent text-sm font-medium text-gray-700"
+        placeholder="Search by customer, item, status..."
+      />
+    </div>
+
+    <button
+      type="button"
+      onClick={goToAddGirvi}
+      className="hidden lg:flex items-center justify-center gap-2 bg-[#4820C5] hover:bg-[#3d1aab] text-white px-5 py-3 rounded-xl font-bold text-sm shadow-md shadow-purple-100 transition whitespace-nowrap"
+      title="Add Girvi"
+    >
+      <FaPlus className="text-sm" />
+      Add Girvi
+    </button>
+  </div>
+</div>
 
       {loading && (
         <div className="text-center py-16 text-gray-400 font-semibold text-sm">

@@ -25,6 +25,7 @@ type CustomerForm = {
   address: string;
   phone: string;
   customerPhoto: File | null;
+  customerPhotoUrl: string;
 };
 
 type Errors = {
@@ -73,18 +74,42 @@ export default function AddCustomer() {
 
   const prefill: any = location.state || {};
 
+  function getDisplayImageUrl(photoUrl?: string) {
+    if (!photoUrl || !photoUrl.trim()) return "";
+
+    if (
+      photoUrl.startsWith("http://") ||
+      photoUrl.startsWith("https://") ||
+      photoUrl.startsWith("blob:")
+    ) {
+      return photoUrl;
+    }
+
+    return `${API_BASE}${photoUrl.startsWith("/") ? "" : "/"}${photoUrl}`;
+  }
+
+  const initialCustomerPhotoUrl =
+    prefill.customerPhotoUrl ||
+    prefill.photoUrl ||
+    prefill.customer?.customerPhotoUrl ||
+    "";
+
   const [form, setForm] = useState<CustomerForm>({
-    name: prefill.fullName || prefill.name || "",
+    name: prefill.fullName || prefill.name || prefill.customerName || "",
     aadhaar: prefill.aadhaar || "",
     maskedAadhaar: prefill.maskedAadhaar || "",
     dob: prefill.dob || "",
     gender: prefill.gender || "",
-    address: prefill.address || "",
+    address: prefill.address || prefill.customerAddress || "",
     phone: prefill.phoneNumber || prefill.mobile || prefill.phone || "",
     customerPhoto: null,
+    customerPhotoUrl: initialCustomerPhotoUrl,
   });
 
-  const [photoPreview, setPhotoPreview] = useState("");
+  const [photoPreview, setPhotoPreview] = useState(
+    getDisplayImageUrl(initialCustomerPhotoUrl)
+  );
+
   const [errors, setErrors] = useState<Errors>({});
   const [saving, setSaving] = useState(false);
   const [popup, setPopup] = useState<any>(null);
@@ -99,7 +124,7 @@ export default function AddCustomer() {
 
   useEffect(() => {
     return () => {
-      if (photoPreview) {
+      if (photoPreview && photoPreview.startsWith("blob:")) {
         URL.revokeObjectURL(photoPreview);
       }
     };
@@ -184,11 +209,14 @@ export default function AddCustomer() {
       e.phone = "Enter valid 10-digit phone number";
     }
 
-    if (!form.customerPhoto) {
+    if (!form.customerPhoto && !form.customerPhotoUrl) {
       e.customerPhoto = "Customer photo is required";
-    } else if (!form.customerPhoto.type.startsWith("image/")) {
+    } else if (
+      form.customerPhoto &&
+      !form.customerPhoto.type.startsWith("image/")
+    ) {
       e.customerPhoto = "Only image files are allowed";
-    } else if (form.customerPhoto.size > 5 * 1024 * 1024) {
+    } else if (form.customerPhoto && form.customerPhoto.size > 5 * 1024 * 1024) {
       e.customerPhoto = "Photo size must be less than 5MB";
     }
 
@@ -197,17 +225,24 @@ export default function AddCustomer() {
   }
 
   function handlePhotoChange(file: File | null) {
-    if (photoPreview) {
+    if (photoPreview && photoPreview.startsWith("blob:")) {
       URL.revokeObjectURL(photoPreview);
     }
 
     if (!file) {
-      update("customerPhoto", null);
+      setForm((prev) => ({
+        ...prev,
+        customerPhoto: null,
+        customerPhotoUrl: "",
+      }));
+
       setPhotoPreview("");
+
       setErrors((prev) => ({
         ...prev,
         customerPhoto: "Customer photo is required",
       }));
+
       return;
     }
 
@@ -216,7 +251,13 @@ export default function AddCustomer() {
         ...prev,
         customerPhoto: "Only image files are allowed",
       }));
-      update("customerPhoto", null);
+
+      setForm((prev) => ({
+        ...prev,
+        customerPhoto: null,
+        customerPhotoUrl: "",
+      }));
+
       setPhotoPreview("");
       return;
     }
@@ -226,12 +267,23 @@ export default function AddCustomer() {
         ...prev,
         customerPhoto: "Photo size must be less than 5MB",
       }));
-      update("customerPhoto", null);
+
+      setForm((prev) => ({
+        ...prev,
+        customerPhoto: null,
+        customerPhotoUrl: "",
+      }));
+
       setPhotoPreview("");
       return;
     }
 
-    update("customerPhoto", file);
+    setForm((prev) => ({
+      ...prev,
+      customerPhoto: file,
+      customerPhotoUrl: "",
+    }));
+
     setPhotoPreview(URL.createObjectURL(file));
 
     setErrors((prev) => ({
@@ -339,6 +391,15 @@ export default function AddCustomer() {
         return;
       }
 
+      const customerPhotoUrl =
+        savedCustomer.customerPhotoUrl ||
+        savedCustomer.photoUrl ||
+        savedCustomer.photo ||
+        savedCustomer.customer?.customerPhotoUrl ||
+        savedCustomer.customer?.photoUrl ||
+        form.customerPhotoUrl ||
+        "";
+
       const normalizedCustomer = {
         ...savedCustomer,
         id: customerId,
@@ -353,6 +414,11 @@ export default function AddCustomer() {
           savedCustomer.fullName ||
           savedCustomer.customerName ||
           form.name,
+        customerName:
+          savedCustomer.customerName ||
+          savedCustomer.fullName ||
+          savedCustomer.name ||
+          form.name,
         phoneNumber:
           savedCustomer.phoneNumber ||
           savedCustomer.mobile ||
@@ -364,7 +430,15 @@ export default function AddCustomer() {
           aadhaarValue,
         dob: savedCustomer.dob || form.dob,
         gender: savedCustomer.gender || normalizeGender(form.gender),
-        address: savedCustomer.address || form.address,
+        address:
+          savedCustomer.address ||
+          savedCustomer.customerAddress ||
+          form.address,
+        customerAddress:
+          savedCustomer.customerAddress ||
+          savedCustomer.address ||
+          form.address,
+        customerPhotoUrl,
       };
 
       setCustomer(normalizedCustomer);
@@ -424,7 +498,7 @@ export default function AddCustomer() {
     !!form.gender.trim(),
     !!form.address.trim(),
     /^[6-9]\d{9}$/.test(form.phone),
-    !!form.customerPhoto,
+    !!form.customerPhoto || !!form.customerPhotoUrl,
   ];
 
   const completedCount = completionItems.filter(Boolean).length;
@@ -555,6 +629,10 @@ export default function AddCustomer() {
                 src={photoPreview}
                 alt="Customer"
                 className="w-20 h-20 rounded-2xl object-cover border bg-gray-50"
+                onError={(e) => {
+                  const img = e.currentTarget;
+                  img.style.display = "none";
+                }}
               />
             ) : (
               <div className="w-20 h-20 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-2xl">

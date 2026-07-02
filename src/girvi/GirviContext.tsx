@@ -12,17 +12,26 @@ type Customer = {
   id?: number | string;
   customerId?: number | string;
   customer_id?: number | string;
+
   name?: string;
   fullName?: string;
   customerName?: string;
+
   phone?: string;
   phoneNumber?: string;
   mobile?: string;
+
   aadhaar?: string;
   maskedAadhaar?: string;
   dob?: string;
   gender?: string;
+
   address?: string;
+  customerAddress?: string;
+
+  customerPhotoUrl?: string;
+  photoUrl?: string;
+
   [key: string]: any;
 };
 
@@ -33,6 +42,9 @@ type LoanDetails = {
   interestType: string;
   pledgeDate: string;
   maturityDate: string;
+
+  // URL-based item photo support
+  itemPhotoUrl?: string;
 };
 
 type GirviItem = {
@@ -97,6 +109,7 @@ const initialLoanDetails: LoanDetails = {
   interestType: "Monthly",
   pledgeDate: "",
   maturityDate: "",
+  itemPhotoUrl: "",
 };
 
 const initialLockerDetails: LockerDetails = {
@@ -223,6 +236,18 @@ export function GirviProvider({ children }: { children: ReactNode }) {
         ...customer,
         id: customerId || customer.id,
         customerId: customerId || customer.customerId,
+
+        customerPhotoUrl:
+          customer.customerPhotoUrl ||
+          customer.photoUrl ||
+          customer.customer?.customerPhotoUrl ||
+          customer.customer?.photoUrl,
+
+        photoUrl:
+          customer.photoUrl ||
+          customer.customerPhotoUrl ||
+          customer.customer?.photoUrl ||
+          customer.customer?.customerPhotoUrl,
       };
 
       if (customerId) {

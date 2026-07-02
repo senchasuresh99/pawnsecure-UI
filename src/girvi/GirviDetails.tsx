@@ -74,8 +74,18 @@ export default function AddGirvi() {
   const dealerId = localStorage.getItem("ps_dealer_id");
 
   const [loading, setLoading] = useState(false);
-  const [photo, setPhoto] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState("");
+const [photo, setPhoto] = useState<File | null>(null);
+
+const initialItemPhotoUrl =
+  navState?.itemPhotoUrl ||
+  navState?.girvi?.itemPhotoUrl ||
+  loanDetails?.itemPhotoUrl ||
+  "";
+
+const [itemPhotoUrl, setItemPhotoUrl] = useState(initialItemPhotoUrl);
+const [photoPreview, setPhotoPreview] = useState(
+  getDisplayImageUrl(initialItemPhotoUrl)
+);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [currentStep, setCurrentStep] = useState(1);
@@ -176,6 +186,18 @@ export default function AddGirvi() {
             navState.customerAddress ||
             customer?.address ||
             customer?.customerAddress,
+            customerPhotoUrl:
+  navState.customerPhotoUrl ||
+  navState.photoUrl ||
+  navState.customer?.customerPhotoUrl ||
+  customer?.customerPhotoUrl ||
+  customer?.photoUrl,
+photoUrl:
+  navState.photoUrl ||
+  navState.customerPhotoUrl ||
+  navState.customer?.photoUrl ||
+  customer?.photoUrl ||
+  customer?.customerPhotoUrl,
         });
       }
     }
@@ -194,6 +216,20 @@ export default function AddGirvi() {
     navState?.customerName ||
     "Selected Customer";
 
+function getDisplayImageUrl(photoUrl?: string) {
+  if (!photoUrl || !photoUrl.trim()) return "";
+
+  if (
+    photoUrl.startsWith("http://") ||
+    photoUrl.startsWith("https://") ||
+    photoUrl.startsWith("blob:")
+  ) {
+    return photoUrl;
+  }
+
+  return `${API_BASE}${photoUrl.startsWith("/") ? "" : "/"}${photoUrl}`;
+}
+
   useEffect(() => {
     if (!loanDetails.customerId) {
       const savedCustomerId =
@@ -208,13 +244,13 @@ export default function AddGirvi() {
     }
   }, [loanDetails.customerId, customer, setLoanDetails]);
 
-  useEffect(() => {
-    return () => {
-      if (photoPreview) {
-        URL.revokeObjectURL(photoPreview);
-      }
-    };
-  }, [photoPreview]);
+useEffect(() => {
+  return () => {
+    if (photoPreview && photoPreview.startsWith("blob:")) {
+      URL.revokeObjectURL(photoPreview);
+    }
+  };
+}, [photoPreview]);
 
   function calculateNetWeight(gross: any, less: any) {
     const grossWeight = Number(gross || 0);
@@ -361,31 +397,42 @@ export default function AddGirvi() {
     });
   }
 
-  function handlePhotoChange(file: File | null) {
-    if (photoPreview) {
-      URL.revokeObjectURL(photoPreview);
-    }
-
-    if (!file) {
-      setPhoto(null);
-      setPhotoPreview("");
-      return;
-    }
-
-    if (!file.type.startsWith("image/")) {
-      setErrors((prev) => ({ ...prev, photo: "Only image files allowed" }));
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setErrors((prev) => ({ ...prev, photo: "Photo must be less than 5MB" }));
-      return;
-    }
-
-    setPhoto(file);
-    setPhotoPreview(URL.createObjectURL(file));
-    setErrors((prev) => ({ ...prev, photo: "" }));
+function handlePhotoChange(file: File | null) {
+  if (photoPreview && photoPreview.startsWith("blob:")) {
+    URL.revokeObjectURL(photoPreview);
   }
+
+  if (!file) {
+    setPhoto(null);
+    setItemPhotoUrl("");
+    setPhotoPreview("");
+    return;
+  }
+
+  if (!file.type.startsWith("image/")) {
+    setErrors((prev) => ({ ...prev, photo: "Only image files allowed" }));
+    setPhoto(null);
+    setItemPhotoUrl("");
+    setPhotoPreview("");
+    return;
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    setErrors((prev) => ({ ...prev, photo: "Photo must be less than 5MB" }));
+    setPhoto(null);
+    setItemPhotoUrl("");
+    setPhotoPreview("");
+    return;
+  }
+
+  setPhoto(file);
+  setItemPhotoUrl("");
+
+  const previewUrl = URL.createObjectURL(file);
+  setPhotoPreview(previewUrl);
+
+  setErrors((prev) => ({ ...prev, photo: "" }));
+}
 
   function validateStep(step: number) {
     const newErrors: Record<string, string> = {};
@@ -738,6 +785,20 @@ Please find attached invoice PDF.`;
         throw new Error("Girvi saved, but backend did not return Girvi data.");
       }
 
+      const savedItemPhotoUrl =
+  savedGirvi?.itemPhotoUrl ||
+  savedGirvi?.photoUrl ||
+  savedGirvi?.data?.itemPhotoUrl ||
+  savedGirvi?.data?.photoUrl ||
+  savedGirvi?.items?.[0]?.itemPhotoUrl ||
+  savedGirvi?.data?.items?.[0]?.itemPhotoUrl ||
+  "";
+
+if (savedItemPhotoUrl) {
+  setItemPhotoUrl(savedItemPhotoUrl);
+  setPhotoPreview(getDisplayImageUrl(savedItemPhotoUrl));
+}
+
       const girviId =
         savedGirvi?.id ||
         savedGirvi?.girviId ||
@@ -780,13 +841,24 @@ Please find attached invoice PDF.`;
 
       const invoiceForm = getInvoiceForm();
 
-      const invoiceDataForFrontend = buildInvoiceDataFromBackend({
-        invoiceDetails,
-        savedGirvi,
-        invoiceId,
-        invoiceNumber,
-        form: invoiceForm,
-      });
+      const invoiceDataForFrontend = {
+  ...buildInvoiceDataFromBackend({
+    invoiceDetails,
+    savedGirvi,
+    invoiceId,
+    invoiceNumber,
+    form: invoiceForm,
+  }),
+  itemPhotoUrl:
+    savedGirvi?.itemPhotoUrl ||
+    savedGirvi?.photoUrl ||
+    savedGirvi?.data?.itemPhotoUrl ||
+    savedGirvi?.data?.photoUrl ||
+    savedGirvi?.items?.[0]?.itemPhotoUrl ||
+    savedGirvi?.data?.items?.[0]?.itemPhotoUrl ||
+    itemPhotoUrl ||
+    "",
+};
 
       setSavedGirviData(invoiceDataForFrontend);
       setSavedInvoiceId(Number(invoiceId));
@@ -812,17 +884,25 @@ Please find attached invoice PDF.`;
           {photoPreview && (
             <div className="relative w-[100px] h-[100px] md:w-[120px] md:h-[120px] rounded-xl overflow-hidden border border-gray-200 group shadow-sm">
               <img
-                src={photoPreview}
-                alt="Item"
-                className="w-full h-full object-cover"
-              />
+  src={photoPreview}
+  alt="Item"
+  className="w-full h-full object-cover"
+  onError={(e) => {
+    e.currentTarget.style.display = "none";
+  }}
+/>
 
               <button
                 type="button"
                 onClick={() => {
-                  setPhoto(null);
-                  setPhotoPreview("");
-                }}
+  if (photoPreview && photoPreview.startsWith("blob:")) {
+    URL.revokeObjectURL(photoPreview);
+  }
+
+  setPhoto(null);
+  setItemPhotoUrl("");
+  setPhotoPreview("");
+}}
                 className="absolute top-1.5 right-1.5 bg-black/60 text-white w-7 h-7 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition shadow-md"
               >
                 <FaTimes className="text-[12px]" />
@@ -1229,7 +1309,7 @@ Please find attached invoice PDF.`;
                 return (
                   <ItemSummaryCard
                     key={index}
-                    photo={index === 0 ? photoPreview : ""}
+                    photo={index === 0 ? photoPreview || getDisplayImageUrl(itemPhotoUrl) : ""}
                     name={item.itemName}
                     type={item.itemType}
                     itemCount={item.itemCount}
@@ -1659,10 +1739,13 @@ function ItemSummaryCard({
     <div className="bg-white rounded-2xl border border-gray-100 p-4 md:p-6 flex items-center gap-4 md:gap-6 shadow-sm">
       {photo ? (
         <img
-          src={photo}
-          alt={name || "Item"}
-          className="w-20 h-20 md:w-28 md:h-28 rounded-xl md:rounded-2xl object-cover"
-        />
+  src={photo}
+  alt={name || "Item"}
+  className="w-20 h-20 md:w-28 md:h-28 rounded-xl md:rounded-2xl object-cover"
+  onError={(e) => {
+    e.currentTarget.style.display = "none";
+  }}
+/>
       ) : (
         <div className="w-20 h-20 md:w-28 md:h-28 rounded-xl md:rounded-2xl bg-purple-50 flex items-center justify-center text-purple-600">
           <FaCoins size={28} className="md:w-10 md:h-10" />
