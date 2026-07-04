@@ -2632,50 +2632,64 @@ function getAuctionNoticeHtmlForPdf(input: any) {
   auctionDate.setDate(auctionDate.getDate() + 15);
 
   return `
-    <div id="frontend-auction-notice-pdf" style="width:794px; height:1123px; background:#ffffff; color:#000000; font-family:Arial, sans-serif; box-sizing:border-box; padding:50px 60px; position:relative;">
-        <h1 style="text-align:center; font-size:22px; font-weight:900; margin:0 0 5px 0; text-decoration:underline;">LEGAL AUCTION NOTICE - PAWN BROKER</h1>
+    <div id="frontend-auction-notice-pdf" style="width:794px; min-height:1123px; background:#ffffff; color:#000000; font-family:Arial, sans-serif; box-sizing:border-box; padding:50px 60px; position:relative; display:flex; flex-direction:column;">
+        <h1 style="text-align:center; font-size:22px; font-weight:900; margin:0 0 30px 0;">LEGAL AUCTION NOTICE - PAWN BROKER</h1>
         
-        <div style="text-align:right; font-weight:bold; margin-top:20px; font-size: 14px;">Date: ${formatInvoiceDateString(today.toISOString())}</div>
-
-        <div style="margin-top:20px; line-height:1.6; font-size: 14px;">
+        <div style="font-size: 14px; line-height: 1.8; margin-bottom: 25px;">
+            <strong>Date:</strong> ${formatInvoiceDateString(today.toISOString())}<br/><br/>
             <strong>To,</strong><br/>
             <strong>Customer Name:</strong> ${escapeHtmlString(customerDisplayName)}<br/>
-            <strong>Address:</strong> ${escapeHtmlString(rawAddress)}<br/>
+            <strong>Address:</strong> <span style="word-wrap: break-word; white-space: normal;">${escapeHtmlString(rawAddress)}</span><br/>
             <strong>Mobile No:</strong> ${escapeHtmlString(customerPhone)}
         </div>
 
-        <div style="font-weight:bold; text-decoration:underline; text-align:center; font-size:15px; margin-top:30px; margin-bottom:20px;">
+        <div style="font-weight:bold; font-style:italic; text-decoration:underline; font-size:15px; margin-bottom:20px;">
             Subject: Final Notice Before Auction of Pledged Gold
         </div>
 
-        <div style="line-height:2; text-align:justify; font-size: 14px;">
+        <div style="line-height:1.8; text-align:justify; font-size: 14px; margin-bottom: 30px;">
             Dear Sir/Madam,<br/><br/>
             This notice is issued to inform you that you had pledged gold ornaments with our pawn broker shop
             and taken a loan against the same. The loan period has already expired and the outstanding
             amount has not been repaid despite previous reminders.<br/><br/>
             As per the provisions applicable to licensed pawn brokers in <strong>${escapeHtmlString(extractedState)}</strong>, you are hereby given
             a final opportunity to repay the total outstanding amount and redeem your pledged gold ornaments
-            within 15 days from the date of this notice.<br/><br/>
+            within <strong>15 days</strong> from the date of this notice.<br/><br/>
             If the payment is not made within the above period, the pledged gold ornaments will be
-            sold by public auction to recover the loan amount, interest, and related expenses.<br/><br/>
+            <strong>sold by public auction</strong> to recover the loan amount, interest, and related expenses.<br/>
             Any surplus amount, if available after settlement, may be claimed by you as per applicable rules.
         </div>
 
-        <table style="width:100%; border-collapse:collapse; margin-top:30px; font-size:14px; border:1px solid #000;">
-            <tr><td style="border:1px solid #000; padding:10px; font-weight:bold; width:40%;">Loan Ticket No.</td><td style="border:1px solid #000; padding:10px;">${escapeHtmlString(invoiceNumber)}</td></tr>
-            <tr><td style="border:1px solid #000; padding:10px; font-weight:bold;">Loan Date</td><td style="border:1px solid #000; padding:10px;">${formatInvoiceDateString(girviDate)}</td></tr>
-            <tr><td style="border:1px solid #000; padding:10px; font-weight:bold;">Loan Amount (INR)</td><td style="border:1px solid #000; padding:10px;">${formatPlainAmountString(actualLoanAmount)}</td></tr>
-            <tr><td style="border:1px solid #000; padding:10px; font-weight:bold;">Interest Rate</td><td style="border:1px solid #000; padding:10px;">${interestRate}%</td></tr>
-            <tr><td style="border:1px solid #000; padding:10px; font-weight:bold;">Total Amount Due</td><td style="border:1px solid #000; padding:10px; font-weight:bold;">${formatPlainAmountString(loanAmount)}</td></tr>
-            <tr><td style="border:1px solid #000; padding:10px; font-weight:bold; color:#b91c1c;">Proposed Auction Date</td><td style="border:1px solid #000; padding:10px; font-weight:bold; color:#b91c1c;">${formatInvoiceDateString(auctionDate.toISOString())}</td></tr>
+        <table style="width:100%; border-collapse:collapse; margin-bottom:40px; font-size:14px; border:1px solid #000;">
+            <tr><td style="border:1px solid #000; padding:8px; font-weight:bold; width:40%; background-color:#e5e7eb;">Loan Ticket No.</td><td style="border:1px solid #000; padding:8px;">${escapeHtmlString(invoiceNumber)}</td></tr>
+            <tr><td style="border:1px solid #000; padding:8px; font-weight:bold; background-color:#e5e7eb;">Loan Date</td><td style="border:1px solid #000; padding:8px;">${formatInvoiceDateString(girviDate)}</td></tr>
+            <tr><td style="border:1px solid #000; padding:8px; font-weight:bold; background-color:#e5e7eb;">Loan Amount (INR)</td><td style="border:1px solid #000; padding:8px;">${formatPlainAmountString(actualLoanAmount)}</td></tr>
+            <tr><td style="border:1px solid #000; padding:8px; font-weight:bold; background-color:#e5e7eb;">Interest Rate</td><td style="border:1px solid #000; padding:8px;">${interestRate}%</td></tr>
+            <tr><td style="border:1px solid #000; padding:8px; font-weight:bold; background-color:#e5e7eb;">Total Amount Due</td><td style="border:1px solid #000; padding:8px; font-weight:bold;">${formatPlainAmountString(loanAmount)}</td></tr>
+            <tr><td style="border:1px solid #000; padding:8px; font-weight:bold; background-color:#e5e7eb;">Proposed Auction Date</td><td style="border:1px solid #000; padding:8px; font-weight:bold; color:#b91c1c;">${formatInvoiceDateString(auctionDate.toISOString())}</td></tr>
         </table>
 
-        <div style="margin-top:50px; font-size:14px; line-height:1.6;">
-            <strong>Pawn Broker Name:</strong> ${escapeHtmlString(dealerName)}<br/>
-            <strong>License Number:</strong> ________________________<br/>
-            <strong>Shop Name:</strong> ${escapeHtmlString(shopName)}<br/>
-            <strong>Shop Address:</strong> ${escapeHtmlString(shopAddress)}<br/><br/><br/>
-            <strong>Signature & Stamp:</strong> ________________________
+        <table style="width:100%; font-size:14px; line-height:1.8; border:none; margin-bottom: auto;">
+            <tr>
+                <td style="width:150px; vertical-align:top;">Pawn Broker Name:</td>
+                <td style="vertical-align:top;">${escapeHtmlString(dealerName)}</td>
+            </tr>
+            <tr>
+                <td style="width:150px; vertical-align:top;">License Number:</td>
+                <td style="vertical-align:top;">________________________</td>
+            </tr>
+            <tr>
+                <td style="width:150px; vertical-align:top;">Shop Name:</td>
+                <td style="vertical-align:top;">${escapeHtmlString(shopName)}</td>
+            </tr>
+            <tr>
+                <td style="width:150px; vertical-align:top;">Shop Address:</td>
+                <td style="vertical-align:top; word-wrap:break-word; white-space:normal; padding-right:20px;">${escapeHtmlString(shopAddress)}</td>
+            </tr>
+        </table>
+
+        <div style="margin-top: 80px; font-size:14px;">
+            Signature & Stamp: ________________________
         </div>
     </div>
   `;
