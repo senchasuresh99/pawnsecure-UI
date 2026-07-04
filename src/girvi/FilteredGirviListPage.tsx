@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 import DealerSidebar from "../dealer/DealerSidebar";
 import MobileDealerSidebar from "../dealer/MobileDealerSidebar";
 import DealerMobileBottomNav from "../dealer/DealerMobileBottomNav";
@@ -16,6 +18,7 @@ import {
   FaFileInvoice,
   FaDownload,
   FaWhatsapp,
+  FaGavel,
 } from "react-icons/fa";
 import {
   LOGO_URL,
@@ -183,6 +186,10 @@ export default function FilteredGirviListPage({
 
   const [invoiceLogoDataUrl, setInvoiceLogoDataUrl] = useState("");
   const [downloadingPdfGirviId, setDownloadingPdfGirviId] = useState<
+    number | string | null
+  >(null);
+
+  const [downloadingAuctionNoticeId, setDownloadingAuctionNoticeId] = useState<
     number | string | null
   >(null);
 
@@ -1045,6 +1052,69 @@ export default function FilteredGirviListPage({
     }
   }
 
+  async function downloadAuctionNoticePdf(item: GirviResponseDTO) {
+    const rowKey = getGirviRowKey(item);
+    setDownloadingAuctionNoticeId(rowKey);
+
+    try {
+      const invoiceId = getGirviInvoiceId(item);
+      if (!invoiceId) {
+        throw new Error("Invoice ID not found. Cannot generate auction notice.");
+      }
+
+      const dealerId = localStorage.getItem("ps_dealer_id");
+      const token = localStorage.getItem("ps_token");
+      if (!dealerId || !token) throw new Error("Session expired. Please login again.");
+
+      const res = await fetch(`${API_BASE}/invoices/${invoiceId}/details`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-DEALER-ID": dealerId,
+        },
+      });
+
+      if (!res.ok) throw new Error("Unable to load invoice details for the form.");
+
+      const invoiceDetails = await res.json();
+      const form = buildInvoiceFormFromGirvi(item);
+      const invoiceNumber = invoiceDetails?.invoiceNumber || getGirviInvoiceNumber(item, invoiceId);
+
+      const savedGirviData = buildInvoiceDataFromBackend({
+        invoiceDetails,
+        savedGirvi: item,
+        invoiceId,
+        invoiceNumber,
+        form,
+      });
+
+      const file = await generateAuctionNoticePdfFile({
+        invoiceId: Number(invoiceId),
+        savedInvoiceNumber: invoiceNumber,
+        savedGirviData,
+        invoiceLogoDataUrl,
+        customerName: item.customerName || "Customer",
+        customer: item.customer || {},
+        resolvedCustomerId: item.customerId,
+        form,
+      });
+
+      const url = window.URL.createObjectURL(file);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = file.name;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error("Auction Notice PDF download failed:", err);
+      alert(err?.message || "Could not download Auction Notice PDF.");
+    } finally {
+      setDownloadingAuctionNoticeId(null);
+    }
+  }
+
   async function prepareWhatsAppShare(item: GirviResponseDTO) {
     const rowKey = getGirviRowKey(item);
     setSendingWhatsAppGirviId(rowKey);
@@ -1205,6 +1275,8 @@ Please find attached invoice PDF.`;
               handleRenewGirvi={handleRenewGirvi}
               downloadGirviInvoicePdf={downloadGirviInvoicePdf}
               downloadingPdfGirviId={downloadingPdfGirviId}
+              downloadAuctionNoticePdf={downloadAuctionNoticePdf}
+              downloadingAuctionNoticeId={downloadingAuctionNoticeId}
               preparedShareData={preparedShareData}
               prepareWhatsAppShare={prepareWhatsAppShare}
               executeWhatsAppShare={executeWhatsAppShare}
@@ -1296,6 +1368,8 @@ Please find attached invoice PDF.`;
             handleRenewGirvi={handleRenewGirvi}
             downloadGirviInvoicePdf={downloadGirviInvoicePdf}
             downloadingPdfGirviId={downloadingPdfGirviId}
+            downloadAuctionNoticePdf={downloadAuctionNoticePdf}
+            downloadingAuctionNoticeId={downloadingAuctionNoticeId}
             preparedShareData={preparedShareData}
             prepareWhatsAppShare={prepareWhatsAppShare}
             executeWhatsAppShare={executeWhatsAppShare}
@@ -1388,6 +1462,8 @@ function RecordsPanel({
   handleRenewGirvi,
   downloadGirviInvoicePdf,
   downloadingPdfGirviId,
+  downloadAuctionNoticePdf,
+  downloadingAuctionNoticeId,
   preparedShareData,
   prepareWhatsAppShare,
   executeWhatsAppShare,
@@ -1451,11 +1527,13 @@ function RecordsPanel({
               const imageSrc = getImageSrc(item);
               const rowKey = getGirviRowKey(item);
               const pdfLoading = downloadingPdfGirviId === rowKey;
+              const isAuctionNoticeLoading = downloadingAuctionNoticeId === rowKey;
               const whatsAppLoading = sendingWhatsAppGirviId === rowKey;
               const isPrepared = !!preparedShareData[rowKey];
 
               const displayItemType = getDisplayItemType(item);
               const typeLower = String(displayItemType || "").toLowerCase();
+              const isOverdue = item.status?.toLowerCase() === "overdue";
 
               return (
                 <div
@@ -1647,7 +1725,7 @@ function RecordsPanel({
                           ) : isPrepared ? (
                             <>
                               <FaWhatsapp />
-                              Share Now
+                              Share
                             </>
                           ) : (
                             <>
@@ -1656,6 +1734,23 @@ function RecordsPanel({
                             </>
                           )}
                         </button>
+
+                        {isOverdue && (
+                          <div className="col-span-2">
+                            <button
+                              type="button"
+                              onClick={() => downloadAuctionNoticePdf(item)}
+                              disabled={isAuctionNoticeLoading}
+                              className="w-full mt-1 bg-red-50 hover:bg-red-100 text-red-700 px-2 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400"
+                            >
+                              {isAuctionNoticeLoading ? (
+                                <><FaDownload className="animate-pulse" /> Generating...</>
+                              ) : (
+                                <><FaGavel className="text-xs" /> Auction Notice</>
+                              )}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1698,6 +1793,8 @@ function MobileRecordsPanel({
   handleRenewGirvi,
   downloadGirviInvoicePdf,
   downloadingPdfGirviId,
+  downloadAuctionNoticePdf,
+  downloadingAuctionNoticeId,
   preparedShareData,
   prepareWhatsAppShare,
   executeWhatsAppShare,
@@ -1749,11 +1846,13 @@ function MobileRecordsPanel({
           const imageSrc = getImageSrc(item);
           const rowKey = getGirviRowKey(item);
           const pdfLoading = downloadingPdfGirviId === rowKey;
+          const isAuctionNoticeLoading = downloadingAuctionNoticeId === rowKey;
           const whatsAppLoading = sendingWhatsAppGirviId === rowKey;
           const isPrepared = !!preparedShareData[rowKey];
 
           const displayItemType = getDisplayItemType(item);
           const typeLower = String(displayItemType || "").toLowerCase();
+          const isOverdue = item.status?.toLowerCase() === "overdue";
 
           return (
             <div
@@ -1909,7 +2008,7 @@ function MobileRecordsPanel({
                   ) : isPrepared ? (
                     <>
                       <FaWhatsapp className="text-xs" />
-                      Share Now
+                      Share
                     </>
                   ) : (
                     <>
@@ -1918,6 +2017,23 @@ function MobileRecordsPanel({
                     </>
                   )}
                 </button>
+
+                {isOverdue && (
+                  <div className="col-span-2">
+                    <button
+                      type="button"
+                      onClick={() => downloadAuctionNoticePdf(item)}
+                      disabled={isAuctionNoticeLoading}
+                      className="w-full mt-1 bg-red-50 hover:bg-red-100 text-red-700 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400"
+                    >
+                      {isAuctionNoticeLoading ? (
+                        <><FaDownload className="animate-pulse" /> Generating...</>
+                      ) : (
+                        <><FaGavel className="text-xs" /> Auction Notice</>
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -1958,7 +2074,7 @@ function EditModal({
   );
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999] flex items-center justify-center p-4 animate-fade-in">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[92vh] flex flex-col border border-gray-100">
         <div className="bg-[#4820C5] text-white px-6 py-5 flex items-center justify-between sticky top-0 z-10">
           <div>
@@ -2142,7 +2258,7 @@ function EditModal({
               onChange={(e) => updateEditForm("remarks", e.target.value)}
               rows={3}
               className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#4820C5] text-sm resize-none transition bg-gray-50/30"
-              placeholder="Add remarks here..."
+              placeholder="Add auxiliary transactional remarks here..."
             />
           </div>
 
@@ -2443,4 +2559,152 @@ function Pagination({
       </div>
     </div>
   );
+}
+
+// --- PDF GENERATION LOGIC INSIDE GIRVILIST ---
+
+function escapeHtmlString(value: any) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function formatPlainAmountString(value: any) {
+  const amount = Number(value || 0);
+  if (Number.isNaN(amount)) return "0.00";
+  return amount.toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function formatInvoiceDateString(value?: string) {
+  if (!value) return "-";
+  try {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  } catch {
+    return value;
+  }
+}
+
+function getAuctionNoticeHtmlForPdf(input: any) {
+  const { invoiceId, savedInvoiceNumber, savedGirviData, customerName, customer, form } = input;
+  if (!savedGirviData) return "";
+
+  const invoiceNumber = savedInvoiceNumber || savedGirviData.invoiceNumber || `INV-${invoiceId}`;
+  const shopName = savedGirviData.shopName || savedGirviData.dealerShopName || localStorage.getItem("ps_dealer_name") || "PAWN BROKER";
+  const shopAddress = savedGirviData.shopAddress || savedGirviData.dealerShopAddress || localStorage.getItem("ps_shop_address") || "-";
+  const dealerName = savedGirviData.dealerName || localStorage.getItem("ps_dealer_name") || "Manager";
+  const customerDisplayName = savedGirviData.customerName || customerName || "-";
+  const customerPhone = savedGirviData.customerPhone || customer?.phoneNumber || customer?.phone || "-";
+  const rawAddress = savedGirviData.customerAddress || customer?.customerAddress || customer?.address || "-";
+  
+  let extractedState = "your state";
+  if (rawAddress !== "-") {
+    const parts = rawAddress.split(",").map((p: string) => p.trim());
+    if (parts.length > 1) {
+      const lastPart = parts[parts.length - 1];
+      if (/^\d{6}$/.test(lastPart)) {
+        extractedState = parts[parts.length - 2] || "your state";
+      } else {
+        extractedState = lastPart;
+      }
+    } else {
+      extractedState = rawAddress;
+    }
+  }
+
+  const girviDate = savedGirviData.girviDate || form?.girviDate;
+  const loanAmount = savedGirviData.loanAmount || 0;
+  const actualLoanAmount = savedGirviData.actualLoanAmount || form?.actualLoanAmount || loanAmount;
+  const interestRate = savedGirviData.interestRate || form?.interestRate || 0;
+
+  const today = new Date();
+  const auctionDate = new Date(today);
+  auctionDate.setDate(auctionDate.getDate() + 15);
+
+  return `
+    <div id="frontend-auction-notice-pdf" style="width:794px; height:1123px; background:#ffffff; color:#000000; font-family:Arial, sans-serif; box-sizing:border-box; padding:50px 60px; position:relative;">
+        <h1 style="text-align:center; font-size:22px; font-weight:900; margin:0 0 5px 0; text-decoration:underline;">LEGAL AUCTION NOTICE - PAWN BROKER</h1>
+        
+        <div style="text-align:right; font-weight:bold; margin-top:20px; font-size: 14px;">Date: ${formatInvoiceDateString(today.toISOString())}</div>
+
+        <div style="margin-top:20px; line-height:1.6; font-size: 14px;">
+            <strong>To,</strong><br/>
+            <strong>Customer Name:</strong> ${escapeHtmlString(customerDisplayName)}<br/>
+            <strong>Address:</strong> ${escapeHtmlString(rawAddress)}<br/>
+            <strong>Mobile No:</strong> ${escapeHtmlString(customerPhone)}
+        </div>
+
+        <div style="font-weight:bold; text-decoration:underline; text-align:center; font-size:15px; margin-top:30px; margin-bottom:20px;">
+            Subject: Final Notice Before Auction of Pledged Gold
+        </div>
+
+        <div style="line-height:2; text-align:justify; font-size: 14px;">
+            Dear Sir/Madam,<br/><br/>
+            This notice is issued to inform you that you had pledged gold ornaments with our pawn broker shop
+            and taken a loan against the same. The loan period has already expired and the outstanding
+            amount has not been repaid despite previous reminders.<br/><br/>
+            As per the provisions applicable to licensed pawn brokers in <strong>${escapeHtmlString(extractedState)}</strong>, you are hereby given
+            a final opportunity to repay the total outstanding amount and redeem your pledged gold ornaments
+            within 15 days from the date of this notice.<br/><br/>
+            If the payment is not made within the above period, the pledged gold ornaments will be
+            sold by public auction to recover the loan amount, interest, and related expenses.<br/><br/>
+            Any surplus amount, if available after settlement, may be claimed by you as per applicable rules.
+        </div>
+
+        <table style="width:100%; border-collapse:collapse; margin-top:30px; font-size:14px; border:1px solid #000;">
+            <tr><td style="border:1px solid #000; padding:10px; font-weight:bold; width:40%;">Loan Ticket No.</td><td style="border:1px solid #000; padding:10px;">${escapeHtmlString(invoiceNumber)}</td></tr>
+            <tr><td style="border:1px solid #000; padding:10px; font-weight:bold;">Loan Date</td><td style="border:1px solid #000; padding:10px;">${formatInvoiceDateString(girviDate)}</td></tr>
+            <tr><td style="border:1px solid #000; padding:10px; font-weight:bold;">Loan Amount (INR)</td><td style="border:1px solid #000; padding:10px;">${formatPlainAmountString(actualLoanAmount)}</td></tr>
+            <tr><td style="border:1px solid #000; padding:10px; font-weight:bold;">Interest Rate</td><td style="border:1px solid #000; padding:10px;">${interestRate}%</td></tr>
+            <tr><td style="border:1px solid #000; padding:10px; font-weight:bold;">Total Amount Due</td><td style="border:1px solid #000; padding:10px; font-weight:bold;">${formatPlainAmountString(loanAmount)}</td></tr>
+            <tr><td style="border:1px solid #000; padding:10px; font-weight:bold; color:#b91c1c;">Proposed Auction Date</td><td style="border:1px solid #000; padding:10px; font-weight:bold; color:#b91c1c;">${formatInvoiceDateString(auctionDate.toISOString())}</td></tr>
+        </table>
+
+        <div style="margin-top:50px; font-size:14px; line-height:1.6;">
+            <strong>Pawn Broker Name:</strong> ${escapeHtmlString(dealerName)}<br/>
+            <strong>License Number:</strong> ________________________<br/>
+            <strong>Shop Name:</strong> ${escapeHtmlString(shopName)}<br/>
+            <strong>Shop Address:</strong> ${escapeHtmlString(shopAddress)}<br/><br/><br/>
+            <strong>Signature & Stamp:</strong> ________________________
+        </div>
+    </div>
+  `;
+}
+
+async function generateAuctionNoticePdfFile(input: any) {
+  const invoiceNumber = input.savedInvoiceNumber || input.savedGirviData?.invoiceNumber || `INV-${input.invoiceId}`;
+
+  const container = document.createElement("div");
+  container.style.position = "fixed";
+  container.style.left = "-10000px";
+  container.style.top = "0";
+  container.style.background = "#ffffff";
+  container.innerHTML = getAuctionNoticeHtmlForPdf(input);
+  document.body.appendChild(container);
+
+  try {
+    const element = container.querySelector("#frontend-auction-notice-pdf") as HTMLElement;
+    if (!element) throw new Error("Auction Notice template not found.");
+
+    const canvas = await html2canvas(element, { scale: 3, useCORS: true, backgroundColor: "#ffffff" });
+    const imgData = canvas.toDataURL("image/png");
+    const pdf = new jsPDF("p", "mm", "a4");
+
+    pdf.addImage(imgData, "PNG", 0, 0, pdf.internal.pageSize.getWidth(), pdf.internal.pageSize.getHeight());
+    const blob = pdf.output("blob");
+    
+    return new File([blob], `Auction_Notice_${invoiceNumber}.pdf`, { type: "application/pdf" });
+  } finally {
+    document.body.removeChild(container);
+  }
 }
