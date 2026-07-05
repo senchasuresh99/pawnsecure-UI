@@ -390,7 +390,7 @@ export default function CustomerReviews() {
 
     try {
       const res = await fetch(
-  `${API_BASE}/customers/search`,
+  `${API_BASE}/customers/search-customers`,
   {
     method: "POST",
     headers: {
