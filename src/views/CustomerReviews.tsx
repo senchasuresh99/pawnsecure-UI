@@ -1065,13 +1065,13 @@ function CustomerResult({
     <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 w-full overflow-hidden">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          {customer.customerPhotoBase64 ? (
-            <img
-              src={`data:${customer.customerPhotoContentType};base64,${customer.customerPhotoBase64}`}
-              alt="Customer"
-              className="w-10 h-10 rounded-full object-cover border shrink-0"
-            />
-          ) : (
+          {customer.customerPhotoUrl ? (
+  <img
+    src={customer.customerPhotoUrl}
+    alt="Customer"
+    className="w-10 h-10 rounded-full object-cover border shrink-0"
+  />
+) : (
             <div className="w-10 h-10 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold shrink-0">
               {(customer.fullName || customer.name || customer.customerName || "?")
                 .charAt(0)
@@ -1163,15 +1163,15 @@ function CustomerResult({
                       {r.comment || "No comment provided"}
                     </p>
 
-                    {r.itemPhotoBase64 && r.itemPhotoContentType && (
-                      <div className="pt-2 border-t border-gray-200">
-                        <img
-                          src={`data:${r.itemPhotoContentType};base64,${r.itemPhotoBase64}`}
-                          alt="Item"
-                          className="w-full max-h-60 object-contain rounded-xl border bg-white"
-                        />
-                      </div>
-                    )}
+{r.itemPhotoUrl && (
+  <div className="pt-2 border-t border-gray-200">
+    <img
+      src={r.itemPhotoUrl}
+      alt="Item"
+      className="w-full max-h-60 object-contain rounded-xl border bg-white"
+    />
+  </div>
+)}
                   </div>
                 </div>
               );
