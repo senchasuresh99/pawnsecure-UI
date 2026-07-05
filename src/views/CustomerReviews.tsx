@@ -389,12 +389,15 @@ export default function CustomerReviews() {
     setCustomer(null);
 
     try {
-      const res = await fetch(`${API_BASE}/customers/search?aadhaar=${aadhaar}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "X-DEALER-ID": dealerIdForHeader,
-        },
-      });
+      const res = await fetch(
+  `${API_BASE}/customers/search?aadhaar=${aadhaar}`,
+  {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "X-DEALER-ID": dealerIdForHeader,
+    },
+  }
+);
 
       if (res.status === 401 || res.status === 403) {
         handleUnauthorized();
