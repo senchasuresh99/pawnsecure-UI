@@ -412,16 +412,16 @@ export default function CustomerRegister() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/customers/search-customers`, {
-  method: "POST",
-  headers: {
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    aadhaar,
-  }),
-});
+      const res = await fetch(
+  `${API_BASE}/customers/search-customers?aadhaar=${aadhaar}`,
+  {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      //"X-DEALER-ID": dealerIdForHeader,
+    },
+  }
+);
 
       if (res.status === 401 || res.status === 403) {
         handleUnauthorized();
