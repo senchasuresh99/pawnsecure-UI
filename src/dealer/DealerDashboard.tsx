@@ -415,81 +415,81 @@ export default function DealerDashboard() {
     }
   }
 
-  // useEffect(() => {
-  //   async function fetchDashboardSummary() {
-  //     if (!dealerId || dealerId === "-") return;
+  useEffect(() => {
+    async function fetchDashboardSummary() {
+      if (!dealerId || dealerId === "-") return;
 
-  //     try {
-  //       const token = localStorage.getItem("ps_token");
+      try {
+        const token = localStorage.getItem("ps_token");
 
-  //       const res = await fetch(`${API_BASE}/dealer/dashboard-summary`, {
-  //         method: "GET",
-  //         headers: {
-  //           Authorization: `Bearer ${token}`,
-  //           "X-DEALER-ID": dealerIdForHeader,
-  //         },
-  //       });
+        const res = await fetch(`${API_BASE}/dealer/dashboard-summary`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "X-DEALER-ID": dealerIdForHeader,
+          },
+        });
 
-  //       if (res.ok) {
-  //         const data = await res.json();
+        if (res.ok) {
+          const data = await res.json();
 
-  //         setMetrics((prev) => ({
-  //           ...prev,
-  //           totalLoanValue: data.totalLoanValue || "₹0",
-  //         }));
-  //       }
-  //     } catch (err) {
-  //       console.error("Failed to load dashboard statistics data", err);
-  //     }
-  //   }
+          setMetrics((prev) => ({
+            ...prev,
+            totalLoanValue: data.totalLoanValue || "₹0",
+          }));
+        }
+      } catch (err) {
+        console.error("Failed to load dashboard statistics data", err);
+      }
+    }
 
-  //   async function fetchCustomerCount() {
-  //     if (!dealerId || dealerId === "-") return;
+    async function fetchCustomerCount() {
+      if (!dealerId || dealerId === "-") return;
 
-  //     try {
-  //       const token = localStorage.getItem("ps_token");
+      try {
+        const token = localStorage.getItem("ps_token");
 
-  //       const res = await fetch(
-  //         `${API_BASE}/customers/allCustomer?page=0&size=1`,
-  //         {
-  //           method: "GET",
-  //           headers: {
-  //             Authorization: `Bearer ${token}`,
-  //             "X-DEALER-ID": dealerIdForHeader,
-  //           },
-  //         }
-  //       );
+        const res = await fetch(
+          `${API_BASE}/customers/allCustomer?page=0&size=1`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "X-DEALER-ID": dealerIdForHeader,
+            },
+          }
+        );
 
-  //       if (res.ok) {
-  //         const data = await res.json();
+        if (res.ok) {
+          const data = await res.json();
 
-  //         if (Array.isArray(data)) {
-  //           setActiveCustomerCount(data.length);
-  //         } else {
-  //           setActiveCustomerCount(data.totalElements || 0);
-  //         }
-  //       } else {
-  //         setActiveCustomerCount(0);
-  //       }
-  //     } catch (err) {
-  //       console.error("Failed to load true customer count", err);
-  //       setActiveCustomerCount(0);
-  //     }
-  //   }
+          if (Array.isArray(data)) {
+            setActiveCustomerCount(data.length);
+          } else {
+            setActiveCustomerCount(data.totalElements || 0);
+          }
+        } else {
+          setActiveCustomerCount(0);
+        }
+      } catch (err) {
+        console.error("Failed to load true customer count", err);
+        setActiveCustomerCount(0);
+      }
+    }
 
-  //   fetchDashboardSummary();
-  //   fetchCustomerCount();
-  //   //fetchTodayMetalRates();
-  //   fetchGirviDueAndOverdueCounts();
-  //   fetchTodayGirviSummary();
-  //   fetchTodayGirviActivities();
+    fetchDashboardSummary();
+    fetchCustomerCount();
+    //fetchTodayMetalRates();
+    fetchGirviDueAndOverdueCounts();
+    fetchTodayGirviSummary();
+    fetchTodayGirviActivities();
 
-  //   const timer = setInterval(() => {
-  //     setCurrentDate(new Date());
-  //   }, 60000);
+    const timer = setInterval(() => {
+      setCurrentDate(new Date());
+    }, 60000);
 
-  //   return () => clearInterval(timer);
-  // }, [dealerId]);
+    return () => clearInterval(timer);
+  }, [dealerId]);
 
   const stats: StatItem[] = [
     {
