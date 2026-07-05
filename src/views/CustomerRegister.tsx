@@ -412,11 +412,16 @@ export default function CustomerRegister() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/customers/search?aadhaar=${aadhaar}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const res = await fetch(`${API_BASE}/customers/search-customers`, {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    aadhaar,
+  }),
+});
 
       if (res.status === 401 || res.status === 403) {
         handleUnauthorized();

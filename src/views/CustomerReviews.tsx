@@ -390,12 +390,17 @@ export default function CustomerReviews() {
 
     try {
       const res = await fetch(
-  `${API_BASE}/customers/search?aadhaar=${aadhaar}`,
+  `${API_BASE}/customers/search`,
   {
+    method: "POST",
     headers: {
+      "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
       "X-DEALER-ID": dealerIdForHeader,
     },
+    body: JSON.stringify({
+      aadhaar,
+    }),
   }
 );
 
