@@ -195,48 +195,48 @@ export default function DealerDashboard() {
     return `Latest available rate: ${normalizedRateDate}`;
   }
 
-  async function fetchTodayMetalRates() {
-    if (!dealerId || dealerId === "-") return;
+  // async function fetchTodayMetalRates() {
+  //   if (!dealerId || dealerId === "-") return;
 
-    try {
-      setMetalRateLoading(true);
-      setMetalRateError("");
+  //   try {
+  //     setMetalRateLoading(true);
+  //     setMetalRateError("");
 
-      const token = localStorage.getItem("ps_token");
+  //     const token = localStorage.getItem("ps_token");
 
-      const res = await fetch(`${API_BASE}/dashboard/metal-rates`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "X-DEALER-ID": dealerIdForHeader,
-        },
-      });
+  //     const res = await fetch(`${API_BASE}/dashboard/metal-rates`, {
+  //       method: "GET",
+  //       headers: {
+  //         Authorization: `Bearer ${token}`,
+  //         "X-DEALER-ID": dealerIdForHeader,
+  //       },
+  //     });
 
-      if (!res.ok) {
-        const msg = await res.text();
+  //     if (!res.ok) {
+  //       const msg = await res.text();
 
-        console.warn("Failed to load metal rates:", msg);
+  //       console.warn("Failed to load metal rates:", msg);
 
-        setMetalRateData(null);
+  //       setMetalRateData(null);
 
-        // ✅ Do not show backend JSON error in UI
-        setMetalRateError("Rates not available");
-        return;
-      }
+  //       // ✅ Do not show backend JSON error in UI
+  //       setMetalRateError("Rates not available");
+  //       return;
+  //     }
 
-      const data: MetalRateApiResponse = await res.json();
+  //     const data: MetalRateApiResponse = await res.json();
 
-      setMetalRateData(data);
-      setMetalRateError("");
-    } catch (err) {
-      console.error("Failed to fetch metal rates", err);
+  //     setMetalRateData(data);
+  //     setMetalRateError("");
+  //   } catch (err) {
+  //     console.error("Failed to fetch metal rates", err);
 
-      setMetalRateData(null);
-      setMetalRateError("Unable to load metal rates");
-    } finally {
-      setMetalRateLoading(false);
-    }
-  }
+  //     setMetalRateData(null);
+  //     setMetalRateError("Unable to load metal rates");
+  //   } finally {
+  //     setMetalRateLoading(false);
+  //   }
+  // }
 
   async function fetchGirviDueAndOverdueCounts() {
     if (!dealerId || dealerId === "-") return;
@@ -479,7 +479,7 @@ export default function DealerDashboard() {
 
     fetchDashboardSummary();
     fetchCustomerCount();
-    fetchTodayMetalRates();
+    //fetchTodayMetalRates();
     fetchGirviDueAndOverdueCounts();
     fetchTodayGirviSummary();
     fetchTodayGirviActivities();
