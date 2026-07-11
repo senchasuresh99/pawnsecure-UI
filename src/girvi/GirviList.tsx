@@ -18,6 +18,8 @@ import {
   FaDownload,
   FaWhatsapp,
   FaFileSignature,
+  FaCamera,
+  FaImage,
 } from "react-icons/fa";
 import {
   LOGO_URL,
@@ -167,6 +169,10 @@ export default function GirviList() {
   const [photoMap, setPhotoMap] = useState<Record<number, string>>({});
   const photoMapRef = useRef<Record<number, string>>({});
 
+  // Photo Modal State
+  const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string | null>(null);
+  const [selectedPhotoTitle, setSelectedPhotoTitle] = useState<string>("");
+
   const [showEditModal, setShowEditModal] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [selectedGirvi, setSelectedGirvi] =
@@ -207,11 +213,10 @@ export default function GirviList() {
   >({});
 
   function goToAddGirvi() {
-    // Navigate to the customers list to enforce selection before accessing the form
     navigate("/dealer/customers", {
-      state: { 
+      state: {
         action: "SELECT_FOR_NEW_GIRVI",
-        returnTo: "/dealer/customer" 
+        returnTo: "/dealer/customer",
       },
     });
   }
@@ -884,6 +889,11 @@ export default function GirviList() {
     return `data:${contentType};base64,${item.itemPhotoBase64}`;
   }
 
+  function openPhotoModal(url: string, title: string) {
+    setSelectedPhotoUrl(url);
+    setSelectedPhotoTitle(title);
+  }
+
   function getGirviRowKey(item: GirviResponseDTO) {
     return item.id || `${item.customerId}-${item.itemName}-${item.girviDate}`;
   }
@@ -1203,7 +1213,7 @@ Please find attached invoice PDF.`;
     if (s === "duetoday") return "bg-yellow-50 text-yellow-700 border-yellow-100";
     if (s === "due") return "bg-yellow-50 text-yellow-700 border-yellow-100";
     if (s === "overdue") return "bg-red-50 text-red-700 border-red-100";
-    if (s === "partial_released")return "bg-blue-50 text-blue-700 border-blue-100";
+    if (s === "partial_released") return "bg-blue-50 text-blue-700 border-blue-100";
     if (s === "released") return "bg-indigo-50 text-indigo-700 border-indigo-100";
     if (s === "closed") return "bg-gray-100 text-gray-600 border-gray-200";
 
@@ -1236,44 +1246,45 @@ Please find attached invoice PDF.`;
 
           <div className="p-6 xl:p-8 max-w-[1400px] w-full mx-auto flex-1">
             <RecordsPanel
-  loading={loading}
-  error={error}
-  filteredList={filteredList}
-  totalElements={totalElements}
-  search={search}
-  setSearch={setSearch}
-  goToAddGirvi={goToAddGirvi}
-  getImageSrc={getImageSrc}
-  formatCurrency={formatCurrency}
-  formatDate={formatDate}
-  formatWeight={formatWeight}
-  formatCount={formatCount}
-  getStatusClass={getStatusClass}
-  openEditModal={openEditModal}
-  handleRenewGirvi={handleRenewGirvi}
-  downloadGirviInvoicePdf={downloadGirviInvoicePdf}
-  downloadingPdfGirviId={downloadingPdfGirviId}
-  downloadThirdPartyAuthPdf={downloadThirdPartyAuthPdf}
-  downloadingThirdPartyId={downloadingThirdPartyId}
-  preparedShareData={preparedShareData}
-  prepareWhatsAppShare={prepareWhatsAppShare}
-  executeWhatsAppShare={executeWhatsAppShare}
-  sendingWhatsAppGirviId={sendingWhatsAppGirviId}
-  getGirviRowKey={getGirviRowKey}
-  getDisplayItemName={getDisplayItemName}
-  getDisplayItemType={getDisplayItemType}
-  getDisplayGoldKarat={getDisplayGoldKarat}
-  getDisplayItemCount={getDisplayItemCount}
-  getDisplayGrossWeight={getDisplayGrossWeight}
-  getDisplayLessWeight={getDisplayLessWeight}
-  getDisplayNetWeight={getDisplayNetWeight}
-  getDisplayActualLoanAmount={getDisplayActualLoanAmount}
-  page={page}
-  size={size}
-  totalPages={totalPages}
-  setPage={setPage}
-  setSize={setSize}
-/>
+              loading={loading}
+              error={error}
+              filteredList={filteredList}
+              totalElements={totalElements}
+              search={search}
+              setSearch={setSearch}
+              goToAddGirvi={goToAddGirvi}
+              getImageSrc={getImageSrc}
+              openPhotoModal={openPhotoModal}
+              formatCurrency={formatCurrency}
+              formatDate={formatDate}
+              formatWeight={formatWeight}
+              formatCount={formatCount}
+              getStatusClass={getStatusClass}
+              openEditModal={openEditModal}
+              handleRenewGirvi={handleRenewGirvi}
+              downloadGirviInvoicePdf={downloadGirviInvoicePdf}
+              downloadingPdfGirviId={downloadingPdfGirviId}
+              downloadThirdPartyAuthPdf={downloadThirdPartyAuthPdf}
+              downloadingThirdPartyId={downloadingThirdPartyId}
+              preparedShareData={preparedShareData}
+              prepareWhatsAppShare={prepareWhatsAppShare}
+              executeWhatsAppShare={executeWhatsAppShare}
+              sendingWhatsAppGirviId={sendingWhatsAppGirviId}
+              getGirviRowKey={getGirviRowKey}
+              getDisplayItemName={getDisplayItemName}
+              getDisplayItemType={getDisplayItemType}
+              getDisplayGoldKarat={getDisplayGoldKarat}
+              getDisplayItemCount={getDisplayItemCount}
+              getDisplayGrossWeight={getDisplayGrossWeight}
+              getDisplayLessWeight={getDisplayLessWeight}
+              getDisplayNetWeight={getDisplayNetWeight}
+              getDisplayActualLoanAmount={getDisplayActualLoanAmount}
+              page={page}
+              size={size}
+              totalPages={totalPages}
+              setPage={setPage}
+              setSize={setSize}
+            />
           </div>
         </main>
       </div>
@@ -1349,6 +1360,7 @@ Please find attached invoice PDF.`;
             search={search}
             setSearch={setSearch}
             getImageSrc={getImageSrc}
+            openPhotoModal={openPhotoModal}
             formatCurrency={formatCurrency}
             formatDate={formatDate}
             formatWeight={formatWeight}
@@ -1401,6 +1413,56 @@ Please find attached invoice PDF.`;
           formatCurrency={formatCurrency}
         />
       )}
+
+      {/* PHOTO PREVIEW MODAL */}
+      {selectedPhotoUrl && (
+        <div 
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[999] flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setSelectedPhotoUrl(null)}
+        >
+          <div 
+            className="bg-white rounded-[24px] shadow-2xl max-w-lg w-full overflow-hidden border border-gray-100 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-gray-800 font-bold">
+                <FaImage className="text-[#4820C5]" />
+                <h3>{selectedPhotoTitle}</h3>
+              </div>
+              
+              <button
+                type="button"
+                onClick={() => setSelectedPhotoUrl(null)}
+                className="w-8 h-8 rounded-full bg-gray-200/60 hover:bg-red-50 hover:text-red-600 text-gray-600 flex items-center justify-center transition"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-6 flex items-center justify-center bg-gray-900/5 min-h-[250px] max-h-[70vh] overflow-hidden">
+              <img
+                src={selectedPhotoUrl}
+                alt="Girvi Item Asset"
+                className="max-w-full max-h-[60vh] object-contain rounded-xl shadow-md"
+                onError={(e) => {
+                  e.currentTarget.src = "";
+                  e.currentTarget.alt = "Failed to load image";
+                }}
+              />
+            </div>
+
+            <div className="px-6 py-4 bg-white border-t border-gray-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedPhotoUrl(null)}
+                className="bg-[#4820C5] hover:bg-[#3917a3] text-white px-6 py-2 rounded-xl font-bold text-sm transition shadow-sm"
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1414,6 +1476,7 @@ function RecordsPanel({
   setSearch,
   goToAddGirvi,
   getImageSrc,
+  openPhotoModal,
   formatCurrency,
   formatDate,
   formatWeight,
@@ -1447,35 +1510,35 @@ function RecordsPanel({
   return (
     <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 sm:p-8">
       <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 mb-8">
-  <div>
-    <h2 className="text-xl font-bold text-gray-900">Pledge Inventory</h2>
-    <p className="text-sm text-gray-400 font-medium mt-0.5">
-      Showing continuous listings ({totalElements} overall items)
-    </p>
-  </div>
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">Pledge Inventory</h2>
+          <p className="text-sm text-gray-400 font-medium mt-0.5">
+            Showing continuous listings ({totalElements} overall items)
+          </p>
+        </div>
 
-  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full xl:w-auto">
-    <div className="w-full sm:w-80 flex items-center border border-gray-200 rounded-xl px-4 py-3 bg-gray-50/50 focus-within:border-[#4820C5] focus-within:ring-1 focus-within:ring-[#4820C5] transition">
-      <FaSearch className="text-gray-400 mr-3 shrink-0 text-sm" />
-      <input
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="w-full outline-none bg-transparent text-sm font-medium text-gray-700"
-        placeholder="Search by customer, item, status..."
-      />
-    </div>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full xl:w-auto">
+          <div className="w-full sm:w-80 flex items-center border border-gray-200 rounded-xl px-4 py-3 bg-gray-50/50 focus-within:border-[#4820C5] focus-within:ring-1 focus-within:ring-[#4820C5] transition">
+            <FaSearch className="text-gray-400 mr-3 shrink-0 text-sm" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full outline-none bg-transparent text-sm font-medium text-gray-700"
+              placeholder="Search by customer, item, status..."
+            />
+          </div>
 
-    <button
-      type="button"
-      onClick={goToAddGirvi}
-      className="hidden lg:flex items-center justify-center gap-2 bg-[#4820C5] hover:bg-[#3d1aab] text-white px-5 py-3 rounded-xl font-bold text-sm shadow-md shadow-purple-100 transition whitespace-nowrap"
-      title="Add Girvi"
-    >
-      <FaPlus className="text-sm" />
-      Add Girvi
-    </button>
-  </div>
-</div>
+          <button
+            type="button"
+            onClick={goToAddGirvi}
+            className="hidden lg:flex items-center justify-center gap-2 bg-[#4820C5] hover:bg-[#3d1aab] text-white px-5 py-3 rounded-xl font-bold text-sm shadow-md shadow-purple-100 transition whitespace-nowrap"
+            title="Add Girvi"
+          >
+            <FaPlus className="text-sm" />
+            Add Girvi
+          </button>
+        </div>
+      </div>
 
       {loading && (
         <div className="text-center py-16 text-gray-400 font-semibold text-sm">
@@ -1512,13 +1575,18 @@ function RecordsPanel({
                   className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-purple-100 transition"
                 >
                   <div className="grid grid-cols-12 gap-4 items-center">
-                    <div className="col-span-1">
+                    {/* Replaced Image Thumbnail with Clickable Photo Button */}
+                    <div className="col-span-1 shrink-0">
                       {imageSrc ? (
-                        <img
-                          src={imageSrc}
-                          alt={getDisplayItemName(item)}
-                          className="w-14 h-14 rounded-xl object-cover border border-gray-100 bg-white shadow-sm"
-                        />
+                        <button
+                          type="button"
+                          onClick={() => openPhotoModal(imageSrc, `${getDisplayItemName(item)} - Photo`)}
+                          className="w-14 h-14 rounded-2xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-[#4820C5] flex flex-col items-center justify-center gap-1 transition-all shadow-sm hover:scale-105 active:scale-95 group"
+                          title="Click to view item photo"
+                        >
+                          <FaCamera className="text-lg group-hover:scale-110 transition-transform" />
+                          <span className="text-[9px] font-extrabold tracking-tight">View Photo</span>
+                        </button>
                       ) : (
                         <PhotoPlaceholder size="sm" />
                       )}
@@ -1753,6 +1821,7 @@ function MobileRecordsPanel({
   search,
   setSearch,
   getImageSrc,
+  openPhotoModal,
   formatCurrency,
   formatDate,
   formatWeight,
@@ -1829,12 +1898,17 @@ function MobileRecordsPanel({
               className="border border-gray-100 rounded-2xl p-4 mb-4 bg-white shadow-sm hover:shadow-md transition-shadow"
             >
               <div className="flex gap-4 items-start">
+                {/* Replaced Mobile Thumbnail with Clickable Photo Button */}
                 {imageSrc ? (
-                  <img
-                    src={imageSrc}
-                    alt={getDisplayItemName(item)}
-                    className="w-20 h-20 rounded-2xl object-cover border border-gray-100 bg-white shrink-0 shadow-xs"
-                  />
+                  <button
+                    type="button"
+                    onClick={() => openPhotoModal(imageSrc, `${getDisplayItemName(item)} - Photo`)}
+                    className="w-16 h-16 rounded-2xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-[#4820C5] flex flex-col items-center justify-center gap-1 shrink-0 transition-all shadow-sm active:scale-95 group"
+                    title="Click to view item photo"
+                  >
+                    <FaCamera className="text-lg group-hover:scale-110 transition-transform" />
+                    <span className="text-[9px] font-extrabold tracking-tight">View Photo</span>
+                  </button>
                 ) : (
                   <PhotoPlaceholder size="lg" />
                 )}
@@ -2402,7 +2476,7 @@ function PhotoPlaceholder({ size }: { size: "sm" | "lg" }) {
   const cls =
     size === "sm"
       ? "w-14 h-14 rounded-xl"
-      : "w-20 h-20 rounded-2xl shrink-0 shadow-xs border border-gray-100";
+      : "w-16 h-16 rounded-2xl shrink-0 shadow-xs border border-gray-100";
 
   return (
     <div
