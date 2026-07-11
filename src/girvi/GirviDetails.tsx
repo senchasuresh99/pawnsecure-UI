@@ -1174,11 +1174,7 @@ if (savedItemPhotoUrl) {
                         label="Net Weight (Gram) *"
                         type="number"
                         value={item.netWeightGram}
-                        onChange={(v: any) =>
-                          updateItem(index, "netWeightGram", v)
-                        }
-                        error={errors[`netWeightGram_${index}`]}
-                        disabled
+                        readOnly // <-- Use this instead of disabled
                       />
                     </div>
 
