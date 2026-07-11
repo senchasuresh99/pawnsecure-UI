@@ -1178,6 +1178,7 @@ if (savedItemPhotoUrl) {
                           updateItem(index, "netWeightGram", v)
                         }
                         error={errors[`netWeightGram_${index}`]}
+                        disabled
                       />
                     </div>
 
