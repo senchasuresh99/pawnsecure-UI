@@ -274,7 +274,12 @@ export default function GirviList() {
     setFilteredList(result);
   }, [search, girviList]);
 
-  //  REMOVED AUTOMATIC PICTURE LOOPS FROM page load SEQUENCE
+  useEffect(() => {
+    girviList.forEach((item) => {
+      if (item.id) fetchGirviPhoto(item.id);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [girviList]);
 
   useEffect(() => {
     return () => {
@@ -320,11 +325,6 @@ export default function GirviList() {
     );
   }
 
-  // Check if an item has an image attachment (from database fallback strings or dynamic records)
-  function hasPhotoAsset(item: GirviResponseDTO) {
-    return !!(item.itemPhotoBase64 || item.id);
-  }
-
   function getDisplayGrossWeight(item: GirviResponseDTO) {
     return (
       item.totalGrossWeightGram ||
@@ -334,28 +334,6 @@ export default function GirviList() {
     );
   }
 
-  // Triggers image loading lazily right when the user requests it
-  async function handleLazyPhotoModalTrigger(item: GirviResponseDTO) {
-    if (!item.id) return;
-
-    const itemName = getDisplayItemName(item);
-
-    if (photoMap[item.id]) {
-      openPhotoModal(photoMap[item.id], `${itemName} - Photo`);
-      return;
-    }
-
-    openPhotoModal("LOADING", `${itemName} - Loading...`);
-    await fetchGirviPhoto(item.id);
-
-    if (photoMapRef.current[item.id]) {
-      openPhotoModal(photoMapRef.current[item.id], `${itemName} - Photo`);
-    } else {
-      setSelectedPhotoUrl(null);
-      alert("Could not load image reference.");
-    }
-  }
-
   function getDisplayLessWeight(item: GirviResponseDTO) {
     return (
       item.totalLessWeightGram ||
@@ -363,62 +341,6 @@ export default function GirviList() {
       getPrimaryItem(item)?.lessWeightGram ||
       0
     );
-  }
-
-  // Refactored to map values directly into context states safely
-  async function fetchGirviPhoto(girviId?: number) {
-    if (!girviId) return;
-    if (photoMapRef.current[girviId]) return;
-
-    const dealerId = localStorage.getItem("ps_dealer_id");
-    const token = localStorage.getItem("ps_token");
-
-    if (!dealerId || !token) return;
-
-    try {
-      const res = await fetch(`${API_BASE}/girvi/${girviId}/photo`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "X-DEALER-ID": dealerId,
-        },
-      });
-
-      if (!res.ok) return;
-
-      // Handle redirect flows from external cloud engines like Cloudinary cleanly
-      if (res.status === 302 || res.redirected) {
-        const imageUrl = res.url;
-        setPhotoMap((prev) => {
-          const next = { ...prev, [girviId]: imageUrl };
-          photoMapRef.current = next;
-          return next;
-        });
-        return;
-      }
-
-      const blob = await res.blob();
-      if (!blob || blob.size === 0) return;
-
-      const imageUrl = URL.createObjectURL(blob);
-
-      setPhotoMap((prev) => {
-        if (prev[girviId]) {
-          URL.revokeObjectURL(imageUrl);
-          return prev;
-        }
-
-        const next = {
-          ...prev,
-          [girviId]: imageUrl,
-        };
-
-        photoMapRef.current = next;
-        return next;
-      });
-    } catch (err) {
-      console.error("Girvi photo load failed:", err);
-    }
   }
 
   function getDisplayNetWeight(item: GirviResponseDTO) {
@@ -553,6 +475,50 @@ export default function GirviList() {
       setError("Server unavailable. Please try again later.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function fetchGirviPhoto(girviId?: number) {
+    if (!girviId) return;
+    if (photoMapRef.current[girviId]) return;
+
+    const dealerId = localStorage.getItem("ps_dealer_id");
+    const token = localStorage.getItem("ps_token");
+
+    if (!dealerId || !token) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/girvi/${girviId}/photo`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-DEALER-ID": dealerId,
+        },
+      });
+
+      if (!res.ok) return;
+
+      const blob = await res.blob();
+      if (!blob || blob.size === 0) return;
+
+      const imageUrl = URL.createObjectURL(blob);
+
+      setPhotoMap((prev) => {
+        if (prev[girviId]) {
+          URL.revokeObjectURL(imageUrl);
+          return prev;
+        }
+
+        const next = {
+          ...prev,
+          [girviId]: imageUrl,
+        };
+
+        photoMapRef.current = next;
+        return next;
+      });
+    } catch (err) {
+      console.error("Girvi photo load failed:", err);
     }
   }
 
@@ -1287,8 +1253,8 @@ Please find attached invoice PDF.`;
               search={search}
               setSearch={setSearch}
               goToAddGirvi={goToAddGirvi}
-              hasPhotoAsset={hasPhotoAsset}
-              handleLazyPhotoModalTrigger={handleLazyPhotoModalTrigger}
+              getImageSrc={getImageSrc}
+              openPhotoModal={openPhotoModal}
               formatCurrency={formatCurrency}
               formatDate={formatDate}
               formatWeight={formatWeight}
@@ -1393,8 +1359,8 @@ Please find attached invoice PDF.`;
             totalElements={totalElements}
             search={search}
             setSearch={setSearch}
-            hasPhotoAsset={hasPhotoAsset}
-            handleLazyPhotoModalTrigger={handleLazyPhotoModalTrigger}
+            getImageSrc={getImageSrc}
+            openPhotoModal={openPhotoModal}
             formatCurrency={formatCurrency}
             formatDate={formatDate}
             formatWeight={formatWeight}
@@ -1450,11 +1416,11 @@ Please find attached invoice PDF.`;
 
       {/* PHOTO PREVIEW MODAL */}
       {selectedPhotoUrl && (
-        <div
+        <div 
           className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[999] flex items-center justify-center p-4 animate-in fade-in duration-200"
           onClick={() => setSelectedPhotoUrl(null)}
         >
-          <div
+          <div 
             className="bg-white rounded-[24px] shadow-2xl max-w-lg w-full overflow-hidden border border-gray-100 animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
@@ -1463,7 +1429,7 @@ Please find attached invoice PDF.`;
                 <FaImage className="text-[#4820C5]" />
                 <h3>{selectedPhotoTitle}</h3>
               </div>
-
+              
               <button
                 type="button"
                 onClick={() => setSelectedPhotoUrl(null)}
@@ -1474,22 +1440,15 @@ Please find attached invoice PDF.`;
             </div>
 
             <div className="p-4 sm:p-6 flex items-center justify-center bg-gray-900/5 min-h-[250px] max-h-[70vh] overflow-hidden">
-              {selectedPhotoUrl === "LOADING" ? (
-                <div className="flex flex-col items-center gap-3 py-10">
-                  <div className="w-10 h-10 border-4 border-[#4820C5] border-t-transparent rounded-full animate-spin"></div>
-                  <p className="text-sm text-gray-500 font-bold">Fetching item asset secure image...</p>
-                </div>
-              ) : (
-                <img
-                  src={selectedPhotoUrl}
-                  alt="Girvi Item Asset"
-                  className="max-w-full max-h-[60vh] object-contain rounded-xl shadow-md"
-                  onError={(e) => {
-                    e.currentTarget.src = "";
-                    e.currentTarget.alt = "Failed to load image";
-                  }}
-                />
-              )}
+              <img
+                src={selectedPhotoUrl}
+                alt="Girvi Item Asset"
+                className="max-w-full max-h-[60vh] object-contain rounded-xl shadow-md"
+                onError={(e) => {
+                  e.currentTarget.src = "";
+                  e.currentTarget.alt = "Failed to load image";
+                }}
+              />
             </div>
 
             <div className="px-6 py-4 bg-white border-t border-gray-100 flex justify-end">
@@ -1516,8 +1475,8 @@ function RecordsPanel({
   search,
   setSearch,
   goToAddGirvi,
-  hasPhotoAsset,
-  handleLazyPhotoModalTrigger,
+  getImageSrc,
+  openPhotoModal,
   formatCurrency,
   formatDate,
   formatWeight,
@@ -1600,6 +1559,7 @@ function RecordsPanel({
         <>
           <div className="space-y-4">
             {filteredList.map((item: GirviResponseDTO, index: number) => {
+              const imageSrc = getImageSrc(item);
               const rowKey = getGirviRowKey(item);
               const pdfLoading = downloadingPdfGirviId === rowKey;
               const isThirdPartyLoading = downloadingThirdPartyId === rowKey;
@@ -1615,14 +1575,14 @@ function RecordsPanel({
                   className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-purple-100 transition"
                 >
                   <div className="grid grid-cols-12 gap-4 items-center">
-                    {/* Trigger lazy loading onClick handle securely */}
+                    {/* Replaced Image Thumbnail with Clickable Photo Button */}
                     <div className="col-span-1 shrink-0">
-                      {hasPhotoAsset(item) ? (
+                      {imageSrc ? (
                         <button
                           type="button"
-                          onClick={() => handleLazyPhotoModalTrigger(item)}
+                          onClick={() => openPhotoModal(imageSrc, `${getDisplayItemName(item)} - Photo`)}
                           className="w-14 h-14 rounded-2xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-[#4820C5] flex flex-col items-center justify-center gap-1 transition-all shadow-sm hover:scale-105 active:scale-95 group"
-                          title="Click to fetch item image asset"
+                          title="Click to view item photo"
                         >
                           <FaCamera className="text-lg group-hover:scale-110 transition-transform" />
                           <span className="text-[9px] font-extrabold tracking-tight">View Photo</span>
@@ -1860,8 +1820,8 @@ function MobileRecordsPanel({
   totalElements,
   search,
   setSearch,
-  hasPhotoAsset,
-  handleLazyPhotoModalTrigger,
+  getImageSrc,
+  openPhotoModal,
   formatCurrency,
   formatDate,
   formatWeight,
@@ -1922,6 +1882,7 @@ function MobileRecordsPanel({
       {!loading &&
         !error &&
         filteredList.map((item: GirviResponseDTO, index: number) => {
+          const imageSrc = getImageSrc(item);
           const rowKey = getGirviRowKey(item);
           const pdfLoading = downloadingPdfGirviId === rowKey;
           const isThirdPartyLoading = downloadingThirdPartyId === rowKey;
@@ -1937,13 +1898,13 @@ function MobileRecordsPanel({
               className="border border-gray-100 rounded-2xl p-4 mb-4 bg-white shadow-sm hover:shadow-md transition-shadow"
             >
               <div className="flex gap-4 items-start">
-                {/* Trigger mobile modal dynamic loading onClick */}
-                {hasPhotoAsset(item) ? (
+                {/* Replaced Mobile Thumbnail with Clickable Photo Button */}
+                {imageSrc ? (
                   <button
                     type="button"
-                    onClick={() => handleLazyPhotoModalTrigger(item)}
+                    onClick={() => openPhotoModal(imageSrc, `${getDisplayItemName(item)} - Photo`)}
                     className="w-16 h-16 rounded-2xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-[#4820C5] flex flex-col items-center justify-center gap-1 shrink-0 transition-all shadow-sm active:scale-95 group"
-                    title="Click to view item photo asset"
+                    title="Click to view item photo"
                   >
                     <FaCamera className="text-lg group-hover:scale-110 transition-transform" />
                     <span className="text-[9px] font-extrabold tracking-tight">View Photo</span>
@@ -2627,6 +2588,8 @@ function Pagination({
     </div>
   );
 }
+
+// --- THIRD PARTY PDF GENERATION LOGIC INSIDE GIRVILIST ---
 
 function escapeHtmlString(value: any) {
   return String(value ?? "")
