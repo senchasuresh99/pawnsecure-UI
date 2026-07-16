@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable"; // Using side-effect import to bypass strict TS errors
+import autoTable from "jspdf-autotable";
 import DealerSidebar from "../dealer/DealerSidebar";
 import MobileDealerSidebar from "../dealer/MobileDealerSidebar";
 import DealerMobileBottomNav from "../dealer/DealerMobileBottomNav";
@@ -206,7 +206,7 @@ export default function GirviList() {
     number | string | null
   >(null);
 
-  // --- NEW: EXPORT MODAL STATE ---
+  // --- EXPORT MODAL STATE ---
   const [showExportModal, setShowExportModal] = useState(false);
   const [downloadingAllPdf, setDownloadingAllPdf] = useState(false);
   const [exportFilters, setExportFilters] = useState({
@@ -1064,7 +1064,7 @@ export default function GirviList() {
     }
   }
 
-  // --- MODIFIED: Process Export Form Filters ---
+  // --- Process Export Form Filters ---
   function handleGenerateExport() {
     let dataToExport = [...girviList];
 
@@ -1101,7 +1101,24 @@ export default function GirviList() {
     downloadAllGirviListPdf(dataToExport);
   }
 
- function downloadAllGirviListPdf(dataToExport: GirviResponseDTO[]) {
+  // Helper to format Indian currency manually using only safe ASCII characters for jsPDF
+  function formatSafePdfCurrency(value: number | string | undefined) {
+    const num = Number(value || 0);
+    if (Number.isNaN(num)) return "Rs. 0";
+
+    const numStr = Math.floor(num).toString();
+    let lastThree = numStr.substring(numStr.length - 3);
+    const otherNumbers = numStr.substring(0, numStr.length - 3);
+
+    if (otherNumbers !== "") {
+      lastThree = "," + lastThree;
+    }
+
+    const formattedStr = otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + lastThree;
+    return `Rs. ${formattedStr}`;
+  }
+
+  function downloadAllGirviListPdf(dataToExport: GirviResponseDTO[]) {
     setDownloadingAllPdf(true);
  
     try {
@@ -1138,13 +1155,13 @@ export default function GirviList() {
           `${item.customerName || "-"}\n(ID: ${item.customerId || "-"})`,
           `${getDisplayItemName(item)}\n[${getDisplayItemType(item)}]`,
           `${formatCount(getDisplayItemCount(item))} Pc(s)\nNet: ${formatWeight(getDisplayNetWeight(item))}`,
-          `${formatCurrency(getDisplayActualLoanAmount(item))}\nRate: ${item.interestRate || 0}%`,
+          `${formatSafePdfCurrency(getDisplayActualLoanAmount(item))}\nRate: ${item.interestRate || 0}%`,
           `${formatDate(item.girviDate)} to\n${formatDate(item.maturityDate)}`,
           String(item.status || "ACTIVE").toUpperCase(),
         ];
       });
  
-      // --- CRITICAL FIX: Direct function call passing doc as first argument ---
+      // --- Direct function call passing doc as first argument ---
       autoTable(doc as any, {
         startY: 30,
         head: [
@@ -2287,7 +2304,7 @@ function MobileRecordsPanel({
                       PDF...
                     </>
                   ) : (
-                    <>
+                     <>
                       <FaFileInvoice className="text-xs" />
                       PDF
                     </>
