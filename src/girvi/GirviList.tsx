@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import "jspdf-autotable"; // Using side-effect import to bypass strict TS errors
 import DealerSidebar from "../dealer/DealerSidebar";
 import MobileDealerSidebar from "../dealer/MobileDealerSidebar";
 import DealerMobileBottomNav from "../dealer/DealerMobileBottomNav";
@@ -22,6 +22,7 @@ import {
   FaCamera,
   FaImage,
   FaFileDownload,
+  FaFilter,
 } from "react-icons/fa";
 import {
   LOGO_URL,
@@ -195,7 +196,6 @@ export default function GirviList() {
   });
 
   const [editItems, setEditItems] = useState<GirviItemEditForm[]>([]);
-
   const [invoiceLogoDataUrl, setInvoiceLogoDataUrl] = useState("");
 
   const [downloadingPdfGirviId, setDownloadingPdfGirviId] = useState<
@@ -206,7 +206,14 @@ export default function GirviList() {
     number | string | null
   >(null);
 
+  // --- NEW: EXPORT MODAL STATE ---
+  const [showExportModal, setShowExportModal] = useState(false);
   const [downloadingAllPdf, setDownloadingAllPdf] = useState(false);
+  const [exportFilters, setExportFilters] = useState({
+    startDate: "",
+    endDate: "",
+    customerId: "ALL",
+  });
 
   const [sendingWhatsAppGirviId, setSendingWhatsAppGirviId] = useState<
     number | string | null
@@ -292,6 +299,11 @@ export default function GirviList() {
       });
     };
   }, []);
+
+  // Generate unique list of customers for the export dropdown
+  const uniqueCustomers = Array.from(
+    new Map(girviList.map((item) => [item.customerId, item.customerName])).entries()
+  ).map(([id, name]) => ({ id, name }));
 
   function calculateNetWeight(gross: any, less: any) {
     const grossWeight = Number(gross || 0);
@@ -1052,13 +1064,44 @@ export default function GirviList() {
     }
   }
 
-  // --- NEW: Download All Girvi Records as PDF ---
-  function downloadAllGirviListPdf() {
-    if (!filteredList || filteredList.length === 0) {
-      alert("No records to export.");
+  // --- MODIFIED: Process Export Form Filters ---
+  function handleGenerateExport() {
+    let dataToExport = [...girviList];
+
+    // Filter by Start Date
+    if (exportFilters.startDate) {
+      const start = new Date(exportFilters.startDate).getTime();
+      dataToExport = dataToExport.filter((item) => {
+        if (!item.girviDate) return false;
+        return new Date(item.girviDate).getTime() >= start;
+      });
+    }
+
+    // Filter by End Date
+    if (exportFilters.endDate) {
+      const end = new Date(exportFilters.endDate).setHours(23, 59, 59, 999);
+      dataToExport = dataToExport.filter((item) => {
+        if (!item.girviDate) return false;
+        return new Date(item.girviDate).getTime() <= end;
+      });
+    }
+
+    // Filter by Customer
+    if (exportFilters.customerId !== "ALL") {
+      dataToExport = dataToExport.filter(
+        (item) => String(item.customerId) === String(exportFilters.customerId)
+      );
+    }
+
+    if (dataToExport.length === 0) {
+      alert("No records match the selected date and customer filters.");
       return;
     }
 
+    downloadAllGirviListPdf(dataToExport);
+  }
+
+  function downloadAllGirviListPdf(dataToExport: GirviResponseDTO[]) {
     setDownloadingAllPdf(true);
 
     try {
@@ -1073,11 +1116,23 @@ export default function GirviList() {
       doc.setFont("helvetica", "bold");
       doc.text("GIRVI ASSET INVENTORY REPORT", 14, 13);
 
+      let subtitle = `Generated: ${new Date().toLocaleDateString("en-IN")}`;
+      if (exportFilters.customerId !== "ALL") {
+        const cName = uniqueCustomers.find(c => String(c.id) === exportFilters.customerId)?.name;
+        subtitle += ` | Customer: ${cName}`;
+      } else {
+        subtitle += ` | All Customers`;
+      }
+
+      if (exportFilters.startDate || exportFilters.endDate) {
+        subtitle += ` | Period: ${exportFilters.startDate || "Start"} to ${exportFilters.endDate || "Present"}`;
+      }
+
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text(`Dealer: ${dealerName} | Generated: ${new Date().toLocaleDateString("en-IN")}`, 14, 20);
+      doc.text(subtitle, 14, 20);
 
-      const tableData = filteredList.map((item, index) => {
+      const tableData = dataToExport.map((item, index) => {
         return [
           index + 1,
           `${item.customerName || "-"}\n(ID: ${item.customerId || "-"})`,
@@ -1089,7 +1144,8 @@ export default function GirviList() {
         ];
       });
 
-      autoTable(doc, {
+      // Using the type cast workaround to prevent strict typescript compilation issues with jspdf-autotable
+      (doc as any).autoTable({
         startY: 30,
         head: [
           ["#", "Customer", "Item Details", "Weight / Count", "Loan Amount", "Timeline", "Status"],
@@ -1123,6 +1179,7 @@ export default function GirviList() {
       });
 
       doc.save(`Girvi_Records_${new Date().toISOString().slice(0, 10)}.pdf`);
+      setShowExportModal(false);
     } catch (err) {
       console.error("Export all records failed:", err);
       alert("Failed to generate PDF report.");
@@ -1336,8 +1393,7 @@ Please find attached invoice PDF.`;
               search={search}
               setSearch={setSearch}
               goToAddGirvi={goToAddGirvi}
-              downloadAllGirviListPdf={downloadAllGirviListPdf}
-              downloadingAllPdf={downloadingAllPdf}
+              openExportModal={() => setShowExportModal(true)}
               getImageSrc={getImageSrc}
               openPhotoModal={openPhotoModal}
               formatCurrency={formatCurrency}
@@ -1428,19 +1484,14 @@ Please find attached invoice PDF.`;
               </div>
 
               <div className="flex items-center gap-2">
-                {/* NEW: Download All List PDF Button inside mobile card */}
                 <button
                   type="button"
-                  onClick={downloadAllGirviListPdf}
-                  disabled={downloadingAllPdf || filteredList.length === 0}
+                  onClick={() => setShowExportModal(true)}
+                  disabled={filteredList.length === 0}
                   className="w-11 h-11 bg-white/20 active:bg-white/30 rounded-2xl flex items-center justify-center transition shrink-0 disabled:opacity-50"
-                  title="Download All Girvi PDF Report"
+                  title="Export Data"
                 >
-                  {downloadingAllPdf ? (
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <FaFileDownload className="text-lg" />
-                  )}
+                  <FaFilter className="text-lg" />
                 </button>
 
                 <button
@@ -1497,6 +1548,106 @@ Please find attached invoice PDF.`;
 
         <DealerMobileBottomNav active="girvi" isAdminView={isAdminView} />
       </div>
+
+      {showExportModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999] flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-gray-100">
+            <div className="bg-indigo-600 text-white px-6 py-5 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold tracking-tight">
+                  Export PDF Report
+                </h2>
+                <p className="text-xs opacity-80 font-medium mt-0.5">
+                  Filter loaded records before generating
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowExportModal(false)}
+                className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">
+                  Customer Filter
+                </label>
+                <select
+                  value={exportFilters.customerId}
+                  onChange={(e) => setExportFilters({ ...exportFilters, customerId: e.target.value })}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-indigo-600 text-sm font-medium transition bg-gray-50/30 text-gray-800"
+                >
+                  <option value="ALL">All Customers</option>
+                  {uniqueCustomers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} (ID: {c.id})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={exportFilters.startDate}
+                    onChange={(e) => setExportFilters({ ...exportFilters, startDate: e.target.value })}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-indigo-600 text-sm font-medium transition bg-gray-50/30 text-gray-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={exportFilters.endDate}
+                    onChange={(e) => setExportFilters({ ...exportFilters, endDate: e.target.value })}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-indigo-600 text-sm font-medium transition bg-gray-50/30 text-gray-800"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="p-5 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row gap-3">
+              <button
+                type="button"
+                onClick={() => setShowExportModal(false)}
+                className="flex-1 bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 py-3.5 rounded-xl font-bold text-sm transition order-2 sm:order-1"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleGenerateExport}
+                disabled={downloadingAllPdf}
+                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 rounded-xl font-bold text-sm disabled:bg-gray-400 transition shadow-md shadow-indigo-100 order-1 sm:order-2 flex items-center justify-center gap-2"
+              >
+                {downloadingAllPdf ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <FaFileDownload />
+                    Generate PDF
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showEditModal && selectedGirvi && (
         <EditModal
@@ -1577,8 +1728,7 @@ function RecordsPanel({
   search,
   setSearch,
   goToAddGirvi,
-  downloadAllGirviListPdf,
-  downloadingAllPdf,
+  openExportModal,
   getImageSrc,
   openPhotoModal,
   formatCurrency,
@@ -1634,22 +1784,13 @@ function RecordsPanel({
 
           <button
             type="button"
-            onClick={downloadAllGirviListPdf}
-            disabled={downloadingAllPdf || filteredList.length === 0}
+            onClick={openExportModal}
+            disabled={filteredList.length === 0}
             className="hidden lg:flex items-center justify-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-[#4820C5] border border-indigo-100 px-4 py-3 rounded-xl font-bold text-sm transition whitespace-nowrap disabled:opacity-50"
-            title="Download full filtered list report as PDF"
+            title="Export filtered list to PDF"
           >
-            {downloadingAllPdf ? (
-              <>
-                <div className="w-4 h-4 border-2 border-[#4820C5] border-t-transparent rounded-full animate-spin"></div>
-                Exporting...
-              </>
-            ) : (
-              <>
-                <FaFileDownload className="text-sm" />
-                Export List PDF
-              </>
-            )}
+            <FaFilter className="text-sm" />
+            Export List PDF
           </button>
 
           <button
@@ -1699,7 +1840,6 @@ function RecordsPanel({
                   className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-purple-100 transition"
                 >
                   <div className="grid grid-cols-12 gap-4 items-center">
-                    {/* Replaced Image Thumbnail with Clickable Photo Button */}
                     <div className="col-span-1 shrink-0">
                       {imageSrc ? (
                         <button
@@ -2022,7 +2162,6 @@ function MobileRecordsPanel({
               className="border border-gray-100 rounded-2xl p-4 mb-4 bg-white shadow-sm hover:shadow-md transition-shadow"
             >
               <div className="flex gap-4 items-start">
-                {/* Replaced Mobile Thumbnail with Clickable Photo Button */}
                 {imageSrc ? (
                   <button
                     type="button"
