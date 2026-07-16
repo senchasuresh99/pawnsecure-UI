@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import DealerSidebar from "../dealer/DealerSidebar";
 import MobileDealerSidebar from "../dealer/MobileDealerSidebar";
 import DealerMobileBottomNav from "../dealer/DealerMobileBottomNav";
@@ -20,6 +21,7 @@ import {
   FaFileSignature,
   FaCamera,
   FaImage,
+  FaFileDownload,
 } from "react-icons/fa";
 import {
   LOGO_URL,
@@ -203,6 +205,8 @@ export default function GirviList() {
   const [downloadingThirdPartyId, setDownloadingThirdPartyId] = useState<
     number | string | null
   >(null);
+
+  const [downloadingAllPdf, setDownloadingAllPdf] = useState(false);
 
   const [sendingWhatsAppGirviId, setSendingWhatsAppGirviId] = useState<
     number | string | null
@@ -1048,6 +1052,85 @@ export default function GirviList() {
     }
   }
 
+  // --- NEW: Download All Girvi Records as PDF ---
+  function downloadAllGirviListPdf() {
+    if (!filteredList || filteredList.length === 0) {
+      alert("No records to export.");
+      return;
+    }
+
+    setDownloadingAllPdf(true);
+
+    try {
+      const doc = new jsPDF("p", "mm", "a4");
+
+      // Header Banner
+      doc.setFillColor(72, 32, 197); // #4820C5
+      doc.rect(0, 0, 210, 25, "F");
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text("GIRVI ASSET INVENTORY REPORT", 14, 13);
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Dealer: ${dealerName} | Generated: ${new Date().toLocaleDateString("en-IN")}`, 14, 20);
+
+      const tableData = filteredList.map((item, index) => {
+        return [
+          index + 1,
+          `${item.customerName || "-"}\n(ID: ${item.customerId || "-"})`,
+          `${getDisplayItemName(item)}\n[${getDisplayItemType(item)}]`,
+          `${formatCount(getDisplayItemCount(item))} Pc(s)\nNet: ${formatWeight(getDisplayNetWeight(item))}`,
+          `${formatCurrency(getDisplayActualLoanAmount(item))}\nRate: ${item.interestRate || 0}%`,
+          `${formatDate(item.girviDate)} to\n${formatDate(item.maturityDate)}`,
+          String(item.status || "ACTIVE").toUpperCase(),
+        ];
+      });
+
+      autoTable(doc, {
+        startY: 30,
+        head: [
+          ["#", "Customer", "Item Details", "Weight / Count", "Loan Amount", "Timeline", "Status"],
+        ],
+        body: tableData,
+        theme: "grid",
+        headStyles: {
+          fillColor: [72, 32, 197],
+          textColor: [255, 255, 255],
+          fontSize: 9,
+          fontStyle: "bold",
+        },
+        bodyStyles: {
+          fontSize: 8.5,
+          textColor: [40, 40, 40],
+          valign: "middle",
+        },
+        columnStyles: {
+          0: { cellWidth: 10, halign: "center" },
+          1: { cellWidth: 35 },
+          2: { cellWidth: 35 },
+          3: { cellWidth: 30 },
+          4: { cellWidth: 30 },
+          5: { cellWidth: 30 },
+          6: { cellWidth: 20, halign: "center" },
+        },
+        alternateRowStyles: {
+          fillColor: [248, 249, 250],
+        },
+        margin: { top: 30, left: 10, right: 10 },
+      });
+
+      doc.save(`Girvi_Records_${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch (err) {
+      console.error("Export all records failed:", err);
+      alert("Failed to generate PDF report.");
+    } finally {
+      setDownloadingAllPdf(false);
+    }
+  }
+
   async function downloadThirdPartyAuthPdf(item: GirviResponseDTO) {
     const rowKey = getGirviRowKey(item);
     setDownloadingThirdPartyId(rowKey);
@@ -1253,6 +1336,8 @@ Please find attached invoice PDF.`;
               search={search}
               setSearch={setSearch}
               goToAddGirvi={goToAddGirvi}
+              downloadAllGirviListPdf={downloadAllGirviListPdf}
+              downloadingAllPdf={downloadingAllPdf}
               getImageSrc={getImageSrc}
               openPhotoModal={openPhotoModal}
               formatCurrency={formatCurrency}
@@ -1342,13 +1427,30 @@ Please find attached invoice PDF.`;
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={goToAddGirvi}
-                className="w-11 h-11 bg-white/20 active:bg-white/30 rounded-2xl flex items-center justify-center transition shrink-0"
-              >
-                <FaPlus />
-              </button>
+              <div className="flex items-center gap-2">
+                {/* NEW: Download All List PDF Button inside mobile card */}
+                <button
+                  type="button"
+                  onClick={downloadAllGirviListPdf}
+                  disabled={downloadingAllPdf || filteredList.length === 0}
+                  className="w-11 h-11 bg-white/20 active:bg-white/30 rounded-2xl flex items-center justify-center transition shrink-0 disabled:opacity-50"
+                  title="Download All Girvi PDF Report"
+                >
+                  {downloadingAllPdf ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <FaFileDownload className="text-lg" />
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={goToAddGirvi}
+                  className="w-11 h-11 bg-white/20 active:bg-white/30 rounded-2xl flex items-center justify-center transition shrink-0"
+                >
+                  <FaPlus />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1475,6 +1577,8 @@ function RecordsPanel({
   search,
   setSearch,
   goToAddGirvi,
+  downloadAllGirviListPdf,
+  downloadingAllPdf,
   getImageSrc,
   openPhotoModal,
   formatCurrency,
@@ -1527,6 +1631,26 @@ function RecordsPanel({
               placeholder="Search by customer, item, status..."
             />
           </div>
+
+          <button
+            type="button"
+            onClick={downloadAllGirviListPdf}
+            disabled={downloadingAllPdf || filteredList.length === 0}
+            className="hidden lg:flex items-center justify-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-[#4820C5] border border-indigo-100 px-4 py-3 rounded-xl font-bold text-sm transition whitespace-nowrap disabled:opacity-50"
+            title="Download full filtered list report as PDF"
+          >
+            {downloadingAllPdf ? (
+              <>
+                <div className="w-4 h-4 border-2 border-[#4820C5] border-t-transparent rounded-full animate-spin"></div>
+                Exporting...
+              </>
+            ) : (
+              <>
+                <FaFileDownload className="text-sm" />
+                Export List PDF
+              </>
+            )}
+          </button>
 
           <button
             type="button"
