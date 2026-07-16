@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import "jspdf-autotable"; // Using side-effect import to bypass strict TS errors
+import autoTable from "jspdf-autotable"; // Using side-effect import to bypass strict TS errors
 import DealerSidebar from "../dealer/DealerSidebar";
 import MobileDealerSidebar from "../dealer/MobileDealerSidebar";
 import DealerMobileBottomNav from "../dealer/DealerMobileBottomNav";
@@ -1101,21 +1101,21 @@ export default function GirviList() {
     downloadAllGirviListPdf(dataToExport);
   }
 
-  function downloadAllGirviListPdf(dataToExport: GirviResponseDTO[]) {
+ function downloadAllGirviListPdf(dataToExport: GirviResponseDTO[]) {
     setDownloadingAllPdf(true);
-
+ 
     try {
       const doc = new jsPDF("p", "mm", "a4");
-
-      // Header Banner
+ 
+      // Header Banner Background
       doc.setFillColor(72, 32, 197); // #4820C5
       doc.rect(0, 0, 210, 25, "F");
-
+ 
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
       doc.text("GIRVI ASSET INVENTORY REPORT", 14, 13);
-
+ 
       let subtitle = `Generated: ${new Date().toLocaleDateString("en-IN")}`;
       if (exportFilters.customerId !== "ALL") {
         const cName = uniqueCustomers.find(c => String(c.id) === exportFilters.customerId)?.name;
@@ -1123,15 +1123,15 @@ export default function GirviList() {
       } else {
         subtitle += ` | All Customers`;
       }
-
+ 
       if (exportFilters.startDate || exportFilters.endDate) {
         subtitle += ` | Period: ${exportFilters.startDate || "Start"} to ${exportFilters.endDate || "Present"}`;
       }
-
+ 
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
       doc.text(subtitle, 14, 20);
-
+ 
       const tableData = dataToExport.map((item, index) => {
         return [
           index + 1,
@@ -1143,9 +1143,9 @@ export default function GirviList() {
           String(item.status || "ACTIVE").toUpperCase(),
         ];
       });
-
-      // Using the type cast workaround to prevent strict typescript compilation issues with jspdf-autotable
-      (doc as any).autoTable({
+ 
+      // --- CRITICAL FIX: Direct function call passing doc as first argument ---
+      autoTable(doc as any, {
         startY: 30,
         head: [
           ["#", "Customer", "Item Details", "Weight / Count", "Loan Amount", "Timeline", "Status"],
@@ -1177,12 +1177,12 @@ export default function GirviList() {
         },
         margin: { top: 30, left: 10, right: 10 },
       });
-
+ 
       doc.save(`Girvi_Records_${new Date().toISOString().slice(0, 10)}.pdf`);
       setShowExportModal(false);
     } catch (err) {
       console.error("Export all records failed:", err);
-      alert("Failed to generate PDF report.");
+      alert("Failed to generate PDF report. Check browser console for details.");
     } finally {
       setDownloadingAllPdf(false);
     }
