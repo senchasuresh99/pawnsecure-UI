@@ -839,6 +839,9 @@ export default function GirviList() {
               )
           ),
           ratePerGram: Number(firstItem?.ratePerGram || 0),
+          
+          // --- FIX: Ensure parent status follows the modal's primary item status ---
+          status: String(firstItem?.status || "ACTIVE").toUpperCase(),
 
           actualLoanAmount: Number(editForm.actualLoanAmount),
           interestRate: Number(editForm.interestRate),
