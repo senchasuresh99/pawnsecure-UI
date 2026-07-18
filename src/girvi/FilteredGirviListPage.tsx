@@ -1377,7 +1377,7 @@ Please find attached invoice PDF.`;
             getGirviRowKey={getGirviRowKey}
             getDisplayItemName={getDisplayItemName}
             getDisplayItemType={getDisplayItemType}
-            getDisplayGoldKarat={getDisplayGoldKarat}
+            getDisplayGoldKarat={getDisplayItemCount}
             getDisplayItemCount={getDisplayItemCount}
             getDisplayGrossWeight={getDisplayGrossWeight}
             getDisplayLessWeight={getDisplayLessWeight}
@@ -2607,6 +2607,20 @@ function getAuctionNoticeHtmlForPdf(input: any) {
   const customerPhone = savedGirviData.customerPhone || customer?.phoneNumber || customer?.phone || "-";
   const rawAddress = savedGirviData.customerAddress || customer?.customerAddress || customer?.address || "-";
   
+  // Extract the License Number from backend data or localStorage
+  const rawLicense = 
+    input.invoiceDetails?.dealer?.licenseNumber || 
+    input.invoiceDetails?.licenseNumber || 
+    savedGirviData?.licenseNumber || 
+    savedGirviData?.dealerLicenseNumber || 
+    savedGirviData?.dealer?.licenseNumber || 
+    localStorage.getItem("ps_license_number");
+
+  // Check if license is present, otherwise display underline
+  const displayLicense = (rawLicense && String(rawLicense).trim() !== "") 
+    ? escapeHtmlString(rawLicense) 
+    : "________________________";
+
   let extractedState = "your state";
   if (rawAddress !== "-") {
     const parts = rawAddress.split(",").map((p: string) => p.trim());
@@ -2676,7 +2690,7 @@ function getAuctionNoticeHtmlForPdf(input: any) {
             </tr>
             <tr>
                 <td style="width:150px; vertical-align:top;">License Number:</td>
-                <td style="vertical-align:top;">________________________</td>
+                <td style="vertical-align:top;">${displayLicense}</td>
             </tr>
             <tr>
                 <td style="width:150px; vertical-align:top;">Shop Name:</td>

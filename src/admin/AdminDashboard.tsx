@@ -37,6 +37,7 @@ type DealerProfile = {
   shopName?: string;
   shopAddress?: string;
   role?: string;
+  licenseNumber?: string; // ✅ Added License Number
   status?: "APPROVED" | "PENDING" | "REJECTED" | string;
   subscriptionStart?: string;
   subscriptionEnd?: string;
@@ -1295,6 +1296,12 @@ export default function AdminDashboard() {
                   <AdminDealerDetailRow
                     label="GST Number"
                     value={selectedDealer.gstNumber}
+                  />
+
+                  {/* ✅ ADDED LICENSE NUMBER FIELD HERE */}
+                  <AdminDealerDetailRow
+                    label="License Number"
+                    value={selectedDealer.licenseNumber}
                   />
 
                   <AdminDealerDetailRow
