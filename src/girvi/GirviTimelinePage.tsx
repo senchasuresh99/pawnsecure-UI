@@ -14,6 +14,7 @@ import {
   FaRegCalendarAlt,
   FaBolt,
   FaInfoCircle,
+  FaTimes,
 } from "react-icons/fa";
 import DealerSidebar from "../dealer/DealerSidebar";
 import MobileDealerSidebar from "../dealer/MobileDealerSidebar";
