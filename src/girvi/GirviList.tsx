@@ -258,9 +258,12 @@ export default function GirviList() {
     });
   }
 
-  function goToTimeline(girviId?: number) {
-    if (girviId) {
-      navigate(`/dealer/girvi/${girviId}/timeline`);
+  // --- PASS ITEMS VIA STATE TO TIMELINE PAGE ---
+  function goToTimeline(item: GirviResponseDTO) {
+    if (item.id) {
+      navigate(`/dealer/girvi/${item.id}/timeline`, {
+        state: { passedItems: item.items },
+      });
     }
   }
 
@@ -2156,7 +2159,7 @@ function RecordsPanel({
 
                         <button
                           type="button"
-                          onClick={() => goToTimeline(item.id)}
+                          onClick={() => goToTimeline(item)}
                           className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 px-2 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition"
                         >
                           <FaHistory className="text-[11px]" />
@@ -2220,9 +2223,15 @@ function RecordsPanel({
                             className="w-full mt-1 bg-orange-50 hover:bg-orange-100 text-orange-700 px-2 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400"
                           >
                             {isThirdPartyLoading ? (
-                              <><FaDownload className="animate-pulse" /> Loading...</>
+                              <>
+                                <FaDownload className="animate-pulse" />{" "}
+                                Loading...
+                              </>
                             ) : (
-                              <><FaFileSignature className="text-xs" /> 3rd Party Auth Only</>
+                              <>
+                                <FaFileSignature className="text-xs" /> 3rd
+                                Party Auth Only
+                              </>
                             )}
                           </button>
                         </div>
@@ -2443,7 +2452,7 @@ function MobileRecordsPanel({
 
                 <button
                   type="button"
-                  onClick={() => goToTimeline(item.id)}
+                  onClick={() => goToTimeline(item)}
                   className="bg-blue-50 hover:bg-blue-100 text-blue-700 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition"
                 >
                   <FaHistory className="text-[11px]" />
@@ -2462,7 +2471,7 @@ function MobileRecordsPanel({
                       PDF...
                     </>
                   ) : (
-                     <>
+                    <>
                       <FaFileInvoice className="text-xs" />
                       PDF
                     </>
