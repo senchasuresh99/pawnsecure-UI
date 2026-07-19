@@ -177,15 +177,12 @@ export default function GirviTimelinePage() {
           dealerName={dealerName}
           dealerId={dealerId || "-"}
         />
-        <header className="h-16 bg-white border-b px-4 flex items-center justify-between sticky top-0 z-30">
-          <button onClick={() => setShowMobileSidebar(true)} className="text-xl">
-            ☰
-          </button>
-          <h2 className="font-bold text-gray-900">Metro Map</h2>
-          <button onClick={() => navigate(-1)}>
-            <FaArrowLeft />
-          </button>
-        </header>
+        <header className="h-16 bg-[#4820C5] text-white px-4 flex items-center justify-between sticky top-0 z-30 shadow-md">
+  <button onClick={() => setShowMobileSidebar(true)} className="text-xl">☰</button>
+  <h2 className="font-bold text-white">Metro Map</h2>
+  <button onClick={() => navigate(-1)}><FaArrowLeft /></button>
+</header>
+
         <div className="p-4 space-y-4">
           {renderHeaderMobile()}
           {renderContent()}
