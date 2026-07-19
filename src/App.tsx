@@ -29,6 +29,7 @@ import TodayGirvi from "./girvi/TodayGirvi";
 
 /* ✅ EDIT CUSTOMER */
 import EditCustomer from "./views/EditCustomer";
+import GirviTimelinePage from "./girvi/GirviTimelinePage";
 
 export default function App() {
   return (
@@ -58,6 +59,7 @@ export default function App() {
         <Route path="/dealer/due-today" element={<DueTodayGirvi />} />
         <Route path="/dealer/overdue-accounts" element={<OverdueAccounts />} />
         <Route path="/dealer/today-girvi" element={<TodayGirvi />} />
+        <Route path="/dealer/girvi/:girviId/timeline" element={<GirviTimelinePage />} />
 
         {/* ✅ CUSTOMER MODULE */}
         <Route path="/dealer/customer-register" element={<CustomerRegister />} />

@@ -74,18 +74,18 @@ export default function AddGirvi() {
   const dealerId = localStorage.getItem("ps_dealer_id");
 
   const [loading, setLoading] = useState(false);
-const [photo, setPhoto] = useState<File | null>(null);
+  const [photo, setPhoto] = useState<File | null>(null);
 
-const initialItemPhotoUrl =
-  navState?.itemPhotoUrl ||
-  navState?.girvi?.itemPhotoUrl ||
-  loanDetails?.itemPhotoUrl ||
-  "";
+  const initialItemPhotoUrl =
+    navState?.itemPhotoUrl ||
+    navState?.girvi?.itemPhotoUrl ||
+    loanDetails?.itemPhotoUrl ||
+    "";
 
-const [itemPhotoUrl, setItemPhotoUrl] = useState(initialItemPhotoUrl);
-const [photoPreview, setPhotoPreview] = useState(
-  getDisplayImageUrl(initialItemPhotoUrl)
-);
+  const [itemPhotoUrl, setItemPhotoUrl] = useState(initialItemPhotoUrl);
+  const [photoPreview, setPhotoPreview] = useState(
+    getDisplayImageUrl(initialItemPhotoUrl)
+  );
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [currentStep, setCurrentStep] = useState(1);
@@ -186,18 +186,18 @@ const [photoPreview, setPhotoPreview] = useState(
             navState.customerAddress ||
             customer?.address ||
             customer?.customerAddress,
-            customerPhotoUrl:
-  navState.customerPhotoUrl ||
-  navState.photoUrl ||
-  navState.customer?.customerPhotoUrl ||
-  customer?.customerPhotoUrl ||
-  customer?.photoUrl,
-photoUrl:
-  navState.photoUrl ||
-  navState.customerPhotoUrl ||
-  navState.customer?.photoUrl ||
-  customer?.photoUrl ||
-  customer?.customerPhotoUrl,
+          customerPhotoUrl:
+            navState.customerPhotoUrl ||
+            navState.photoUrl ||
+            navState.customer?.customerPhotoUrl ||
+            customer?.customerPhotoUrl ||
+            customer?.photoUrl,
+          photoUrl:
+            navState.photoUrl ||
+            navState.customerPhotoUrl ||
+            navState.customer?.photoUrl ||
+            customer?.photoUrl ||
+            customer?.customerPhotoUrl,
         });
       }
     }
@@ -216,19 +216,19 @@ photoUrl:
     navState?.customerName ||
     "Selected Customer";
 
-function getDisplayImageUrl(photoUrl?: string) {
-  if (!photoUrl || !photoUrl.trim()) return "";
+  function getDisplayImageUrl(photoUrl?: string) {
+    if (!photoUrl || !photoUrl.trim()) return "";
 
-  if (
-    photoUrl.startsWith("http://") ||
-    photoUrl.startsWith("https://") ||
-    photoUrl.startsWith("blob:")
-  ) {
-    return photoUrl;
+    if (
+      photoUrl.startsWith("http://") ||
+      photoUrl.startsWith("https://") ||
+      photoUrl.startsWith("blob:")
+    ) {
+      return photoUrl;
+    }
+
+    return `${API_BASE}${photoUrl.startsWith("/") ? "" : "/"}${photoUrl}`;
   }
-
-  return `${API_BASE}${photoUrl.startsWith("/") ? "" : "/"}${photoUrl}`;
-}
 
   useEffect(() => {
     if (!loanDetails.customerId) {
@@ -244,13 +244,13 @@ function getDisplayImageUrl(photoUrl?: string) {
     }
   }, [loanDetails.customerId, customer, setLoanDetails]);
 
-useEffect(() => {
-  return () => {
-    if (photoPreview && photoPreview.startsWith("blob:")) {
-      URL.revokeObjectURL(photoPreview);
-    }
-  };
-}, [photoPreview]);
+  useEffect(() => {
+    return () => {
+      if (photoPreview && photoPreview.startsWith("blob:")) {
+        URL.revokeObjectURL(photoPreview);
+      }
+    };
+  }, [photoPreview]);
 
   function calculateNetWeight(gross: any, less: any) {
     const grossWeight = Number(gross || 0);
@@ -260,6 +260,7 @@ useEffect(() => {
     return net > 0 ? net : 0;
   }
 
+  // Calculate total monetary value
   const totalValue = items.reduce((sum, item) => {
     const rowNet =
       item.netWeightGram !== ""
@@ -269,6 +270,11 @@ useEffect(() => {
     const rowRate = Number(item.ratePerGram || 0);
 
     return sum + rowNet * rowRate;
+  }, 0);
+
+  // Calculate total physical pieces across all rows
+  const totalPhysicalPieces = items.reduce((sum, item) => {
+    return sum + Number(item.itemCount || 1);
   }, 0);
 
   function getInvoiceForm() {
@@ -397,42 +403,42 @@ useEffect(() => {
     });
   }
 
-function handlePhotoChange(file: File | null) {
-  if (photoPreview && photoPreview.startsWith("blob:")) {
-    URL.revokeObjectURL(photoPreview);
-  }
+  function handlePhotoChange(file: File | null) {
+    if (photoPreview && photoPreview.startsWith("blob:")) {
+      URL.revokeObjectURL(photoPreview);
+    }
 
-  if (!file) {
-    setPhoto(null);
+    if (!file) {
+      setPhoto(null);
+      setItemPhotoUrl("");
+      setPhotoPreview("");
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setErrors((prev) => ({ ...prev, photo: "Only image files allowed" }));
+      setPhoto(null);
+      setItemPhotoUrl("");
+      setPhotoPreview("");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setErrors((prev) => ({ ...prev, photo: "Photo must be less than 5MB" }));
+      setPhoto(null);
+      setItemPhotoUrl("");
+      setPhotoPreview("");
+      return;
+    }
+
+    setPhoto(file);
     setItemPhotoUrl("");
-    setPhotoPreview("");
-    return;
+
+    const previewUrl = URL.createObjectURL(file);
+    setPhotoPreview(previewUrl);
+
+    setErrors((prev) => ({ ...prev, photo: "" }));
   }
-
-  if (!file.type.startsWith("image/")) {
-    setErrors((prev) => ({ ...prev, photo: "Only image files allowed" }));
-    setPhoto(null);
-    setItemPhotoUrl("");
-    setPhotoPreview("");
-    return;
-  }
-
-  if (file.size > 5 * 1024 * 1024) {
-    setErrors((prev) => ({ ...prev, photo: "Photo must be less than 5MB" }));
-    setPhoto(null);
-    setItemPhotoUrl("");
-    setPhotoPreview("");
-    return;
-  }
-
-  setPhoto(file);
-  setItemPhotoUrl("");
-
-  const previewUrl = URL.createObjectURL(file);
-  setPhotoPreview(previewUrl);
-
-  setErrors((prev) => ({ ...prev, photo: "" }));
-}
 
   function validateStep(step: number) {
     const newErrors: Record<string, string> = {};
@@ -713,43 +719,39 @@ Please find attached invoice PDF.`;
           ? Number(firstItem?.netWeightGram || 0)
           : calculateNetWeight(firstItem?.itemWeightGram, firstItem?.lessWeightGram);
 
-      const girviPayload = {
+      // Map rows and calculate the true sum of discrete pieces
+      const mappedItems = items.map((item) => {
+        const rowNet =
+          item.netWeightGram !== ""
+            ? Number(item.netWeightGram || 0)
+            : calculateNetWeight(item.itemWeightGram, item.lessWeightGram);
+
+        return {
+          itemName: item.itemName.trim(),
+          itemType: item.itemType.toUpperCase(),
+          itemCount: Number(item.itemCount || 1),
+          itemWeightGram: Number(item.itemWeightGram || 0),
+          goldKarat: item.goldKarat.trim(),
+          lessWeightGram: Number(item.lessWeightGram || 0),
+          netWeightGram: rowNet,
+          ratePerGram: Number(item.ratePerGram || 0),
+        };
+      });
+
+      const totalCalculatedPieces = mappedItems.reduce(
+        (acc, row) => acc + row.itemCount,
+        0
+      );
+
+const girviPayload = {
         customerId: Number(customerId),
-
+        itemCount: totalCalculatedPieces, // Root header total pieces
         actualLoanAmount: Number(form.actualLoanAmount),
-
         interestRate: Number(form.interestRate),
         girviDate: form.girviDate,
         maturityDate: form.maturityDate,
         remarks: form.remarks.trim(),
-
-        items: items.map((item) => {
-          const rowNet =
-            item.netWeightGram !== ""
-              ? Number(item.netWeightGram || 0)
-              : calculateNetWeight(item.itemWeightGram, item.lessWeightGram);
-
-          return {
-            itemName: item.itemName.trim(),
-            itemType: item.itemType.toUpperCase(),
-            itemCount: Number(item.itemCount || 1),
-            itemWeightGram: Number(item.itemWeightGram || 0),
-            goldKarat: item.goldKarat.trim(),
-            lessWeightGram: Number(item.lessWeightGram || 0),
-            netWeightGram: rowNet,
-            ratePerGram: Number(item.ratePerGram || 0),
-          };
-        }),
-
-        // Backward compatibility root fields
-        itemName: firstItem?.itemName?.trim() || "",
-        itemType: (firstItem?.itemType || "Gold").toUpperCase(),
-        itemCount: Number(firstItem?.itemCount || 1),
-        itemWeightGram: Number(firstItem?.itemWeightGram || 0),
-        goldKarat: firstItem?.goldKarat?.trim() || "",
-        lessWeightGram: Number(firstItem?.lessWeightGram || 0),
-        netWeightGram: firstNetWeight,
-        ratePerGram: Number(firstItem?.ratePerGram || 0),
+        items: mappedItems,
       };
 
       const formData = new FormData();
@@ -786,18 +788,18 @@ Please find attached invoice PDF.`;
       }
 
       const savedItemPhotoUrl =
-  savedGirvi?.itemPhotoUrl ||
-  savedGirvi?.photoUrl ||
-  savedGirvi?.data?.itemPhotoUrl ||
-  savedGirvi?.data?.photoUrl ||
-  savedGirvi?.items?.[0]?.itemPhotoUrl ||
-  savedGirvi?.data?.items?.[0]?.itemPhotoUrl ||
-  "";
+        savedGirvi?.itemPhotoUrl ||
+        savedGirvi?.photoUrl ||
+        savedGirvi?.data?.itemPhotoUrl ||
+        savedGirvi?.data?.photoUrl ||
+        savedGirvi?.items?.[0]?.itemPhotoUrl ||
+        savedGirvi?.data?.items?.[0]?.itemPhotoUrl ||
+        "";
 
-if (savedItemPhotoUrl) {
-  setItemPhotoUrl(savedItemPhotoUrl);
-  setPhotoPreview(getDisplayImageUrl(savedItemPhotoUrl));
-}
+      if (savedItemPhotoUrl) {
+        setItemPhotoUrl(savedItemPhotoUrl);
+        setPhotoPreview(getDisplayImageUrl(savedItemPhotoUrl));
+      }
 
       const girviId =
         savedGirvi?.id ||
@@ -842,23 +844,23 @@ if (savedItemPhotoUrl) {
       const invoiceForm = getInvoiceForm();
 
       const invoiceDataForFrontend = {
-  ...buildInvoiceDataFromBackend({
-    invoiceDetails,
-    savedGirvi,
-    invoiceId,
-    invoiceNumber,
-    form: invoiceForm,
-  }),
-  itemPhotoUrl:
-    savedGirvi?.itemPhotoUrl ||
-    savedGirvi?.photoUrl ||
-    savedGirvi?.data?.itemPhotoUrl ||
-    savedGirvi?.data?.photoUrl ||
-    savedGirvi?.items?.[0]?.itemPhotoUrl ||
-    savedGirvi?.data?.items?.[0]?.itemPhotoUrl ||
-    itemPhotoUrl ||
-    "",
-};
+        ...buildInvoiceDataFromBackend({
+          invoiceDetails,
+          savedGirvi,
+          invoiceId,
+          invoiceNumber,
+          form: invoiceForm,
+        }),
+        itemPhotoUrl:
+          savedGirvi?.itemPhotoUrl ||
+          savedGirvi?.photoUrl ||
+          savedGirvi?.data?.itemPhotoUrl ||
+          savedGirvi?.data?.photoUrl ||
+          savedGirvi?.items?.[0]?.itemPhotoUrl ||
+          savedGirvi?.data?.items?.[0]?.itemPhotoUrl ||
+          itemPhotoUrl ||
+          "",
+      };
 
       setSavedGirviData(invoiceDataForFrontend);
       setSavedInvoiceId(Number(invoiceId));
@@ -884,25 +886,25 @@ if (savedItemPhotoUrl) {
           {photoPreview && (
             <div className="relative w-[100px] h-[100px] md:w-[120px] md:h-[120px] rounded-xl overflow-hidden border border-gray-200 group shadow-sm">
               <img
-  src={photoPreview}
-  alt="Item"
-  className="w-full h-full object-cover"
-  onError={(e) => {
-    e.currentTarget.style.display = "none";
-  }}
-/>
+                src={photoPreview}
+                alt="Item"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
 
               <button
                 type="button"
                 onClick={() => {
-  if (photoPreview && photoPreview.startsWith("blob:")) {
-    URL.revokeObjectURL(photoPreview);
-  }
+                  if (photoPreview && photoPreview.startsWith("blob:")) {
+                    URL.revokeObjectURL(photoPreview);
+                  }
 
-  setPhoto(null);
-  setItemPhotoUrl("");
-  setPhotoPreview("");
-}}
+                  setPhoto(null);
+                  setItemPhotoUrl("");
+                  setPhotoPreview("");
+                }}
                 className="absolute top-1.5 right-1.5 bg-black/60 text-white w-7 h-7 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition shadow-md"
               >
                 <FaTimes className="text-[12px]" />
@@ -1102,52 +1104,52 @@ if (savedItemPhotoUrl) {
                     </div>
 
                     {item.itemType === "Gold" && (
-  <div>
-    <label className="text-xs md:text-sm font-bold text-gray-600 block mb-1.5 md:mb-2">
-      Gold Karat *
-    </label>
+                      <div>
+                        <label className="text-xs md:text-sm font-bold text-gray-600 block mb-1.5 md:mb-2">
+                          Gold Karat *
+                        </label>
 
-    <div className="relative">
-      <select
-        value={item.goldKarat}
-        onChange={(e) => updateItem(index, "goldKarat", e.target.value)}
-        className={`w-full px-4 py-3.5 md:py-4 rounded-xl border bg-white text-sm md:text-base font-medium outline-none focus:border-[#4820C5] focus:ring-1 focus:ring-[#4820C5] appearance-none ${
-          errors[`goldKarat_${index}`]
-            ? "border-red-400 focus:ring-red-400"
-            : "border-gray-200"
-        }`}
-      >
-        <option value="">Select Gold Karat</option>
-        <option value="9K">9K</option>
-        <option value="10K">10K</option>
-        <option value="11K">11K</option>
-        <option value="12K">12K</option>
-        <option value="13K">13K</option>
-        <option value="14K">14K</option>
-        <option value="15K">15K</option>
-        <option value="16K">16K</option>
-        <option value="17K">17K</option>
-        <option value="18K">18K</option>
-        <option value="19K">19K</option>
-        <option value="20K">20K</option>
-        <option value="21K">21K</option>
-        <option value="22K">22K</option>
-        <option value="23K">23K</option>
-        <option value="24K">24K</option>
-      </select>
+                        <div className="relative">
+                          <select
+                            value={item.goldKarat}
+                            onChange={(e) => updateItem(index, "goldKarat", e.target.value)}
+                            className={`w-full px-4 py-3.5 md:py-4 rounded-xl border bg-white text-sm md:text-base font-medium outline-none focus:border-[#4820C5] focus:ring-1 focus:ring-[#4820C5] appearance-none ${
+                              errors[`goldKarat_${index}`]
+                                ? "border-red-400 focus:ring-red-400"
+                                : "border-gray-200"
+                            }`}
+                          >
+                            <option value="">Select Gold Karat</option>
+                            <option value="9K">9K</option>
+                            <option value="10K">10K</option>
+                            <option value="11K">11K</option>
+                            <option value="12K">12K</option>
+                            <option value="13K">13K</option>
+                            <option value="14K">14K</option>
+                            <option value="15K">15K</option>
+                            <option value="16K">16K</option>
+                            <option value="17K">17K</option>
+                            <option value="18K">18K</option>
+                            <option value="19K">19K</option>
+                            <option value="20K">20K</option>
+                            <option value="21K">21K</option>
+                            <option value="22K">22K</option>
+                            <option value="23K">23K</option>
+                            <option value="24K">24K</option>
+                          </select>
 
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 text-xs md:text-sm">
-        ▼
-      </div>
-    </div>
+                          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 text-xs md:text-sm">
+                            ▼
+                          </div>
+                        </div>
 
-    {errors[`goldKarat_${index}`] && (
-      <p className="text-red-500 text-xs md:text-sm mt-1.5 font-medium">
-        {errors[`goldKarat_${index}`]}
-      </p>
-    )}
-  </div>
-)}
+                        {errors[`goldKarat_${index}`] && (
+                          <p className="text-red-500 text-xs md:text-sm mt-1.5 font-medium">
+                            {errors[`goldKarat_${index}`]}
+                          </p>
+                        )}
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 md:gap-6">
                       <Input
@@ -1174,7 +1176,7 @@ if (savedItemPhotoUrl) {
                         label="Net Weight (Gram) *"
                         type="number"
                         value={item.netWeightGram}
-                        readOnly // <-- Use this instead of disabled
+                        readOnly
                       />
                     </div>
 
@@ -1321,7 +1323,8 @@ if (savedItemPhotoUrl) {
               <div className="bg-gray-50 rounded-2xl border border-gray-100 p-5 md:p-8 text-sm md:text-base">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 sm:gap-y-6">
                   <ReviewRow label="Customer" value={customerName} />
-                  <ReviewRow label="Total Items" value={`${items.length}`} />
+                  <ReviewRow label="Total Rows" value={`${items.length}`} />
+                  <ReviewRow label="Total Pledged Pcs" value={`${totalPhysicalPieces}`} />
                   <ReviewRow
                     label="Actual Loan Amount"
                     value={`₹ ${Number(
@@ -1649,6 +1652,7 @@ function Input({
   error,
   min,
   max,
+  readOnly,
 }: any) {
   return (
     <div>
@@ -1662,9 +1666,12 @@ function Input({
         placeholder={placeholder}
         min={min}
         max={max}
-        onChange={(e) => onChange(e.target.value)}
+        readOnly={readOnly}
+        onChange={(e) => onChange && onChange(e.target.value)}
         className={`w-full px-4 py-3.5 md:py-4 rounded-xl border bg-white text-sm md:text-base font-medium outline-none transition ${
-          error
+          readOnly
+            ? "bg-gray-100 text-gray-600 border-gray-200 cursor-not-allowed focus:ring-0"
+            : error
             ? "border-red-400 focus:ring-1 focus:ring-red-400"
             : "border-gray-200 focus:border-[#4820C5] focus:ring-1 focus:ring-[#4820C5]"
         }`}
@@ -1736,13 +1743,13 @@ function ItemSummaryCard({
     <div className="bg-white rounded-2xl border border-gray-100 p-4 md:p-6 flex items-center gap-4 md:gap-6 shadow-sm">
       {photo ? (
         <img
-  src={photo}
-  alt={name || "Item"}
-  className="w-20 h-20 md:w-28 md:h-28 rounded-xl md:rounded-2xl object-cover"
-  onError={(e) => {
-    e.currentTarget.style.display = "none";
-  }}
-/>
+          src={photo}
+          alt={name || "Item"}
+          className="w-20 h-20 md:w-28 md:h-28 rounded-xl md:rounded-2xl object-cover"
+          onError={(e) => {
+            e.currentTarget.style.display = "none";
+          }}
+        />
       ) : (
         <div className="w-20 h-20 md:w-28 md:h-28 rounded-xl md:rounded-2xl bg-purple-50 flex items-center justify-center text-purple-600">
           <FaCoins size={28} className="md:w-10 md:h-10" />

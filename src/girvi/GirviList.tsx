@@ -23,6 +23,8 @@ import {
   FaImage,
   FaFileDownload,
   FaFilter,
+  FaCheck,
+  FaHistory,
 } from "react-icons/fa";
 import {
   LOGO_URL,
@@ -129,6 +131,10 @@ type GirviUpdateForm = {
   interestRate: string;
   maturityDate: string;
   remarks: string;
+  interestPaid: string;
+  principalPaid: string;
+  transactionRemarks: string;
+  closeGirvi: boolean;
 };
 
 export default function GirviList() {
@@ -156,6 +162,22 @@ export default function GirviList() {
   });
 
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+
+  // --- CUSTOM TOAST NOTIFICATION STATE ---
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "success" | "error" | "info";
+  } | null>(null);
+
+  function showToast(
+    message: string,
+    type: "success" | "error" | "info" = "info"
+  ) {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast(null);
+    }, 3500);
+  }
 
   const [girviList, setGirviList] = useState<GirviResponseDTO[]>([]);
   const [filteredList, setFilteredList] = useState<GirviResponseDTO[]>([]);
@@ -193,6 +215,10 @@ export default function GirviList() {
     interestRate: "",
     maturityDate: "",
     remarks: "",
+    interestPaid: "",
+    principalPaid: "",
+    transactionRemarks: "",
+    closeGirvi: false,
   });
 
   const [editItems, setEditItems] = useState<GirviItemEditForm[]>([]);
@@ -230,6 +256,12 @@ export default function GirviList() {
         returnTo: "/dealer/customer",
       },
     });
+  }
+
+  function goToTimeline(girviId?: number) {
+    if (girviId) {
+      navigate(`/dealer/girvi/${girviId}/timeline`);
+    }
   }
 
   useEffect(() => {
@@ -318,8 +350,10 @@ export default function GirviList() {
   }
 
   function getDisplayItemName(item: GirviResponseDTO) {
-    const primaryItem = getPrimaryItem(item);
-    return primaryItem?.itemName || item.itemName || "-";
+    if (item.items && item.items.length > 0) {
+      return item.items.map((i) => i.itemName || "-").join(", ");
+    }
+    return item.itemName || "-";
   }
 
   function getDisplayItemType(item: GirviResponseDTO) {
@@ -393,12 +427,35 @@ export default function GirviList() {
     });
   }
 
-  function updateEditForm(key: keyof GirviUpdateForm, value: string) {
+  function updateEditForm(key: keyof GirviUpdateForm, value: string | boolean) {
     setEditForm((prev) => {
-      const next: GirviUpdateForm = {
-        ...prev,
-        [key]: value,
-      };
+      const next: any = { ...prev, [key]: value };
+
+      if (key === "principalPaid" && selectedGirvi) {
+        const principalBefore = Number(
+          selectedGirvi.actualLoanAmount || selectedGirvi.loanAmount || 0
+        );
+        const paid = Number(value || 0);
+        next.actualLoanAmount = String(Math.max(principalBefore - paid, 0));
+      }
+
+      if (key === "actualLoanAmount" && selectedGirvi) {
+        const principalBefore = Number(
+          selectedGirvi.actualLoanAmount || selectedGirvi.loanAmount || 0
+        );
+        const newOutstanding = Number(value || 0);
+        next.principalPaid = String(
+          Math.max(principalBefore - newOutstanding, 0)
+        );
+      }
+
+      if (key === "closeGirvi" && value === true && selectedGirvi) {
+        const principalBefore = Number(
+          selectedGirvi.actualLoanAmount || selectedGirvi.loanAmount || 0
+        );
+        next.principalPaid = String(principalBefore);
+        next.actualLoanAmount = "0";
+      }
 
       return next;
     });
@@ -540,7 +597,7 @@ export default function GirviList() {
 
   async function handleRenewGirvi(girviId?: number) {
     if (!girviId) {
-      alert("Invalid Girvi Record Identifier");
+      showToast("Invalid Girvi Record Identifier", "error");
       return;
     }
 
@@ -554,7 +611,10 @@ export default function GirviList() {
     const token = localStorage.getItem("ps_token");
 
     if (!dealerId || !token) {
-      alert("Authentication tokens expired. Please re-authenticate login session.");
+      showToast(
+        "Authentication tokens expired. Please re-authenticate login session.",
+        "error"
+      );
       return;
     }
 
@@ -569,18 +629,25 @@ export default function GirviList() {
 
       if (!res.ok) {
         const message = await res.text();
-        alert(message || "Backend configuration rejected loan renewal sequence.");
+        showToast(
+          message || "Backend configuration rejected loan renewal sequence.",
+          "error"
+        );
         return;
       }
 
-      alert(
-        "Girvi secure asset portfolio loan configuration extended/renewed successfully."
+      showToast(
+        "Girvi secure asset portfolio loan configuration extended/renewed successfully.",
+        "success"
       );
 
       fetchGirviList();
     } catch (err) {
       console.error("Renewal transaction failure:", err);
-      alert("Network subsystem interface uncommunicative. Try execution again later.");
+      showToast(
+        "Network subsystem interface uncommunicative. Try execution again later.",
+        "error"
+      );
     }
   }
 
@@ -592,7 +659,9 @@ export default function GirviList() {
         ? item.items.map((girviItem) => ({
             id: girviItem.id,
             itemName: girviItem.itemName || "",
-            itemType: String(girviItem.itemType || item.itemType || "GOLD").toUpperCase(),
+            itemType: String(
+              girviItem.itemType || item.itemType || "GOLD"
+            ).toUpperCase(),
             itemCount:
               girviItem.itemCount !== undefined && girviItem.itemCount !== null
                 ? String(girviItem.itemCount)
@@ -641,7 +710,8 @@ export default function GirviList() {
                   : "",
               goldKarat: item.goldKarat || "",
               lessWeightGram:
-                item.lessWeightGram !== undefined && item.lessWeightGram !== null
+                item.lessWeightGram !== undefined &&
+                item.lessWeightGram !== null
                   ? String(item.lessWeightGram)
                   : "",
               netWeightGram:
@@ -698,7 +768,9 @@ export default function GirviList() {
           ? String(primaryItem.netWeightGram)
           : item.netWeightGram !== undefined && item.netWeightGram !== null
           ? String(item.netWeightGram)
-          : String(calculateNetWeight(item.itemWeightGram, item.lessWeightGram)),
+          : String(
+              calculateNetWeight(item.itemWeightGram, item.lessWeightGram)
+            ),
 
       ratePerGram:
         primaryItem?.ratePerGram !== undefined &&
@@ -722,6 +794,11 @@ export default function GirviList() {
 
       maturityDate: item.maturityDate || "",
       remarks: item.remarks || "",
+
+      interestPaid: "",
+      principalPaid: "",
+      transactionRemarks: "",
+      closeGirvi: false,
     });
 
     setShowEditModal(true);
@@ -729,7 +806,7 @@ export default function GirviList() {
 
   async function submitUpdateGirvi() {
     if (!selectedGirvi?.id) {
-      alert("Girvi ID not found");
+      showToast("Girvi ID not found", "error");
       return;
     }
 
@@ -737,17 +814,17 @@ export default function GirviList() {
     const token = localStorage.getItem("ps_token");
 
     if (!dealerId) {
-      alert("Dealer ID not found. Please login again.");
+      showToast("Dealer ID not found. Please login again.", "error");
       return;
     }
 
     if (!token) {
-      alert("Login token not found. Please login again.");
+      showToast("Login token not found. Please login again.", "error");
       return;
     }
 
     if (!editItems || editItems.length === 0) {
-      alert("At least one item is required");
+      showToast("At least one item is required", "error");
       return;
     }
 
@@ -755,37 +832,40 @@ export default function GirviList() {
       const item = editItems[i];
 
       if (!item.itemName.trim()) {
-        alert(`Item ${i + 1}: Item name is required`);
+        showToast(`Item ${i + 1}: Item name is required`, "error");
         return;
       }
 
       if (!item.itemCount || Number(item.itemCount) <= 0) {
-        alert(`Item ${i + 1}: Valid No.Pc count is required`);
+        showToast(`Item ${i + 1}: Valid No.Pc count is required`, "error");
         return;
       }
 
       if (!item.itemWeightGram || Number(item.itemWeightGram) <= 0) {
-        alert(`Item ${i + 1}: Valid gross weight is required`);
+        showToast(`Item ${i + 1}: Valid gross weight is required`, "error");
         return;
       }
 
       if (Number(item.lessWeightGram || 0) < 0) {
-        alert(`Item ${i + 1}: Less weight cannot be negative`);
+        showToast(`Item ${i + 1}: Less weight cannot be negative`, "error");
         return;
       }
 
       if (Number(item.lessWeightGram || 0) > Number(item.itemWeightGram || 0)) {
-        alert(`Item ${i + 1}: Less weight cannot be greater than gross weight`);
+        showToast(
+          `Item ${i + 1}: Less weight cannot be greater than gross weight`,
+          "error"
+        );
         return;
       }
 
       if (!item.netWeightGram || Number(item.netWeightGram) <= 0) {
-        alert(`Item ${i + 1}: Valid net weight is required`);
+        showToast(`Item ${i + 1}: Valid net weight is required`, "error");
         return;
       }
 
       if (!item.ratePerGram || Number(item.ratePerGram) <= 0) {
-        alert(`Item ${i + 1}: Valid rate per gram is required`);
+        showToast(`Item ${i + 1}: Valid rate per gram is required`, "error");
         return;
       }
 
@@ -793,23 +873,28 @@ export default function GirviList() {
         String(item.itemType || "").toUpperCase() === "GOLD" &&
         !item.goldKarat
       ) {
-        alert(`Item ${i + 1}: Gold karat is required`);
+        showToast(`Item ${i + 1}: Gold karat is required`, "error");
         return;
       }
     }
 
     if (!editForm.actualLoanAmount || Number(editForm.actualLoanAmount) <= 0) {
-      alert("Valid actual loan amount is required");
-      return;
+      if (!editForm.closeGirvi) {
+        showToast(
+          "Valid actual loan amount is required unless closing the Girvi.",
+          "error"
+        );
+        return;
+      }
     }
 
     if (editForm.interestRate === "" || Number(editForm.interestRate) < 0) {
-      alert("Valid interest rate is required");
+      showToast("Valid interest rate is required", "error");
       return;
     }
 
     if (!editForm.maturityDate) {
-      alert("Maturity date is required");
+      showToast("Maturity date is required", "error");
       return;
     }
 
@@ -817,6 +902,11 @@ export default function GirviList() {
 
     try {
       const firstItem = editItems[0];
+
+      const totalCalculatedPieces = editItems.reduce(
+        (acc, row) => acc + Number(row.itemCount || 1),
+        0
+      );
 
       const res = await fetch(`${API_BASE}/girvi/${selectedGirvi.id}`, {
         method: "PUT",
@@ -827,7 +917,7 @@ export default function GirviList() {
         },
         body: JSON.stringify({
           itemName: firstItem?.itemName?.trim() || "",
-          itemCount: Number(firstItem?.itemCount || 1),
+          itemType: String(firstItem?.itemType || "GOLD").toUpperCase(),
           itemWeightGram: Number(firstItem?.itemWeightGram || 0),
           goldKarat: firstItem?.goldKarat || "",
           lessWeightGram: Number(firstItem?.lessWeightGram || 0),
@@ -839,14 +929,18 @@ export default function GirviList() {
               )
           ),
           ratePerGram: Number(firstItem?.ratePerGram || 0),
-          
-          // --- FIX: Ensure parent status follows the modal's primary item status ---
           status: String(firstItem?.status || "ACTIVE").toUpperCase(),
 
+          itemCount: totalCalculatedPieces,
           actualLoanAmount: Number(editForm.actualLoanAmount),
           interestRate: Number(editForm.interestRate),
           maturityDate: editForm.maturityDate,
           remarks: editForm.remarks.trim(),
+
+          interestPaid: Number(editForm.interestPaid || 0),
+          principalPaid: Number(editForm.principalPaid || 0),
+          transactionRemarks: editForm.transactionRemarks.trim(),
+          closeGirvi: editForm.closeGirvi,
 
           items: editItems.map((item) => ({
             id: item.id,
@@ -868,7 +962,15 @@ export default function GirviList() {
 
       if (!res.ok) {
         const message = await res.text();
-        alert(message || "Failed to update Girvi record");
+        try {
+          const parsedErr = JSON.parse(message);
+          showToast(
+            parsedErr.message || "Failed to update Girvi record",
+            "error"
+          );
+        } catch {
+          showToast(message || "Failed to update Girvi record", "error");
+        }
         return;
       }
 
@@ -886,10 +988,10 @@ export default function GirviList() {
       setSelectedGirvi(null);
       setEditItems([]);
 
-      alert("Girvi record updated successfully");
+      showToast("Girvi record updated successfully", "success");
     } catch (err) {
       console.error("Update Girvi failed:", err);
-      alert("Server unavailable. Please try again later.");
+      showToast("Server unavailable. Please try again later.", "error");
     } finally {
       setUpdating(false);
     }
@@ -918,11 +1020,15 @@ export default function GirviList() {
   }
 
   function getGirviInvoiceId(item: GirviResponseDTO) {
-    return item.invoiceId || item.invoice?.id || item.invoice?.invoiceId || null;
+    return (
+      item.invoiceId || item.invoice?.id || item.invoice?.invoiceId || null
+    );
   }
 
   function getGirviInvoiceNumber(item: GirviResponseDTO, invoiceId: any) {
-    return item.invoiceNumber || item.invoice?.invoiceNumber || `INV-${invoiceId}`;
+    return (
+      item.invoiceNumber || item.invoice?.invoiceNumber || `INV-${invoiceId}`
+    );
   }
 
   function buildInvoiceFormFromGirvi(item: GirviResponseDTO) {
@@ -1061,17 +1167,15 @@ export default function GirviList() {
       window.URL.revokeObjectURL(url);
     } catch (err: any) {
       console.error("Invoice PDF download failed:", err);
-      alert(err?.message || "Could not download invoice PDF.");
+      showToast(err?.message || "Could not download invoice PDF.", "error");
     } finally {
       setDownloadingPdfGirviId(null);
     }
   }
 
-  // --- Process Export Form Filters ---
   function handleGenerateExport() {
     let dataToExport = [...girviList];
 
-    // Filter by Start Date
     if (exportFilters.startDate) {
       const start = new Date(exportFilters.startDate).getTime();
       dataToExport = dataToExport.filter((item) => {
@@ -1080,7 +1184,6 @@ export default function GirviList() {
       });
     }
 
-    // Filter by End Date
     if (exportFilters.endDate) {
       const end = new Date(exportFilters.endDate).setHours(23, 59, 59, 999);
       dataToExport = dataToExport.filter((item) => {
@@ -1089,7 +1192,6 @@ export default function GirviList() {
       });
     }
 
-    // Filter by Customer
     if (exportFilters.customerId !== "ALL") {
       dataToExport = dataToExport.filter(
         (item) => String(item.customerId) === String(exportFilters.customerId)
@@ -1097,14 +1199,16 @@ export default function GirviList() {
     }
 
     if (dataToExport.length === 0) {
-      alert("No records match the selected date and customer filters.");
+      showToast(
+        "No records match the selected date and customer filters.",
+        "error"
+      );
       return;
     }
 
     downloadAllGirviListPdf(dataToExport);
   }
 
-  // Helper to format Indian currency manually using only safe ASCII characters for jsPDF
   function formatSafePdfCurrency(value: number | string | undefined) {
     const num = Number(value || 0);
     if (Number.isNaN(num)) return "Rs. 0";
@@ -1117,58 +1221,73 @@ export default function GirviList() {
       lastThree = "," + lastThree;
     }
 
-    const formattedStr = otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + lastThree;
+    const formattedStr =
+      otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + lastThree;
     return `Rs. ${formattedStr}`;
   }
 
   function downloadAllGirviListPdf(dataToExport: GirviResponseDTO[]) {
     setDownloadingAllPdf(true);
- 
+
     try {
       const doc = new jsPDF("p", "mm", "a4");
- 
-      // Header Banner Background
-      doc.setFillColor(72, 32, 197); // #4820C5
+
+      doc.setFillColor(72, 32, 197);
       doc.rect(0, 0, 210, 25, "F");
- 
+
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
       doc.text("GIRVI ASSET INVENTORY REPORT", 14, 13);
- 
+
       let subtitle = `Generated: ${new Date().toLocaleDateString("en-IN")}`;
       if (exportFilters.customerId !== "ALL") {
-        const cName = uniqueCustomers.find(c => String(c.id) === exportFilters.customerId)?.name;
+        const cName = uniqueCustomers.find(
+          (c) => String(c.id) === exportFilters.customerId
+        )?.name;
         subtitle += ` | Customer: ${cName}`;
       } else {
         subtitle += ` | All Customers`;
       }
- 
+
       if (exportFilters.startDate || exportFilters.endDate) {
-        subtitle += ` | Period: ${exportFilters.startDate || "Start"} to ${exportFilters.endDate || "Present"}`;
+        subtitle += ` | Period: ${exportFilters.startDate || "Start"} to ${
+          exportFilters.endDate || "Present"
+        }`;
       }
- 
+
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
       doc.text(subtitle, 14, 20);
- 
+
       const tableData = dataToExport.map((item, index) => {
         return [
           index + 1,
           `${item.customerName || "-"}\n(ID: ${item.customerId || "-"})`,
           `${getDisplayItemName(item)}\n[${getDisplayItemType(item)}]`,
-          `${formatCount(getDisplayItemCount(item))} Pc(s)\nNet: ${formatWeight(getDisplayNetWeight(item))}`,
-          `${formatSafePdfCurrency(getDisplayActualLoanAmount(item))}\nRate: ${item.interestRate || 0}%`,
+          `${formatCount(
+            getDisplayItemCount(item)
+          )} Pc(s)\nNet: ${formatWeight(getDisplayNetWeight(item))}`,
+          `${formatSafePdfCurrency(getDisplayActualLoanAmount(item))}\nRate: ${
+            item.interestRate || 0
+          }%`,
           `${formatDate(item.girviDate)} to\n${formatDate(item.maturityDate)}`,
           String(item.status || "ACTIVE").toUpperCase(),
         ];
       });
- 
-      // --- Direct function call passing doc as first argument ---
+
       autoTable(doc as any, {
         startY: 30,
         head: [
-          ["#", "Customer", "Item Details", "Weight / Count", "Loan Amount", "Timeline", "Status"],
+          [
+            "#",
+            "Customer",
+            "Item Details",
+            "Weight / Count",
+            "Loan Amount",
+            "Timeline",
+            "Status",
+          ],
         ],
         body: tableData,
         theme: "grid",
@@ -1197,12 +1316,15 @@ export default function GirviList() {
         },
         margin: { top: 30, left: 10, right: 10 },
       });
- 
+
       doc.save(`Girvi_Records_${new Date().toISOString().slice(0, 10)}.pdf`);
       setShowExportModal(false);
     } catch (err) {
       console.error("Export all records failed:", err);
-      alert("Failed to generate PDF report. Check browser console for details.");
+      showToast(
+        "Failed to generate PDF report. Check browser console for details.",
+        "error"
+      );
     } finally {
       setDownloadingAllPdf(false);
     }
@@ -1215,12 +1337,15 @@ export default function GirviList() {
     try {
       const invoiceId = getGirviInvoiceId(item);
       if (!invoiceId) {
-        throw new Error("Invoice ID not found. Cannot generate authorization form.");
+        throw new Error(
+          "Invoice ID not found. Cannot generate authorization form."
+        );
       }
 
       const dealerId = localStorage.getItem("ps_dealer_id");
       const token = localStorage.getItem("ps_token");
-      if (!dealerId || !token) throw new Error("Session expired. Please login again.");
+      if (!dealerId || !token)
+        throw new Error("Session expired. Please login again.");
 
       const res = await fetch(`${API_BASE}/invoices/${invoiceId}/details`, {
         method: "GET",
@@ -1230,11 +1355,13 @@ export default function GirviList() {
         },
       });
 
-      if (!res.ok) throw new Error("Unable to load invoice details for the form.");
+      if (!res.ok)
+        throw new Error("Unable to load invoice details for the form.");
 
       const invoiceDetails = await res.json();
       const form = buildInvoiceFormFromGirvi(item);
-      const invoiceNumber = invoiceDetails?.invoiceNumber || getGirviInvoiceNumber(item, invoiceId);
+      const invoiceNumber =
+        invoiceDetails?.invoiceNumber || getGirviInvoiceNumber(item, invoiceId);
 
       const savedGirviData = buildInvoiceDataFromBackend({
         invoiceDetails,
@@ -1265,7 +1392,10 @@ export default function GirviList() {
       window.URL.revokeObjectURL(url);
     } catch (err: any) {
       console.error("3rd Party PDF download failed:", err);
-      alert(err?.message || "Could not download 3rd Party Authorization PDF.");
+      showToast(
+        err?.message || "Could not download 3rd Party Authorization PDF.",
+        "error"
+      );
     } finally {
       setDownloadingThirdPartyId(null);
     }
@@ -1296,7 +1426,10 @@ Please find attached invoice PDF.`;
       }));
     } catch (err: any) {
       console.error("WhatsApp invoice preparation failed:", err);
-      alert(err?.message || "Could not prepare invoice for WhatsApp.");
+      showToast(
+        err?.message || "Could not prepare invoice for WhatsApp.",
+        "error"
+      );
     } finally {
       setSendingWhatsAppGirviId(null);
     }
@@ -1307,7 +1440,7 @@ Please find attached invoice PDF.`;
     const data = preparedShareData[rowKey];
 
     if (!data) {
-      alert("Share data is not ready yet.");
+      showToast("Share data is not ready yet.", "error");
       return;
     }
 
@@ -1342,14 +1475,19 @@ Please find attached invoice PDF.`;
       : `https://wa.me/?text=${encodeURIComponent(message)}`;
 
     window.open(whatsappUrl, "_blank");
-    alert(
-      "PDF downloaded. If WhatsApp does not attach the PDF automatically, please attach the downloaded PDF manually."
+    showToast(
+      "PDF downloaded. If WhatsApp does not attach the PDF automatically, please attach the downloaded PDF manually.",
+      "success"
     );
   }
 
   function formatCurrency(value: number | string | undefined) {
     if (value === undefined || value === null || value === "") return "₹0";
-    return `₹${Number(value).toLocaleString("en-IN")}`;
+
+    return `₹${Number(value).toLocaleString("en-IN", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    })}`;
   }
 
   function formatDate(date?: string) {
@@ -1370,18 +1508,21 @@ Please find attached invoice PDF.`;
     const s = status?.toLowerCase();
 
     if (s === "active") return "bg-green-50 text-green-700 border-green-100";
-    if (s === "duetoday") return "bg-yellow-50 text-yellow-700 border-yellow-100";
+    if (s === "duetoday")
+      return "bg-yellow-50 text-yellow-700 border-yellow-100";
     if (s === "due") return "bg-yellow-50 text-yellow-700 border-yellow-100";
     if (s === "overdue") return "bg-red-50 text-red-700 border-red-100";
-    if (s === "partial_released") return "bg-blue-50 text-blue-700 border-blue-100";
-    if (s === "released") return "bg-indigo-50 text-indigo-700 border-indigo-100";
+    if (s === "partial_released")
+      return "bg-blue-50 text-blue-700 border-blue-100";
+    if (s === "released")
+      return "bg-indigo-50 text-indigo-700 border-indigo-100";
     if (s === "closed") return "bg-gray-100 text-gray-600 border-gray-200";
 
     return "bg-purple-50 text-purple-700 border-purple-100";
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f5f7] font-sans">
+    <div className="min-h-screen bg-[#f4f5f7] font-sans relative">
       <div className="hidden lg:flex min-h-screen">
         <DealerSidebar isAdminView={isAdminView} />
 
@@ -1422,6 +1563,7 @@ Please find attached invoice PDF.`;
               formatCount={formatCount}
               getStatusClass={getStatusClass}
               openEditModal={openEditModal}
+              goToTimeline={goToTimeline}
               handleRenewGirvi={handleRenewGirvi}
               downloadGirviInvoicePdf={downloadGirviInvoicePdf}
               downloadingPdfGirviId={downloadingPdfGirviId}
@@ -1540,6 +1682,7 @@ Please find attached invoice PDF.`;
             formatCount={formatCount}
             getStatusClass={getStatusClass}
             openEditModal={openEditModal}
+            goToTimeline={goToTimeline}
             handleRenewGirvi={handleRenewGirvi}
             downloadGirviInvoicePdf={downloadGirviInvoicePdf}
             downloadingPdfGirviId={downloadingPdfGirviId}
@@ -1598,7 +1741,9 @@ Please find attached invoice PDF.`;
                 </label>
                 <select
                   value={exportFilters.customerId}
-                  onChange={(e) => setExportFilters({ ...exportFilters, customerId: e.target.value })}
+                  onChange={(e) =>
+                    setExportFilters({ ...exportFilters, customerId: e.target.value })
+                  }
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-indigo-600 text-sm font-medium transition bg-gray-50/30 text-gray-800"
                 >
                   <option value="ALL">All Customers</option>
@@ -1618,7 +1763,9 @@ Please find attached invoice PDF.`;
                   <input
                     type="date"
                     value={exportFilters.startDate}
-                    onChange={(e) => setExportFilters({ ...exportFilters, startDate: e.target.value })}
+                    onChange={(e) =>
+                      setExportFilters({ ...exportFilters, startDate: e.target.value })
+                    }
                     className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-indigo-600 text-sm font-medium transition bg-gray-50/30 text-gray-800"
                   />
                 </div>
@@ -1630,7 +1777,9 @@ Please find attached invoice PDF.`;
                   <input
                     type="date"
                     value={exportFilters.endDate}
-                    onChange={(e) => setExportFilters({ ...exportFilters, endDate: e.target.value })}
+                    onChange={(e) =>
+                      setExportFilters({ ...exportFilters, endDate: e.target.value })
+                    }
                     className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-indigo-600 text-sm font-medium transition bg-gray-50/30 text-gray-800"
                   />
                 </div>
@@ -1689,11 +1838,11 @@ Please find attached invoice PDF.`;
 
       {/* PHOTO PREVIEW MODAL */}
       {selectedPhotoUrl && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[999] flex items-center justify-center p-4 animate-in fade-in duration-200"
           onClick={() => setSelectedPhotoUrl(null)}
         >
-          <div 
+          <div
             className="bg-white rounded-[24px] shadow-2xl max-w-lg w-full overflow-hidden border border-gray-100 animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
@@ -1702,7 +1851,7 @@ Please find attached invoice PDF.`;
                 <FaImage className="text-[#4820C5]" />
                 <h3>{selectedPhotoTitle}</h3>
               </div>
-              
+
               <button
                 type="button"
                 onClick={() => setSelectedPhotoUrl(null)}
@@ -1736,6 +1885,9 @@ Please find attached invoice PDF.`;
           </div>
         </div>
       )}
+
+      {/* --- CUSTOM TOAST NOTIFICATION COMPONENT --- */}
+      <Toast toast={toast} onClose={() => setToast(null)} />
     </div>
   );
 }
@@ -1757,6 +1909,7 @@ function RecordsPanel({
   formatCount,
   getStatusClass,
   openEditModal,
+  goToTimeline,
   handleRenewGirvi,
   downloadGirviInvoicePdf,
   downloadingPdfGirviId,
@@ -1864,12 +2017,19 @@ function RecordsPanel({
                       {imageSrc ? (
                         <button
                           type="button"
-                          onClick={() => openPhotoModal(imageSrc, `${getDisplayItemName(item)} - Photo`)}
+                          onClick={() =>
+                            openPhotoModal(
+                              imageSrc,
+                              `${getDisplayItemName(item)} - Photo`
+                            )
+                          }
                           className="w-14 h-14 rounded-2xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-[#4820C5] flex flex-col items-center justify-center gap-1 transition-all shadow-sm hover:scale-105 active:scale-95 group"
                           title="Click to view item photo"
                         >
                           <FaCamera className="text-lg group-hover:scale-110 transition-transform" />
-                          <span className="text-[9px] font-extrabold tracking-tight">View Photo</span>
+                          <span className="text-[9px] font-extrabold tracking-tight">
+                            View Photo
+                          </span>
                         </button>
                       ) : (
                         <PhotoPlaceholder size="sm" />
@@ -1886,17 +2046,11 @@ function RecordsPanel({
 
                       <div className="mt-3">
                         <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">
-                          Item
+                          Item(s)
                         </p>
                         <p className="font-bold text-gray-900 text-sm leading-snug break-words">
                           {getDisplayItemName(item)}
                         </p>
-
-                        {item.items && item.items.length > 1 && (
-                          <p className="text-[11px] text-purple-600 font-bold mt-1">
-                            + {item.items.length - 1} more item(s)
-                          </p>
-                        )}
                       </div>
                     </div>
 
@@ -2002,11 +2156,11 @@ function RecordsPanel({
 
                         <button
                           type="button"
-                          onClick={() => handleRenewGirvi(item.id)}
-                          className="w-full bg-green-50 hover:bg-green-100 text-[#28A745] px-2 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition"
+                          onClick={() => goToTimeline(item.id)}
+                          className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 px-2 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition"
                         >
-                          <FaSyncAlt className="text-[10px]" />
-                          Renew
+                          <FaHistory className="text-[11px]" />
+                          Timeline
                         </button>
 
                         <button
@@ -2112,7 +2266,7 @@ function MobileRecordsPanel({
   formatCount,
   getStatusClass,
   openEditModal,
-  handleRenewGirvi,
+  goToTimeline,
   downloadGirviInvoicePdf,
   downloadingPdfGirviId,
   downloadThirdPartyAuthPdf,
@@ -2185,12 +2339,19 @@ function MobileRecordsPanel({
                 {imageSrc ? (
                   <button
                     type="button"
-                    onClick={() => openPhotoModal(imageSrc, `${getDisplayItemName(item)} - Photo`)}
+                    onClick={() =>
+                      openPhotoModal(
+                        imageSrc,
+                        `${getDisplayItemName(item)} - Photo`
+                      )
+                    }
                     className="w-16 h-16 rounded-2xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-[#4820C5] flex flex-col items-center justify-center gap-1 shrink-0 transition-all shadow-sm active:scale-95 group"
                     title="Click to view item photo"
                   >
                     <FaCamera className="text-lg group-hover:scale-110 transition-transform" />
-                    <span className="text-[9px] font-extrabold tracking-tight">View Photo</span>
+                    <span className="text-[9px] font-extrabold tracking-tight">
+                      View Photo
+                    </span>
                   </button>
                 ) : (
                   <PhotoPlaceholder size="lg" />
@@ -2246,12 +2407,6 @@ function MobileRecordsPanel({
 
                     <p>Gross: {formatWeight(getDisplayGrossWeight(item))}</p>
                     <p>Less: {formatWeight(getDisplayLessWeight(item))}</p>
-
-                    {item.items && item.items.length > 1 && (
-                      <p className="text-purple-600 font-bold">
-                        Items: {item.items.length}
-                      </p>
-                    )}
                   </div>
                 </div>
               </div>
@@ -2288,11 +2443,11 @@ function MobileRecordsPanel({
 
                 <button
                   type="button"
-                  onClick={() => handleRenewGirvi(item.id)}
-                  className="bg-[#28A745]/5 hover:bg-[#28A745]/10 text-[#28A745] py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition"
+                  onClick={() => goToTimeline(item.id)}
+                  className="bg-blue-50 hover:bg-blue-100 text-blue-700 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition"
                 >
-                  <FaSyncAlt className="text-[10px]" />
-                  Renew
+                  <FaHistory className="text-[11px]" />
+                  Timeline
                 </button>
 
                 <button
@@ -2349,12 +2504,17 @@ function MobileRecordsPanel({
                     type="button"
                     onClick={() => downloadThirdPartyAuthPdf(item)}
                     disabled={isThirdPartyLoading}
-                    className="w-full bg-orange-50 hover:bg-orange-100 text-orange-700 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400"
+                    className="w-full mt-1 bg-orange-50 hover:bg-orange-100 text-orange-700 px-2 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400"
                   >
                     {isThirdPartyLoading ? (
-                      <><FaDownload className="animate-pulse" /> Loading...</>
+                      <>
+                        <FaDownload className="animate-pulse" /> Loading...
+                      </>
                     ) : (
-                      <><FaFileSignature className="text-xs" /> 3rd Party Auth Only</>
+                      <>
+                        <FaFileSignature className="text-xs" /> 3rd Party Auth
+                        Only
+                      </>
                     )}
                   </button>
                 </div>
@@ -2397,13 +2557,19 @@ function EditModal({
     0
   );
 
+  // RULE 3: If Girvi is closed, lock absolutely everything
+  const isGirviClosed =
+    String(selectedGirvi?.status || "").toUpperCase() === "CLOSED";
+
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999] flex items-center justify-center p-4 animate-fade-in">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[92vh] flex flex-col border border-gray-100">
         <div className="bg-[#4820C5] text-white px-6 py-5 flex items-center justify-between sticky top-0 z-10">
           <div>
             <h2 className="text-lg font-bold tracking-tight">
-              Modify Girvi Entry
+              {isGirviClosed
+                ? "View Girvi Entry (Closed)"
+                : "Modify Girvi Entry"}
             </h2>
             <p className="text-xs opacity-80 font-medium mt-0.5">
               Customer Account: {selectedGirvi.customerName}
@@ -2420,18 +2586,38 @@ function EditModal({
         </div>
 
         <div className="p-6 space-y-5 overflow-y-auto flex-1">
+          {isGirviClosed && (
+            <div className="bg-red-50 text-red-700 p-3 rounded-xl border border-red-100 text-sm font-bold text-center">
+              This Girvi account is CLOSED. Records cannot be modified.
+            </div>
+          )}
+
           <div>
             <h3 className="text-sm font-black text-gray-900">
               Item Details ({editItems?.length || 0})
             </h3>
             <p className="text-xs text-gray-400 font-semibold mt-0.5">
-              Edit all pledged items in this Girvi.
+              {isGirviClosed
+                ? "Viewing pledged items."
+                : "Only item statuses can be modified."}
             </p>
           </div>
 
           {editItems.map((item: GirviItemEditForm, index: number) => {
             const rowValue =
               Number(item.netWeightGram || 0) * Number(item.ratePerGram || 0);
+
+            // RULE 2: Find the original item from backend to see if it was ALREADY released
+            const originalItem = selectedGirvi?.items?.find(
+              (i: any) => i.id === item.id
+            );
+            const originallyReleased =
+              String(
+                originalItem?.status || selectedGirvi?.status || ""
+              ).toUpperCase() === "RELEASED";
+
+            // Disable status if Girvi is closed OR if this specific item is already released
+            const disableStatusDropdown = isGirviClosed || originallyReleased;
 
             return (
               <div
@@ -2453,6 +2639,7 @@ function EditModal({
                 <EditInput
                   label="Item Component Name"
                   value={item.itemName}
+                  disabled={true} // RULE 1: Disabled
                   onChange={(value: string) =>
                     updateEditItem(index, "itemName", value)
                   }
@@ -2463,6 +2650,7 @@ function EditModal({
                     label="No.Pc Count"
                     type="number"
                     value={item.itemCount}
+                    disabled={true} // RULE 1: Disabled
                     onChange={(value: string) =>
                       updateEditItem(index, "itemCount", value)
                     }
@@ -2470,6 +2658,7 @@ function EditModal({
 
                   <EditItemTypeSelect
                     value={item.itemType}
+                    disabled={true} // RULE 1: Disabled
                     onChange={(value: string) =>
                       updateEditItem(index, "itemType", value)
                     }
@@ -2477,6 +2666,7 @@ function EditModal({
 
                   <EditStatusSelect
                     value={item.status || "ACTIVE"}
+                    disabled={disableStatusDropdown} // RULE 2 applied
                     onChange={(value: string) =>
                       updateEditItem(index, "status", value)
                     }
@@ -2486,6 +2676,7 @@ function EditModal({
                 {String(item.itemType || "").toLowerCase() === "gold" && (
                   <EditKaratSelect
                     value={item.goldKarat}
+                    disabled={true} // RULE 1: Disabled
                     onChange={(value: string) =>
                       updateEditItem(index, "goldKarat", value)
                     }
@@ -2497,6 +2688,7 @@ function EditModal({
                     label="Gross Weight (Gram)"
                     type="number"
                     value={item.itemWeightGram}
+                    disabled={true} // RULE 1: Disabled
                     onChange={(value: string) =>
                       updateEditItem(index, "itemWeightGram", value)
                     }
@@ -2506,6 +2698,7 @@ function EditModal({
                     label="Less Weight (Gram)"
                     type="number"
                     value={item.lessWeightGram}
+                    disabled={true} // RULE 1: Disabled
                     onChange={(value: string) =>
                       updateEditItem(index, "lessWeightGram", value)
                     }
@@ -2517,6 +2710,7 @@ function EditModal({
                     label="Net Weight (Gram)"
                     type="number"
                     value={item.netWeightGram}
+                    disabled={true} // RULE 1: Disabled
                     onChange={(value: string) =>
                       updateEditItem(index, "netWeightGram", value)
                     }
@@ -2526,6 +2720,7 @@ function EditModal({
                     label="Rate Specification per Gram"
                     type="number"
                     value={item.ratePerGram}
+                    disabled={true} // RULE 1: Disabled
                     onChange={(value: string) =>
                       updateEditItem(index, "ratePerGram", value)
                     }
@@ -2544,49 +2739,149 @@ function EditModal({
             );
           })}
 
-          <EditInput
-            label="Actual Loan Amount"
-            type="number"
-            value={editForm.actualLoanAmount}
-            onChange={(value: string) =>
-              updateEditForm("actualLoanAmount", value)
-            }
-          />
+          <div className="mt-6 pt-6 border-t border-gray-100">
+            <h3 className="text-sm font-black text-gray-900 mb-4">
+              Record Payment / Transaction
+            </h3>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <EditInput
+                label="Principal Paid (₹)"
+                type="number"
+                value={editForm.principalPaid}
+                disabled={isGirviClosed}
+                onChange={(value: string) =>
+                  updateEditForm("principalPaid", value)
+                }
+              />
+
+              <EditInput
+                label="Interest Paid (₹)"
+                type="number"
+                value={editForm.interestPaid}
+                disabled={isGirviClosed}
+                onChange={(value: string) =>
+                  updateEditForm("interestPaid", value)
+                }
+              />
+            </div>
+
+            <div className="mt-4">
+              <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">
+                Transaction Remarks
+              </label>
+              <input
+                type="text"
+                value={editForm.transactionRemarks}
+                disabled={isGirviClosed}
+                onChange={(e) =>
+                  updateEditForm("transactionRemarks", e.target.value)
+                }
+                className={`w-full border border-gray-200 rounded-xl px-4 py-3 outline-none text-sm font-medium transition ${
+                  isGirviClosed
+                    ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                    : "focus:border-[#4820C5] bg-gray-50/30 text-gray-800"
+                }`}
+                placeholder="E.g., Partial principal recovery"
+              />
+            </div>
+
+            <div
+              className={`mt-4 flex items-start gap-3 p-4 rounded-xl border ${
+                isGirviClosed
+                  ? "bg-gray-100 border-gray-200"
+                  : "bg-red-50 border-red-100"
+              }`}
+            >
+              <input
+                type="checkbox"
+                id="closeGirviCheckbox"
+                checked={editForm.closeGirvi}
+                disabled={isGirviClosed}
+                onChange={(e) => updateEditForm("closeGirvi", e.target.checked)}
+                className={`w-5 h-5 accent-red-600 rounded mt-0.5 ${
+                  isGirviClosed
+                    ? "cursor-not-allowed opacity-60"
+                    : "cursor-pointer"
+                }`}
+              />
+              <label
+                htmlFor="closeGirviCheckbox"
+                className={`text-sm font-bold flex-1 ${
+                  isGirviClosed
+                    ? "text-gray-500 cursor-not-allowed"
+                    : "text-red-700 cursor-pointer"
+                }`}
+              >
+                Close Girvi Account
+                <p
+                  className={`text-xs font-medium mt-1 ${
+                    isGirviClosed ? "text-gray-400" : "text-red-500"
+                  }`}
+                >
+                  This will set outstanding principal to zero and require all
+                  items to be released.
+                </p>
+              </label>
+            </div>
+          </div>
+
+          <div className="mt-6 pt-6 border-t border-gray-100">
+            <h3 className="text-sm font-black text-gray-900 mb-4">
+              Loan Terms
+            </h3>
             <EditInput
-              label="Interest Fee Percent (%)"
+              label="Outstanding Actual Loan Amount (₹)"
               type="number"
-              value={editForm.interestRate}
+              value={editForm.actualLoanAmount}
+              disabled={isGirviClosed}
               onChange={(value: string) =>
-                updateEditForm("interestRate", value)
+                updateEditForm("actualLoanAmount", value)
               }
             />
 
-            <EditInput
-              label="Settlement Maturity Date"
-              type="date"
-              value={editForm.maturityDate}
-              onChange={(value: string) =>
-                updateEditForm("maturityDate", value)
-              }
-            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+              <EditInput
+                label="Interest Fee Percent (%)"
+                type="number"
+                value={editForm.interestRate}
+                disabled={isGirviClosed}
+                onChange={(value: string) =>
+                  updateEditForm("interestRate", value)
+                }
+              />
+
+              <EditInput
+                label="Settlement Maturity Date"
+                type="date"
+                value={editForm.maturityDate}
+                disabled={isGirviClosed}
+                onChange={(value: string) =>
+                  updateEditForm("maturityDate", value)
+                }
+              />
+            </div>
+
+            <div className="mt-4">
+              <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">
+                Internal Log Remarks
+              </label>
+              <textarea
+                value={editForm.remarks}
+                disabled={isGirviClosed}
+                onChange={(e) => updateEditForm("remarks", e.target.value)}
+                rows={3}
+                className={`w-full border border-gray-200 rounded-xl px-4 py-3 outline-none text-sm resize-none transition ${
+                  isGirviClosed
+                    ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                    : "focus:border-[#4820C5] bg-gray-50/30 text-gray-800"
+                }`}
+                placeholder="Add auxiliary log remarks here..."
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">
-              Internal Log Remarks
-            </label>
-            <textarea
-              value={editForm.remarks}
-              onChange={(e) => updateEditForm("remarks", e.target.value)}
-              rows={3}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#4820C5] text-sm resize-none transition bg-gray-50/30"
-              placeholder="Add auxiliary transactional remarks here..."
-            />
-          </div>
-
-          <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 flex justify-between items-center">
+          <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 flex justify-between items-center mt-6">
             <div>
               <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">
                 Recalculated Total Item Value
@@ -2595,7 +2890,7 @@ function EditModal({
                 {formatCurrency(totalItemValue)}
               </p>
               <p className="text-xs text-gray-500 mt-1">
-                Actual Loan:{" "}
+                Outstanding Loan:{" "}
                 <span className="font-bold text-gray-700">
                   {formatCurrency(editForm.actualLoanAmount)}
                 </span>
@@ -2614,17 +2909,19 @@ function EditModal({
             onClick={close}
             className="flex-1 bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 py-3.5 rounded-xl font-bold text-sm transition order-2 sm:order-1"
           >
-            Cancel Dismiss
+            {isGirviClosed ? "Close View" : "Cancel Dismiss"}
           </button>
 
-          <button
-            type="button"
-            onClick={submitUpdateGirvi}
-            disabled={updating}
-            className="flex-1 bg-[#4820C5] hover:bg-[#3917a3] text-white py-3.5 rounded-xl font-bold text-sm disabled:bg-gray-400 transition shadow-md shadow-purple-100 order-1 sm:order-2"
-          >
-            {updating ? "Updating Record..." : "Confirm & Save changes"}
-          </button>
+          {!isGirviClosed && (
+            <button
+              type="button"
+              onClick={submitUpdateGirvi}
+              disabled={updating}
+              className="flex-1 bg-[#4820C5] hover:bg-[#3917a3] text-white py-3.5 rounded-xl font-bold text-sm disabled:bg-gray-400 transition shadow-md shadow-purple-100 order-1 sm:order-2"
+            >
+              {updating ? "Updating Record..." : "Confirm & Save changes"}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -2636,11 +2933,13 @@ function EditInput({
   value,
   onChange,
   type = "text",
+  disabled = false,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   type?: string;
+  disabled?: boolean;
 }) {
   return (
     <div>
@@ -2650,8 +2949,13 @@ function EditInput({
       <input
         type={type}
         value={value}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#4820C5] text-sm font-medium transition bg-gray-50/30 text-gray-800"
+        className={`w-full border border-gray-200 rounded-xl px-4 py-3 outline-none text-sm font-medium transition ${
+          disabled
+            ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+            : "focus:border-[#4820C5] bg-gray-50/30 text-gray-800"
+        }`}
         placeholder={label}
       />
     </div>
@@ -2661,20 +2965,26 @@ function EditInput({
 function EditItemTypeSelect({
   value,
   onChange,
+  disabled = false,
 }: {
   value: string;
   onChange: (value: string) => void;
+  disabled?: boolean;
 }) {
   return (
     <div>
       <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">
         Item Type
       </label>
-
       <select
         value={String(value || "GOLD").toUpperCase()}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#4820C5] text-sm font-medium transition bg-gray-50/30 text-gray-800"
+        disabled={disabled}
+        className={`w-full border border-gray-200 rounded-xl px-4 py-3 outline-none text-sm font-medium transition ${
+          disabled
+            ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+            : "focus:border-[#4820C5] bg-gray-50/30 text-gray-800"
+        }`}
       >
         <option value="GOLD">Gold</option>
         <option value="SILVER">Silver</option>
@@ -2686,20 +2996,26 @@ function EditItemTypeSelect({
 function EditStatusSelect({
   value,
   onChange,
+  disabled = false,
 }: {
   value: string;
   onChange: (value: string) => void;
+  disabled?: boolean;
 }) {
   return (
     <div>
       <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">
         Status
       </label>
-
       <select
         value={String(value || "ACTIVE").toUpperCase()}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#4820C5] text-sm font-medium transition bg-gray-50/30 text-gray-800"
+        disabled={disabled}
+        className={`w-full border border-gray-200 rounded-xl px-4 py-3 outline-none text-sm font-medium transition ${
+          disabled
+            ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+            : "focus:border-[#4820C5] bg-gray-50/30 text-gray-800"
+        }`}
       >
         <option value="ACTIVE">Active</option>
         <option value="RELEASED">Released</option>
@@ -2711,9 +3027,11 @@ function EditStatusSelect({
 function EditKaratSelect({
   value,
   onChange,
+  disabled = false,
 }: {
   value: string;
   onChange: (value: string) => void;
+  disabled?: boolean;
 }) {
   const options = Array.from({ length: 16 }, (_, i) => `${i + 9}K`);
 
@@ -2722,11 +3040,15 @@ function EditKaratSelect({
       <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">
         Gold Karat
       </label>
-
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#4820C5] text-sm font-medium transition bg-gray-50/30 text-gray-800"
+        disabled={disabled}
+        className={`w-full border border-gray-200 rounded-xl px-4 py-3 outline-none text-sm font-medium transition ${
+          disabled
+            ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+            : "focus:border-[#4820C5] bg-gray-50/30 text-gray-800"
+        }`}
       >
         <option value="">Select Gold Karat</option>
         {options.map((karat) => (
@@ -2867,6 +3189,59 @@ function Pagination({
             Next
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// --- CUSTOM TOAST COMPONENT ---
+function Toast({
+  toast,
+  onClose,
+}: {
+  toast: { message: string; type: string } | null;
+  onClose: () => void;
+}) {
+  if (!toast) return null;
+
+  const bgColor =
+    toast.type === "success"
+      ? "bg-green-50 border-green-200"
+      : toast.type === "error"
+      ? "bg-red-50 border-red-200"
+      : "bg-blue-50 border-blue-200";
+
+  const textColor =
+    toast.type === "success"
+      ? "text-green-800"
+      : toast.type === "error"
+      ? "text-red-800"
+      : "text-blue-800";
+
+  const Icon =
+    toast.type === "success"
+      ? FaCheck
+      : toast.type === "error"
+      ? FaTimes
+      : FaBox;
+
+  return (
+    <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[99999] animate-in slide-in-from-top-4 fade-in duration-300">
+      <div
+        className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl border shadow-xl ${bgColor}`}
+      >
+        <div
+          className={`flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-sm ${textColor}`}
+        >
+          <Icon className="text-sm" />
+        </div>
+        <p className={`text-sm font-bold ${textColor}`}>{toast.message}</p>
+        <button
+          onClick={onClose}
+          className={`ml-3 opacity-60 hover:opacity-100 transition ${textColor}`}
+        >
+          <FaTimes />
+        </button>
       </div>
     </div>
   );
