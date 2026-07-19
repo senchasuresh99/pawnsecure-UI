@@ -15,7 +15,8 @@ import {
   FaBolt,
   FaInfoCircle,
   FaTimes,
-  FaBox
+  FaBox,
+  FaCheck
 } from "react-icons/fa";
 import DealerSidebar from "../dealer/DealerSidebar";
 import MobileDealerSidebar from "../dealer/MobileDealerSidebar";
