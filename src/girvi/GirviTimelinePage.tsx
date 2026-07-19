@@ -1,6 +1,20 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { FaArrowLeft, FaHistory, FaCalendarAlt, FaCoins, FaCheck, FaTimes, FaBox } from "react-icons/fa";
+import {
+  FaArrowLeft,
+  FaUniversity,
+  FaPercentage,
+  FaWallet,
+  FaGem,
+  FaCheckCircle,
+  FaDownload,
+  FaPrint,
+  FaRegUser,
+  FaPhoneAlt,
+  FaRegCalendarAlt,
+  FaBolt,
+  FaInfoCircle,
+} from "react-icons/fa";
 import DealerSidebar from "../dealer/DealerSidebar";
 import MobileDealerSidebar from "../dealer/MobileDealerSidebar";
 import DealerMobileBottomNav from "../dealer/DealerMobileBottomNav";
@@ -19,6 +33,16 @@ type TimelineEvent = {
   transactionDate: string;
 };
 
+type GirviItemDTO = {
+  id?: number;
+  itemName?: string;
+  itemType?: string;
+  itemWeightGram?: number;
+  ratePerGram?: number;
+  itemValue?: number;
+  status?: string;
+};
+
 type TimelineResponse = {
   girviId: number;
   customerId: number;
@@ -33,6 +57,9 @@ type TimelineResponse = {
   status: string;
   totalItems: number;
   timeline: TimelineEvent[];
+  // Assuming the backend might attach items later. If not, we'll handle it gracefully.
+  items?: GirviItemDTO[]; 
+  remarks?: string;
 };
 
 export default function GirviTimelinePage() {
@@ -42,22 +69,6 @@ export default function GirviTimelinePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
-
-  // --- TOAST STATE ---
-  const [toast, setToast] = useState<{
-    message: string;
-    type: "success" | "error" | "info";
-  } | null>(null);
-
-  function showToast(
-    message: string,
-    type: "success" | "error" | "info" = "info"
-  ) {
-    setToast({ message, type });
-    setTimeout(() => {
-      setToast(null);
-    }, 3500);
-  }
 
   const token = localStorage.getItem("ps_token");
   const dealerId = localStorage.getItem("ps_dealer_id");
@@ -85,7 +96,6 @@ export default function GirviTimelinePage() {
         setData(json);
       } catch (err: any) {
         setError(err.message || "Something went wrong.");
-        showToast(err.message || "Something went wrong.", "error");
       } finally {
         setLoading(false);
       }
@@ -94,171 +104,492 @@ export default function GirviTimelinePage() {
     fetchTimeline();
   }, [girviId, token, dealerId]);
 
-  const formatCurrency = (val: number) =>
-    `₹${Number(val || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+  const formatCurrency = (val: number | undefined) =>
+    `₹ ${Number(val || 0).toLocaleString("en-IN", {
+      maximumFractionDigits: 2,
+    })}`;
 
-  const formatDate = (dateStr: string) =>
-    dateStr ? new Date(dateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-";
+  const formatDate = (dateStr: string | undefined) => {
+    if (!dateStr) return "-";
+    return new Date(dateStr).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  const formatTime = (dateStr: string | undefined) => {
+    if (!dateStr) return "-";
+    return new Date(dateStr).toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  // Calculate totals from timeline
+  const totalInterestPaid = data?.timeline?.reduce((acc, ev) => acc + (ev.interestPaid || 0), 0) || 0;
+  const totalPrincipalPaid = data?.timeline?.reduce((acc, ev) => acc + (ev.principalPaid || 0), 0) || 0;
 
   return (
-    <div className="min-h-screen bg-[#f4f5f7] font-sans relative">
+    <div className="min-h-screen bg-[#f4f6f8] font-sans">
       <div className="hidden lg:flex min-h-screen">
         <DealerSidebar isAdminView={false} />
-        <main className="ml-64 flex-1 flex flex-col p-6 xl:p-8 max-w-[1400px] w-full mx-auto">
+        <main className="ml-64 flex-1 flex flex-col p-6 max-w-[1200px] w-full mx-auto">
           {renderHeader()}
           {renderContent()}
         </main>
       </div>
 
       <div className="lg:hidden min-h-screen pb-32">
-        <MobileDealerSidebar 
-          open={showMobileSidebar} 
-          onClose={() => setShowMobileSidebar(false)} 
+        <MobileDealerSidebar
+          open={showMobileSidebar}
+          onClose={() => setShowMobileSidebar(false)}
           isAdminView={false}
           dealerName={dealerName}
           dealerId={dealerId || "-"}
         />
         <header className="h-16 bg-white border-b px-4 flex items-center justify-between sticky top-0 z-30">
-          <button onClick={() => setShowMobileSidebar(true)} className="text-xl">☰</button>
-          <h2 className="font-bold text-gray-900">Asset Ledger Logs</h2>
-          <button onClick={() => navigate(-1)}><FaArrowLeft /></button>
+          <button onClick={() => setShowMobileSidebar(true)} className="text-xl">
+            ☰
+          </button>
+          <h2 className="font-bold text-gray-900">Metro Map</h2>
+          <button onClick={() => navigate(-1)}>
+            <FaArrowLeft />
+          </button>
         </header>
-        <div className="p-4">{renderContent()}</div>
+        <div className="p-4 space-y-4">
+          {renderHeaderMobile()}
+          {renderContent()}
+        </div>
         <DealerMobileBottomNav active="girvi" isAdminView={false} />
       </div>
-
-      {/* --- CUSTOM TOAST NOTIFICATION COMPONENT --- */}
-      <Toast toast={toast} onClose={() => setToast(null)} />
     </div>
   );
 
   function renderHeader() {
     return (
-      <div className="bg-gradient-to-br from-purple-800 to-indigo-600 text-white rounded-3xl p-6 mb-6 flex justify-between items-center shadow-md">
-        <div>
-          <p className="text-xs uppercase font-bold opacity-75 tracking-wider">Audit History</p>
-          <h1 className="text-2xl font-black mt-1">Girvi Lifecycle Token</h1>
+      <div className="mb-6">
+        <div className="text-xs text-gray-500 font-medium mb-3">
+          Dashboard {">"} Girvi List {">"} Girvi Details {">"} <span className="text-gray-900 font-bold">Metro Map</span>
         </div>
-        <button
-          onClick={() => navigate(-1)}
-          className="bg-white/20 hover:bg-white/30 text-white px-4 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition"
-        >
-          <FaArrowLeft /> Back
-        </button>
+        <div className="flex justify-between items-start">
+          <div>
+            <div className="flex items-center gap-4 mb-1">
+              <button
+                onClick={() => navigate(-1)}
+                className="text-gray-600 hover:text-gray-900 transition"
+              >
+                <FaArrowLeft className="text-xl" />
+              </button>
+              <h1 className="text-2xl font-bold text-gray-900">Girvi Metro Map</h1>
+              {data && (
+                <span className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-wider ${
+                  data.status === "ACTIVE" ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-700"
+                }`}>
+                  {data.status}
+                </span>
+              )}
+            </div>
+            {data && (
+              <div className="text-sm text-gray-500 ml-9 border-l-2 pl-3 border-gray-300">
+                Girvi ID: GV-2026-{data.girviId} <span className="mx-2">|</span> Invoice: INV-{data.girviId}
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <button className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-50 transition shadow-sm">
+              <FaDownload /> Download Report
+            </button>
+            <button className="flex items-center gap-2 bg-[#1a233a] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#2c3859] transition shadow-sm">
+              <FaPrint /> Print
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderHeaderMobile() {
+    return (
+      <div>
+        <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2 mb-2">
+          Girvi Metro Map
+        </h1>
+        {data && (
+          <div className="text-xs text-gray-500">
+            Girvi ID: GV-2026-{data.girviId} <br /> Invoice: INV-{data.girviId}
+          </div>
+        )}
       </div>
     );
   }
 
   function renderContent() {
-    if (loading) return <div className="text-center py-20 text-sm font-semibold text-gray-500"><div className="w-8 h-8 border-3 border-[#4820C5] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>Syncing audit entries...</div>;
-    if (error) return <div className="bg-red-50 text-red-600 border rounded-2xl p-4 text-sm font-semibold">{error}</div>;
+    if (loading)
+      return (
+        <div className="text-center py-20 text-sm font-semibold text-gray-500">
+          <div className="w-8 h-8 border-3 border-[#4820C5] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+          Syncing audit entries...
+        </div>
+      );
+    if (error)
+      return (
+        <div className="bg-red-50 text-red-600 border rounded-2xl p-4 text-sm font-semibold">
+          {error}
+        </div>
+      );
     if (!data) return null;
 
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        {/* Loan Master Metadata Summary */}
-        <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm space-y-4">
-          <h3 className="font-black text-gray-900 text-base border-b pb-2 flex items-center gap-2">
-            <FaCoins className="text-purple-600" /> Contract Summary
-          </h3>
-          <div className="grid grid-cols-2 gap-4 text-xs font-semibold">
-            <div>
-              <p className="text-gray-400 uppercase tracking-wider text-[10px]">Customer</p>
-              <p className="text-gray-800 text-sm font-bold truncate">{data.customerName}</p>
-            </div>
-            <div>
-              <p className="text-gray-400 uppercase tracking-wider text-[10px]">Mobile</p>
-              <p className="text-gray-800 text-sm font-bold">{data.customerMobile || "-"}</p>
-            </div>
-            <div>
-              <p className="text-gray-400 uppercase tracking-wider text-[10px]">Principal Loan</p>
-              <p className="text-green-600 text-sm font-black">{formatCurrency(data.totalLoanAmount)}</p>
-            </div>
-            <div>
-              <p className="text-gray-400 uppercase tracking-wider text-[10px]">Outstanding Owed</p>
-              <p className="text-red-600 text-sm font-black">{formatCurrency(data.outstandingLoanAmount)}</p>
-            </div>
-            <div>
-              <p className="text-gray-400 uppercase tracking-wider text-[10px]">Contract Date</p>
-              <p className="text-gray-700 font-bold">{formatDate(data.girviDate)}</p>
-            </div>
-            <div>
-              <p className="text-gray-400 uppercase tracking-wider text-[10px]">Maturity Threshold</p>
-              <p className="text-gray-700 font-bold">{formatDate(data.maturityDate)}</p>
-            </div>
-          </div>
-          <div className="pt-2">
-            <span className="inline-block px-3 py-1 rounded-full text-xs font-extrabold bg-purple-50 text-purple-700 border border-purple-100 uppercase tracking-wide">
-              {data.status}
-            </span>
-          </div>
-        </div>
-
-        {/* Dynamic Metric Tree Grid Vertical Stepper */}
-        <div className="lg:col-span-2 bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
-          <h3 className="font-black text-gray-900 text-base mb-6 flex items-center gap-2">
-            <FaHistory className="text-purple-600" /> Step Sequence Activity Log
-          </h3>
+      <div className="space-y-6">
+        {/* --- TOP SECTION: LATEST DETAILS --- */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-6">Girvi Latest Details</h3>
           
-          <div className="relative border-l-2 border-gray-200 ml-4 space-y-8">
-            {data.timeline.map((event, idx) => (
-              <div key={event.transactionId || idx} className="relative pl-6">
-                {/* Visual Connector Stepper Circle Dot */}
-                <div className="absolute -left-[7px] top-1.5 w-3 h-3 rounded-full bg-purple-600 ring-4 ring-purple-100 z-10" />
-                
-                <div className="border rounded-2xl p-4 shadow-2xl bg-white hover:border-purple-200 transition-all">
-                  <div className="flex justify-between items-start flex-wrap gap-2">
-                    <div>
-                      <h4 className="font-black text-gray-900 text-sm leading-tight">{event.title}</h4>
-                      <p className="text-xs text-gray-400 font-bold flex items-center gap-1 mt-1">
-                        <FaCalendarAlt /> {new Date(event.transactionDate).toLocaleString("en-IN")}
-                      </p>
-                    </div>
-                    <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-0.5 rounded-md border">
-                      TXN #{event.transactionId}
-                    </span>
-                  </div>
+          <div className="grid grid-cols-1 md:grid-cols-[250px_1fr] gap-8">
+            
+            {/* Left Side: Customer & Loan Info */}
+            <div className="space-y-5">
+              <DetailRow icon={<FaRegUser />} label="Customer Name" value={data.customerName} />
+              <DetailRow icon={<FaPhoneAlt />} label="Mobile Number" value={data.customerMobile || "-"} />
+              <DetailRow icon={<FaRegCalendarAlt />} label="Girvi Date" value={formatDate(data.girviDate)} />
+              <DetailRow icon={<FaRegCalendarAlt />} label="Maturity Date" value={formatDate(data.maturityDate)} />
+              <DetailRow icon={<FaPercentage />} label="Interest Rate" value={`${data.interestRate}% (Per Month)`} />
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 shrink-0">
+                  <FaBolt />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 font-medium mb-1">Status</p>
+                  <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider ${
+                    data.status === "ACTIVE" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
+                  }`}>
+                    {data.status}
+                  </span>
+                </div>
+              </div>
+            </div>
 
-                  {event.description && (
-                    <p className="text-xs text-gray-500 font-medium italic mt-2 bg-gray-50 p-2 rounded-xl border border-gray-100">
-                      "{event.description}"
-                    </p>
-                  )}
+            {/* Right Side: Metrics & Table */}
+            <div>
+              {/* Metric Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                <MetricCard 
+                  title="Outstanding Principal" 
+                  value={formatCurrency(data.outstandingLoanAmount)} 
+                  subtext="(After Last Transaction)" 
+                  icon={<FaWallet className="text-blue-500" />} 
+                  borderColor="border-blue-200" 
+                  bgColor="bg-blue-50/50" 
+                  textColor="text-blue-900"
+                />
+                <MetricCard 
+                  title="Total Interest Paid" 
+                  value={formatCurrency(totalInterestPaid)} 
+                  subtext="(Till Date)" 
+                  icon={<FaPercentage className="text-green-500" />} 
+                  borderColor="border-green-200" 
+                  bgColor="bg-green-50/50" 
+                  textColor="text-green-900"
+                />
+                <MetricCard 
+                  title="Total Paid (Principal)" 
+                  value={formatCurrency(totalPrincipalPaid)} 
+                  subtext="(Till Date)" 
+                  icon={<FaWallet className="text-orange-500" />} 
+                  borderColor="border-orange-200" 
+                  bgColor="bg-orange-50/50" 
+                  textColor="text-orange-900"
+                />
+              </div>
 
-                  {/* Operational Ledger Data Summary block */}
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-4 text-[11px] font-bold">
-                    {event.interestPaid > 0 && (
-                      <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-2">
-                        <span className="text-blue-500 block text-[9px] uppercase tracking-wider">Interest Collected</span>
-                        <span className="text-blue-700 text-xs font-black">{formatCurrency(event.interestPaid)}</span>
-                      </div>
-                    )}
-                    {event.principalPaid > 0 && (
-                      <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-2">
-                        <span className="text-emerald-500 block text-[9px] uppercase tracking-wider">Principal Collected</span>
-                        <span className="text-emerald-700 text-xs font-black">{formatCurrency(event.principalPaid)}</span>
-                      </div>
-                    )}
-                    {event.releasedItemIds && (
-                      <div className="bg-orange-50/50 border border-orange-100 rounded-xl p-2 col-span-2 md:col-span-1">
-                        <span className="text-orange-500 block text-[9px] uppercase tracking-wider">Released Item IDs</span>
-                        <span className="text-orange-700 truncate block text-xs">{event.releasedItemIds}</span>
-                      </div>
-                    )}
-                    <div className="bg-gray-50 border rounded-xl p-2 col-span-2 md:col-span-3 flex justify-between items-center mt-1">
-                      <span className="text-gray-400 text-[10px] uppercase">Outstanding Loan Balance</span>
-                      <span className="text-gray-900 font-black text-sm">
-                        {formatCurrency(event.principalBefore)} → {formatCurrency(event.principalAfter)}
-                      </span>
-                    </div>
+              {/* Simple Text Summary */}
+              <div className="grid grid-cols-3 gap-4 mb-6 border-b border-gray-100 pb-6">
+                <div>
+                  <p className="text-xs text-gray-500 font-medium mb-1">Actual Loan Amount</p>
+                  <p className="font-bold text-gray-900">{formatCurrency(data.totalLoanAmount)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 font-medium mb-1">Calculated Loan Amount (Based on items)</p>
+                  <p className="font-bold text-gray-900">{formatCurrency(data.totalLoanAmount)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 font-medium mb-1">Remarks</p>
+                  <p className="font-medium text-gray-800 text-sm truncate">{data.remarks || "-"}</p>
+                </div>
+              </div>
+
+              {/* Items Summary Table */}
+              <div>
+                <h4 className="text-sm font-bold text-gray-900 mb-3">Current Items Summary</h4>
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-gray-50 text-gray-600 font-semibold text-xs border-b border-gray-200">
+                      <tr>
+                        <th className="px-4 py-3">Item Name</th>
+                        <th className="px-4 py-3">Type</th>
+                        <th className="px-4 py-3">Weight (Gram)</th>
+                        <th className="px-4 py-3">Rate/Gram</th>
+                        <th className="px-4 py-3">Item Value</th>
+                        <th className="px-4 py-3 text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {data.items && data.items.length > 0 ? (
+                        data.items.map((item, idx) => (
+                          <tr key={idx} className="hover:bg-gray-50/50 transition">
+                            <td className="px-4 py-3 font-medium text-gray-900 flex items-center gap-2">
+                              <FaGem className={item.itemType?.toUpperCase() === 'GOLD' ? 'text-yellow-500' : 'text-gray-400'} /> 
+                              {item.itemName || "Item"}
+                            </td>
+                            <td className="px-4 py-3 text-gray-600">{item.itemType?.toUpperCase() || "GOLD"}</td>
+                            <td className="px-4 py-3 text-gray-600">{item.itemWeightGram?.toFixed(3) || "0.000"}</td>
+                            <td className="px-4 py-3 text-gray-600">{formatCurrency(item.ratePerGram)}</td>
+                            <td className="px-4 py-3 font-medium text-gray-900">{formatCurrency(item.itemValue)}</td>
+                            <td className="px-4 py-3 text-center">
+                              <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider ${
+                                item.status === "ACTIVE" ? "text-green-600 bg-green-50" : "text-gray-500 bg-gray-100"
+                              }`}>
+                                {item.status || "ACTIVE"}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={6} className="px-4 py-6 text-center text-gray-400 text-xs italic">
+                            Detailed item breakdown not currently available.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                  <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex justify-center gap-6 text-xs text-gray-600 font-medium">
+                    <span>Active Items Value: <span className="font-bold text-gray-900">{formatCurrency(data.totalLoanAmount)}</span></span>
+                    <span className="text-gray-300">|</span>
+                    <span>Released Items Value: <span className="font-bold text-gray-900">₹ 0</span></span>
+                    <span className="text-gray-300">|</span>
+                    <span>Total Items Value: <span className="font-bold text-gray-900">{formatCurrency(data.totalLoanAmount)}</span></span>
                   </div>
                 </div>
               </div>
-            ))}
+
+            </div>
+          </div>
+        </div>
+
+        {/* --- BOTTOM SECTION: TIMELINE --- */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+          <div className="flex justify-between items-center mb-10">
+            <h3 className="text-lg font-bold text-gray-900">Girvi Metro Map (Timeline)</h3>
+            <span className="text-xs text-gray-500 font-medium">All amounts in ₹</span>
+          </div>
+
+          <div className="relative pl-[100px] md:pl-[140px] pb-10">
+            {/* The continuous vertical line */}
+            <div className="absolute left-[89px] md:left-[129px] top-6 bottom-0 w-0.5 bg-gray-300 z-0"></div>
+
+            <div className="space-y-10">
+              {data.timeline.map((event, idx) => {
+                const config = getEventConfig(event.transactionType);
+                
+                return (
+                  <div key={event.transactionId || idx} className="relative flex items-start">
+                    
+                    {/* Left: Date & Time Stacked */}
+                    <div className="absolute left-[-100px] md:left-[-140px] w-[70px] md:w-[100px] text-right mt-1">
+                      <div className={`font-bold text-[13px] ${config.textColor}`}>{formatDate(event.transactionDate)}</div>
+                      <div className="text-[11px] text-gray-500 font-medium mt-0.5">{formatTime(event.transactionDate)}</div>
+                    </div>
+
+                    {/* Center: The Metro Node Icon */}
+                    <div className={`absolute -left-5 z-10 w-10 h-10 rounded-full flex items-center justify-center text-white shadow-md ring-4 ring-white ${config.bgColor}`}>
+                      {config.icon}
+                    </div>
+
+                    {/* Right: The Content Card */}
+                    <div className="w-full pl-10">
+                      <div className="border border-gray-200 rounded-xl p-5 hover:shadow-md transition bg-white relative">
+                        
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                          
+                          {/* Title & Desc */}
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-1">
+                              <h4 className="text-base font-bold text-gray-900">{event.title}</h4>
+                              {event.transactionType === 'ITEM_RELEASE' && (
+                                <span className="bg-purple-100 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded">
+                                  {event.releasedItemIds ? event.releasedItemIds.split(',').length : 1} Item
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-500 leading-relaxed">{event.description}</p>
+                          </div>
+
+                          {/* Specific Metric Block based on Type */}
+                          <div className="flex items-center gap-6 shrink-0">
+                            {renderEventMetric(event, config.textColor)}
+                            
+                            {/* Outstanding Badge */}
+                            <div className={`rounded-lg px-4 py-2 border ${config.lightBg} ${config.borderColor}`}>
+                              <p className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 ${config.textColor}`}>Outstanding Principal</p>
+                              <p className={`text-sm font-black ${config.textColor}`}>{formatCurrency(event.principalAfter)}</p>
+                            </div>
+                          </div>
+
+                        </div>
+
+                        {/* Optional Sub-table for Item Releases */}
+                        {event.transactionType === 'ITEM_RELEASE' && event.releasedItemIds && data.items && (
+                          <div className="mt-4 border border-gray-100 rounded-lg overflow-hidden">
+                            <table className="w-full text-left text-xs">
+                              <thead className="bg-gray-50 text-gray-500 font-semibold border-b border-gray-100">
+                                <tr>
+                                  <th className="px-3 py-2">Released Item</th>
+                                  <th className="px-3 py-2">Type</th>
+                                  <th className="px-3 py-2">Weight (Gram)</th>
+                                  <th className="px-3 py-2">Rate/Gram</th>
+                                  <th className="px-3 py-2">Item Value</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-50">
+                                {data.items.filter(i => event.releasedItemIds.includes(String(i.id))).map((item, idxx) => (
+                                  <tr key={idxx}>
+                                    <td className="px-3 py-2 font-medium flex items-center gap-2">
+                                      <FaGem className="text-yellow-500" /> {item.itemName}
+                                    </td>
+                                    <td className="px-3 py-2">{item.itemType}</td>
+                                    <td className="px-3 py-2">{item.itemWeightGram}</td>
+                                    <td className="px-3 py-2">{formatCurrency(item.ratePerGram)}</td>
+                                    <td className="px-3 py-2 font-medium">{formatCurrency(item.itemValue)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+
+                      </div>
+                    </div>
+
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-3 flex items-start gap-2 text-xs text-gray-600">
+            <FaInfoCircle className="text-blue-500 mt-0.5 shrink-0" />
+            <p><strong>Note:</strong> Interest is calculated on outstanding principal at the given rate of {data.interestRate}% per month.</p>
+          </div>
+        </div>
+
+      </div>
+    );
+  }
+
+  // --- HELPER COMPONENTS FOR TIMELINE ---
+
+  function DetailRow({ icon, label, value }: { icon: any, label: string, value: string }) {
+    return (
+      <div className="flex items-start gap-4">
+        <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 shrink-0 text-lg">
+          {icon}
+        </div>
+        <div>
+          <p className="text-xs text-gray-500 font-medium mb-0.5">{label}</p>
+          <p className="text-sm font-bold text-gray-900">{value}</p>
+        </div>
+      </div>
+    );
+  }
+
+  function MetricCard({ title, value, subtext, icon, borderColor, bgColor, textColor }: any) {
+    return (
+      <div className={`border rounded-xl p-4 flex flex-col justify-between ${borderColor}`}>
+        <div>
+          <p className={`text-[11px] font-bold uppercase tracking-wider mb-1 ${textColor}`}>{title}</p>
+          <p className="text-xl font-black text-gray-900">{value}</p>
+        </div>
+        <div className="flex justify-between items-end mt-2">
+          <p className="text-[10px] text-gray-500 font-medium">{subtext}</p>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-lg ${bgColor}`}>
+            {icon}
           </div>
         </div>
       </div>
     );
+  }
+
+  function getEventConfig(type: string) {
+    switch (type) {
+      case "CREATE": 
+        return { bgColor: "bg-blue-600", textColor: "text-blue-600", lightBg: "bg-blue-50", borderColor: "border-blue-100", icon: <FaUniversity className="text-lg" /> };
+      case "INTEREST_PAYMENT": 
+        return { bgColor: "bg-green-500", textColor: "text-green-600", lightBg: "bg-green-50", borderColor: "border-green-100", icon: <FaPercentage className="text-lg" /> };
+      case "PRINCIPAL_PAYMENT": 
+      case "INTEREST_AND_PRINCIPAL_PAYMENT": 
+        return { bgColor: "bg-orange-500", textColor: "text-orange-600", lightBg: "bg-orange-50", borderColor: "border-orange-100", icon: <FaWallet className="text-lg" /> };
+      case "ITEM_RELEASE": 
+        return { bgColor: "bg-purple-500", textColor: "text-purple-600", lightBg: "bg-purple-50", borderColor: "border-purple-100", icon: <FaGem className="text-lg" /> };
+      case "GIRVI_CLOSED": 
+        return { bgColor: "bg-red-500", textColor: "text-red-600", lightBg: "bg-red-50", borderColor: "border-red-100", icon: <FaCheckCircle className="text-lg" /> };
+      default: 
+        return { bgColor: "bg-gray-500", textColor: "text-gray-600", lightBg: "bg-gray-50", borderColor: "border-gray-100", icon: <FaCheckCircle className="text-lg" /> };
+    }
+  }
+
+  function renderEventMetric(event: TimelineEvent, colorClass: string) {
+    if (event.transactionType === "CREATE") {
+      return (
+        <div className="text-right border-r border-gray-100 pr-6 mr-2">
+          <p className="text-[11px] text-gray-500 font-medium mb-0.5">Loan Provided (Actual)</p>
+          <p className={`text-base font-black ${colorClass}`}>{formatCurrency(event.principalBefore)}</p>
+        </div>
+      );
+    }
+    if (event.transactionType === "INTEREST_PAYMENT") {
+      return (
+        <div className="text-right border-r border-gray-100 pr-6 mr-2">
+          <p className="text-[11px] text-gray-500 font-medium mb-0.5">Interest Paid</p>
+          <p className={`text-base font-black ${colorClass}`}>{formatCurrency(event.interestPaid)}</p>
+        </div>
+      );
+    }
+    if (event.transactionType === "PRINCIPAL_PAYMENT" || event.transactionType === "INTEREST_AND_PRINCIPAL_PAYMENT") {
+      return (
+        <div className="flex gap-6 border-r border-gray-100 pr-6 mr-2">
+          {event.interestPaid > 0 && (
+            <div className="text-right">
+              <p className="text-[11px] text-gray-500 font-medium mb-0.5">Interest Paid</p>
+              <p className="text-base font-black text-green-600">{formatCurrency(event.interestPaid)}</p>
+            </div>
+          )}
+          <div className="text-right">
+            <p className="text-[11px] text-gray-500 font-medium mb-0.5">Principal Paid</p>
+            <p className={`text-base font-black ${colorClass}`}>{formatCurrency(event.principalPaid)}</p>
+          </div>
+        </div>
+      );
+    }
+    if (event.transactionType === "ITEM_RELEASE") {
+      return (
+        <div className="text-right border-r border-gray-100 pr-6 mr-2">
+          <p className="text-[11px] text-gray-500 font-medium mb-0.5">Principal Paid</p>
+          <p className={`text-base font-black ${colorClass}`}>{formatCurrency(event.principalPaid)}</p>
+        </div>
+      );
+    }
+    if (event.transactionType === "GIRVI_CLOSED") {
+      return (
+        <div className="text-right border-r border-gray-100 pr-6 mr-2">
+          <p className="text-[11px] text-gray-500 font-medium mb-0.5">Total Paid</p>
+          <p className={`text-base font-black ${colorClass}`}>{formatCurrency(event.principalPaid + event.interestPaid)}</p>
+        </div>
+      );
+    }
+    return null;
   }
 }
 
@@ -288,10 +619,10 @@ function Toast({
 
   const Icon =
     toast.type === "success"
-      ? FaCheck
+      ? FaCheckCircle
       : toast.type === "error"
       ? FaTimes
-      : FaBox;
+      : FaInfoCircle;
 
   return (
     <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[99999] animate-in slide-in-from-top-4 fade-in duration-300">
