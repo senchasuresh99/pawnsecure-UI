@@ -66,7 +66,7 @@ type TimelineResponse = {
 export default function GirviTimelinePage() {
   const { girviId } = useParams<{ girviId: string }>();
   const navigate = useNavigate();
-  const location = useLocation(); // Used to grab items from GirviList
+  const location = useLocation(); 
   
   const [data, setData] = useState<TimelineResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -144,9 +144,16 @@ export default function GirviTimelinePage() {
     });
   };
 
-  // Calculate totals
+  // --- FIXED CALCULATIONS ---
   const totalInterestPaid = data?.timeline?.reduce((acc, ev) => acc + (ev.interestPaid || 0), 0) || 0;
-  const totalPrincipalPaid = data?.timeline?.reduce((acc, ev) => acc + (ev.principalPaid || 0), 0) || 0;
+  
+  // Filter out item releases and raw closures so it only accumulates true cash principal payments
+  const totalPrincipalPaid = data?.timeline?.reduce((acc, ev) => {
+    if (ev.transactionType === "PRINCIPAL_PAYMENT" || ev.transactionType === "INTEREST_AND_PRINCIPAL_PAYMENT") {
+      return acc + (ev.principalPaid || 0);
+    }
+    return acc;
+  }, 0) || 0;
   
   const activeItemsValue = passedItems.filter(i => String(i.status).toUpperCase() === 'ACTIVE').reduce((acc, i) => acc + (i.itemValue || 0), 0);
   const releasedItemsValue = passedItems.filter(i => String(i.status).toUpperCase() === 'RELEASED').reduce((acc, i) => acc + (i.itemValue || 0), 0);
@@ -600,7 +607,7 @@ export default function GirviTimelinePage() {
       return (
         <div className="text-right border-r border-gray-100 pr-6 mr-2">
           <p className="text-[11px] text-gray-500 font-medium mb-0.5">Item Value</p>
-          <p className={`text-base font-black ${colorClass}`}>{formatCurrency(event.principalPaid)}</p>
+          <p className={`text-base font-black ${colorClass}`}>{formatCurrency(event.principalPaid || 0)}</p>
         </div>
       );
     }
@@ -644,7 +651,7 @@ function Toast({
       ? FaCheck
       : toast.type === "error"
       ? FaTimes
-      : FaBox;
+      : FaInfoCircle;
 
   return (
     <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[99999] animate-in slide-in-from-top-4 fade-in duration-300">
