@@ -2223,15 +2223,9 @@ function RecordsPanel({
                             className="w-full mt-1 bg-orange-50 hover:bg-orange-100 text-orange-700 px-2 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400"
                           >
                             {isThirdPartyLoading ? (
-                              <>
-                                <FaDownload className="animate-pulse" />{" "}
-                                Loading...
-                              </>
+                              <><FaDownload className="animate-pulse" /> Loading...</>
                             ) : (
-                              <>
-                                <FaFileSignature className="text-xs" /> 3rd
-                                Party Auth Only
-                              </>
+                              <><FaFileSignature className="text-xs" /> 3rd Party Auth Only</>
                             )}
                           </button>
                         </div>
@@ -2471,7 +2465,7 @@ function MobileRecordsPanel({
                       PDF...
                     </>
                   ) : (
-                    <>
+                     <>
                       <FaFileInvoice className="text-xs" />
                       PDF
                     </>
@@ -2571,16 +2565,16 @@ function EditModal({
     String(selectedGirvi?.status || "").toUpperCase() === "CLOSED";
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999] flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[92vh] flex flex-col border border-gray-100">
-        <div className="bg-[#4820C5] text-white px-6 py-5 flex items-center justify-between sticky top-0 z-10">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999] flex items-center justify-center p-4 sm:p-6 animate-fade-in">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden max-h-[95vh] flex flex-col">
+        <div className="bg-[#4820C5] text-white px-5 py-4 flex items-center justify-between sticky top-0 z-10 shrink-0">
           <div>
-            <h2 className="text-lg font-bold tracking-tight">
+            <h2 className="text-base sm:text-lg font-bold tracking-tight">
               {isGirviClosed
                 ? "View Girvi Entry (Closed)"
                 : "Modify Girvi Entry"}
             </h2>
-            <p className="text-xs opacity-80 font-medium mt-0.5">
+            <p className="text-[11px] sm:text-xs opacity-80 font-medium mt-0.5">
               Customer Account: {selectedGirvi.customerName}
             </p>
           </div>
@@ -2588,15 +2582,15 @@ function EditModal({
           <button
             type="button"
             onClick={close}
-            className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition"
+            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition"
           >
             <FaTimes />
           </button>
         </div>
 
-        <div className="p-6 space-y-5 overflow-y-auto flex-1">
+        <div className="p-5 md:p-6 space-y-6 overflow-y-auto flex-1">
           {isGirviClosed && (
-            <div className="bg-red-50 text-red-700 p-3 rounded-xl border border-red-100 text-sm font-bold text-center">
+            <div className="bg-red-50 text-red-700 p-2.5 rounded-lg border border-red-100 text-xs font-bold text-center">
               This Girvi account is CLOSED. Records cannot be modified.
             </div>
           )}
@@ -2605,7 +2599,7 @@ function EditModal({
             <h3 className="text-sm font-black text-gray-900">
               Item Details ({editItems?.length || 0})
             </h3>
-            <p className="text-xs text-gray-400 font-semibold mt-0.5">
+            <p className="text-[11px] text-gray-400 font-semibold mt-0.5">
               {isGirviClosed
                 ? "Viewing pledged items."
                 : "Only item statuses can be modified."}
@@ -2616,7 +2610,6 @@ function EditModal({
             const rowValue =
               Number(item.netWeightGram || 0) * Number(item.ratePerGram || 0);
 
-            // RULE 2: Find the original item from backend to see if it was ALREADY released
             const originalItem = selectedGirvi?.items?.find(
               (i: any) => i.id === item.id
             );
@@ -2625,41 +2618,43 @@ function EditModal({
                 originalItem?.status || selectedGirvi?.status || ""
               ).toUpperCase() === "RELEASED";
 
-            // Disable status if Girvi is closed OR if this specific item is already released
             const disableStatusDropdown = isGirviClosed || originallyReleased;
+            const isGold = String(item.itemType || "").toLowerCase() === "gold";
 
             return (
               <div
                 key={item.id || index}
-                className="border border-gray-100 rounded-2xl p-4 bg-gray-50/40 space-y-4"
+                className="border border-gray-200 rounded-xl p-4 bg-gray-50/30 space-y-3"
               >
-                <div className="flex items-center justify-between">
-                  <h4 className="font-extrabold text-gray-800 text-sm">
+                <div className="flex items-center justify-between mb-1">
+                  <h4 className="font-bold text-gray-800 text-sm">
                     Item {index + 1}
                   </h4>
 
                   {item.id && (
-                    <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-1 rounded-full">
+                    <span className="text-[10px] font-bold text-gray-500 bg-gray-200 px-2 py-0.5 rounded">
                       ID: {item.id}
                     </span>
                   )}
                 </div>
 
-                <EditInput
-                  label="Item Component Name"
-                  value={item.itemName}
-                  disabled={true} // RULE 1: Disabled
-                  onChange={(value: string) =>
-                    updateEditItem(index, "itemName", value)
-                  }
-                />
+                <div className="col-span-full">
+                  <EditInput
+                    label="Item Component Name"
+                    value={item.itemName}
+                    disabled={true} 
+                    onChange={(value: string) =>
+                      updateEditItem(index, "itemName", value)
+                    }
+                  />
+                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <EditInput
                     label="No.Pc Count"
                     type="number"
                     value={item.itemCount}
-                    disabled={true} // RULE 1: Disabled
+                    disabled={true}
                     onChange={(value: string) =>
                       updateEditItem(index, "itemCount", value)
                     }
@@ -2667,7 +2662,7 @@ function EditModal({
 
                   <EditItemTypeSelect
                     value={item.itemType}
-                    disabled={true} // RULE 1: Disabled
+                    disabled={true}
                     onChange={(value: string) =>
                       updateEditItem(index, "itemType", value)
                     }
@@ -2675,29 +2670,29 @@ function EditModal({
 
                   <EditStatusSelect
                     value={item.status || "ACTIVE"}
-                    disabled={disableStatusDropdown} // RULE 2 applied
+                    disabled={disableStatusDropdown}
                     onChange={(value: string) =>
                       updateEditItem(index, "status", value)
                     }
                   />
+
+                  {isGold && (
+                    <EditKaratSelect
+                      value={item.goldKarat}
+                      disabled={true}
+                      onChange={(value: string) =>
+                        updateEditItem(index, "goldKarat", value)
+                      }
+                    />
+                  )}
                 </div>
 
-                {String(item.itemType || "").toLowerCase() === "gold" && (
-                  <EditKaratSelect
-                    value={item.goldKarat}
-                    disabled={true} // RULE 1: Disabled
-                    onChange={(value: string) =>
-                      updateEditItem(index, "goldKarat", value)
-                    }
-                  />
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <EditInput
                     label="Gross Weight (Gram)"
                     type="number"
                     value={item.itemWeightGram}
-                    disabled={true} // RULE 1: Disabled
+                    disabled={true}
                     onChange={(value: string) =>
                       updateEditItem(index, "itemWeightGram", value)
                     }
@@ -2707,53 +2702,47 @@ function EditModal({
                     label="Less Weight (Gram)"
                     type="number"
                     value={item.lessWeightGram}
-                    disabled={true} // RULE 1: Disabled
+                    disabled={true}
                     onChange={(value: string) =>
                       updateEditItem(index, "lessWeightGram", value)
                     }
                   />
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <EditInput
                     label="Net Weight (Gram)"
                     type="number"
                     value={item.netWeightGram}
-                    disabled={true} // RULE 1: Disabled
+                    disabled={true}
                     onChange={(value: string) =>
                       updateEditItem(index, "netWeightGram", value)
                     }
                   />
 
                   <EditInput
-                    label="Rate Specification per Gram"
+                    label="Rate per Gram"
                     type="number"
                     value={item.ratePerGram}
-                    disabled={true} // RULE 1: Disabled
+                    disabled={true}
                     onChange={(value: string) =>
                       updateEditItem(index, "ratePerGram", value)
                     }
                   />
                 </div>
 
-                <div className="bg-green-50 border border-green-100 rounded-xl p-3">
-                  <p className="text-[10px] font-black text-green-700 uppercase">
-                    Item Value
-                  </p>
-                  <p className="text-lg font-black text-green-700">
-                    {formatCurrency(rowValue)}
-                  </p>
+                <div className="flex items-center gap-2 text-green-700 font-bold text-sm bg-green-50 px-3 py-1.5 rounded-lg border border-green-100 w-max">
+                  <span className="text-[10px] uppercase text-green-600">Item Value</span>
+                  {formatCurrency(rowValue)}
                 </div>
               </div>
             );
           })}
 
-          <div className="mt-6 pt-6 border-t border-gray-100">
-            <h3 className="text-sm font-black text-gray-900 mb-4">
+          <div className="pt-4 border-t border-gray-100 space-y-4">
+            <h3 className="text-sm font-black text-gray-900">
               Record Payment / Transaction
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <EditInput
                 label="Principal Paid (₹)"
                 type="number"
@@ -2775,28 +2764,17 @@ function EditModal({
               />
             </div>
 
-            <div className="mt-4">
-              <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">
-                Transaction Remarks
-              </label>
-              <input
-                type="text"
-                value={editForm.transactionRemarks}
-                disabled={isGirviClosed}
-                onChange={(e) =>
-                  updateEditForm("transactionRemarks", e.target.value)
-                }
-                className={`w-full border border-gray-200 rounded-xl px-4 py-3 outline-none text-sm font-medium transition ${
-                  isGirviClosed
-                    ? "bg-gray-100 text-gray-500 cursor-not-allowed"
-                    : "focus:border-[#4820C5] bg-gray-50/30 text-gray-800"
-                }`}
-                placeholder="E.g., Partial principal recovery"
-              />
-            </div>
+            <EditInput
+              label="Transaction Remarks"
+              value={editForm.transactionRemarks}
+              disabled={isGirviClosed}
+              onChange={(value: string) =>
+                updateEditForm("transactionRemarks", value)
+              }
+            />
 
             <div
-              className={`mt-4 flex items-start gap-3 p-4 rounded-xl border ${
+              className={`flex items-start gap-3 p-3 rounded-lg border ${
                 isGirviClosed
                   ? "bg-gray-100 border-gray-200"
                   : "bg-red-50 border-red-100"
@@ -2808,50 +2786,42 @@ function EditModal({
                 checked={editForm.closeGirvi}
                 disabled={isGirviClosed}
                 onChange={(e) => updateEditForm("closeGirvi", e.target.checked)}
-                className={`w-5 h-5 accent-red-600 rounded mt-0.5 ${
-                  isGirviClosed
-                    ? "cursor-not-allowed opacity-60"
-                    : "cursor-pointer"
+                className={`w-4 h-4 accent-red-600 rounded mt-0.5 ${
+                  isGirviClosed ? "cursor-not-allowed opacity-60" : "cursor-pointer"
                 }`}
               />
               <label
                 htmlFor="closeGirviCheckbox"
-                className={`text-sm font-bold flex-1 ${
+                className={`text-xs font-bold flex-1 leading-tight ${
                   isGirviClosed
                     ? "text-gray-500 cursor-not-allowed"
                     : "text-red-700 cursor-pointer"
                 }`}
               >
                 Close Girvi Account
-                <p
-                  className={`text-xs font-medium mt-1 ${
-                    isGirviClosed ? "text-gray-400" : "text-red-500"
-                  }`}
-                >
-                  This will set outstanding principal to zero and require all
-                  items to be released.
-                </p>
+                <span className={`block text-[10px] font-medium mt-0.5 ${isGirviClosed ? "text-gray-400" : "text-red-500"}`}>
+                  This sets outstanding principal to zero and requires all items to be released.
+                </span>
               </label>
             </div>
           </div>
 
-          <div className="mt-6 pt-6 border-t border-gray-100">
-            <h3 className="text-sm font-black text-gray-900 mb-4">
-              Loan Terms
-            </h3>
-            <EditInput
-              label="Outstanding Actual Loan Amount (₹)"
-              type="number"
-              value={editForm.actualLoanAmount}
-              disabled={isGirviClosed}
-              onChange={(value: string) =>
-                updateEditForm("actualLoanAmount", value)
-              }
-            />
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+          <div className="pt-4 border-t border-gray-100 space-y-3">
+            <h3 className="text-sm font-black text-gray-900">Loan Terms</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <EditInput
-                label="Interest Fee Percent (%)"
+                label="Outstanding Loan (₹)"
+                type="number"
+                value={editForm.actualLoanAmount}
+                disabled={isGirviClosed}
+                onChange={(value: string) =>
+                  updateEditForm("actualLoanAmount", value)
+                }
+              />
+
+              <EditInput
+                label="Interest Fee (%)"
                 type="number"
                 value={editForm.interestRate}
                 disabled={isGirviClosed}
@@ -2861,7 +2831,7 @@ function EditModal({
               />
 
               <EditInput
-                label="Settlement Maturity Date"
+                label="Maturity Date"
                 type="date"
                 value={editForm.maturityDate}
                 disabled={isGirviClosed}
@@ -2871,54 +2841,46 @@ function EditModal({
               />
             </div>
 
-            <div className="mt-4">
-              <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">
+            <div>
+              <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">
                 Internal Log Remarks
               </label>
               <textarea
                 value={editForm.remarks}
                 disabled={isGirviClosed}
                 onChange={(e) => updateEditForm("remarks", e.target.value)}
-                rows={3}
-                className={`w-full border border-gray-200 rounded-xl px-4 py-3 outline-none text-sm resize-none transition ${
-                  isGirviClosed
-                    ? "bg-gray-100 text-gray-500 cursor-not-allowed"
-                    : "focus:border-[#4820C5] bg-gray-50/30 text-gray-800"
+                rows={2}
+                className={`w-full border border-gray-300 rounded-lg px-3 py-2 outline-none text-sm resize-none transition focus:border-[#4820C5] focus:ring-1 focus:ring-[#4820C5] ${
+                  isGirviClosed ? "bg-gray-100 text-gray-500 cursor-not-allowed" : "bg-white text-gray-800"
                 }`}
-                placeholder="Add auxiliary log remarks here..."
+                placeholder="Log remarks..."
               />
             </div>
           </div>
 
-          <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 flex justify-between items-center mt-6">
+          <div className="bg-gray-50 rounded-xl p-3 border border-gray-200 flex justify-between items-center">
             <div>
-              <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">
-                Recalculated Total Item Value
-              </p>
-              <p className="text-2xl font-black text-green-600 mt-0.5">
+              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Total Item Value</p>
+              <p className="text-lg font-black text-green-700 leading-tight">
                 {formatCurrency(totalItemValue)}
               </p>
-              <p className="text-xs text-gray-500 mt-1">
-                Outstanding Loan:{" "}
-                <span className="font-bold text-gray-700">
-                  {formatCurrency(editForm.actualLoanAmount)}
-                </span>
-              </p>
             </div>
-
-            <div className="w-10 h-10 rounded-xl bg-green-50 text-green-600 flex items-center justify-center">
-              <FaRupeeSign className="text-base" />
+            <div className="text-right">
+              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Outstanding Loan</p>
+              <p className="text-lg font-black text-gray-900 leading-tight">
+                {formatCurrency(editForm.actualLoanAmount)}
+              </p>
             </div>
           </div>
         </div>
 
-        <div className="p-5 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row gap-3">
+        <div className="p-4 border-t border-gray-100 bg-gray-50 flex gap-3 shrink-0">
           <button
             type="button"
             onClick={close}
-            className="flex-1 bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 py-3.5 rounded-xl font-bold text-sm transition order-2 sm:order-1"
+            className="flex-1 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 py-2.5 rounded-lg font-bold text-sm transition"
           >
-            {isGirviClosed ? "Close View" : "Cancel Dismiss"}
+            {isGirviClosed ? "Close View" : "Cancel"}
           </button>
 
           {!isGirviClosed && (
@@ -2926,9 +2888,9 @@ function EditModal({
               type="button"
               onClick={submitUpdateGirvi}
               disabled={updating}
-              className="flex-1 bg-[#4820C5] hover:bg-[#3917a3] text-white py-3.5 rounded-xl font-bold text-sm disabled:bg-gray-400 transition shadow-md shadow-purple-100 order-1 sm:order-2"
+              className="flex-1 bg-[#4820C5] hover:bg-[#3917a3] text-white py-2.5 rounded-lg font-bold text-sm disabled:bg-gray-400 transition shadow-sm"
             >
-              {updating ? "Updating Record..." : "Confirm & Save changes"}
+              {updating ? "Saving..." : "Confirm & Save changes"}
             </button>
           )}
         </div>
@@ -2952,7 +2914,7 @@ function EditInput({
 }) {
   return (
     <div>
-      <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">
+      <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">
         {label}
       </label>
       <input
@@ -2960,10 +2922,8 @@ function EditInput({
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className={`w-full border border-gray-200 rounded-xl px-4 py-3 outline-none text-sm font-medium transition ${
-          disabled
-            ? "bg-gray-100 text-gray-500 cursor-not-allowed"
-            : "focus:border-[#4820C5] bg-gray-50/30 text-gray-800"
+        className={`w-full border border-gray-300 rounded-lg px-3 py-2 outline-none text-sm font-medium transition focus:border-[#4820C5] focus:ring-1 focus:ring-[#4820C5] ${
+          disabled ? "bg-gray-100 text-gray-500 cursor-not-allowed" : "bg-white text-gray-800"
         }`}
         placeholder={label}
       />
@@ -2982,17 +2942,15 @@ function EditItemTypeSelect({
 }) {
   return (
     <div>
-      <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">
+      <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">
         Item Type
       </label>
       <select
         value={String(value || "GOLD").toUpperCase()}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className={`w-full border border-gray-200 rounded-xl px-4 py-3 outline-none text-sm font-medium transition ${
-          disabled
-            ? "bg-gray-100 text-gray-500 cursor-not-allowed"
-            : "focus:border-[#4820C5] bg-gray-50/30 text-gray-800"
+        className={`w-full border border-gray-300 rounded-lg px-3 py-2 outline-none text-sm font-medium transition focus:border-[#4820C5] focus:ring-1 focus:ring-[#4820C5] ${
+          disabled ? "bg-gray-100 text-gray-500 cursor-not-allowed" : "bg-white text-gray-800"
         }`}
       >
         <option value="GOLD">Gold</option>
@@ -3013,17 +2971,15 @@ function EditStatusSelect({
 }) {
   return (
     <div>
-      <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">
+      <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">
         Status
       </label>
       <select
         value={String(value || "ACTIVE").toUpperCase()}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className={`w-full border border-gray-200 rounded-xl px-4 py-3 outline-none text-sm font-medium transition ${
-          disabled
-            ? "bg-gray-100 text-gray-500 cursor-not-allowed"
-            : "focus:border-[#4820C5] bg-gray-50/30 text-gray-800"
+        className={`w-full border border-gray-300 rounded-lg px-3 py-2 outline-none text-sm font-medium transition focus:border-[#4820C5] focus:ring-1 focus:ring-[#4820C5] ${
+          disabled ? "bg-gray-100 text-gray-500 cursor-not-allowed" : "bg-white text-gray-800"
         }`}
       >
         <option value="ACTIVE">Active</option>
@@ -3046,20 +3002,18 @@ function EditKaratSelect({
 
   return (
     <div>
-      <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">
+      <label className="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">
         Gold Karat
       </label>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className={`w-full border border-gray-200 rounded-xl px-4 py-3 outline-none text-sm font-medium transition ${
-          disabled
-            ? "bg-gray-100 text-gray-500 cursor-not-allowed"
-            : "focus:border-[#4820C5] bg-gray-50/30 text-gray-800"
+        className={`w-full border border-gray-300 rounded-lg px-3 py-2 outline-none text-sm font-medium transition focus:border-[#4820C5] focus:ring-1 focus:ring-[#4820C5] ${
+          disabled ? "bg-gray-100 text-gray-500 cursor-not-allowed" : "bg-white text-gray-800"
         }`}
       >
-        <option value="">Select Gold Karat</option>
+        <option value="">Select Karat</option>
         {options.map((karat) => (
           <option key={karat} value={karat}>
             {karat}
