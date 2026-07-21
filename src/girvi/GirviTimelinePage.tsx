@@ -126,9 +126,12 @@ export default function GirviTimelinePage() {
       maximumFractionDigits: 2,
     })}`;
 
+  // Strictly enforced Indian Standard Time (IST) formatting
   const formatDate = (dateStr: string | undefined) => {
     if (!dateStr) return "-";
-    return new Date(dateStr).toLocaleDateString("en-IN", {
+    const safeDate = (!dateStr.includes("Z") && !dateStr.includes("+")) ? `${dateStr}Z` : dateStr;
+    return new Date(safeDate).toLocaleDateString("en-IN", {
+      timeZone: "Asia/Kolkata",
       day: "2-digit",
       month: "short",
       year: "numeric",
@@ -137,17 +140,18 @@ export default function GirviTimelinePage() {
 
   const formatTime = (dateStr: string | undefined) => {
     if (!dateStr) return "-";
-    return new Date(dateStr).toLocaleTimeString("en-IN", {
+    const safeDate = (!dateStr.includes("Z") && !dateStr.includes("+")) ? `${dateStr}Z` : dateStr;
+    return new Date(safeDate).toLocaleTimeString("en-IN", {
+      timeZone: "Asia/Kolkata",
       hour: "2-digit",
       minute: "2-digit",
       hour12: true,
     });
   };
 
-  // --- FIXED CALCULATIONS ---
+  // Calculations
   const totalInterestPaid = data?.timeline?.reduce((acc, ev) => acc + (ev.interestPaid || 0), 0) || 0;
   
-  // Filter out item releases and raw closures so it only accumulates true cash principal payments
   const totalPrincipalPaid = data?.timeline?.reduce((acc, ev) => {
     if (ev.transactionType === "PRINCIPAL_PAYMENT" || ev.transactionType === "INTEREST_AND_PRINCIPAL_PAYMENT") {
       return acc + (ev.principalPaid || 0);
@@ -177,6 +181,7 @@ export default function GirviTimelinePage() {
           dealerName={dealerName}
           dealerId={dealerId || "-"}
         />
+        {/* Unified brand indigo header */}
         <header className="h-16 bg-[#4820C5] text-white px-4 flex items-center justify-between sticky top-0 z-30 shadow-md">
           <button onClick={() => setShowMobileSidebar(true)} className="text-xl">☰</button>
           <h2 className="font-bold text-white">Metro Map</h2>
@@ -228,7 +233,7 @@ export default function GirviTimelinePage() {
             <button className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-50 transition shadow-sm">
               <FaDownload /> Download Report
             </button>
-            <button className="flex items-center gap-2 bg-[#1a233a] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#2c3859] transition shadow-sm">
+            <button className="flex items-center gap-2 bg-[#4820C5] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#3917a3] transition shadow-sm">
               <FaPrint /> Print
             </button>
           </div>
