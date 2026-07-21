@@ -178,10 +178,10 @@ export default function GirviTimelinePage() {
           dealerId={dealerId || "-"}
         />
         <header className="h-16 bg-[#4820C5] text-white px-4 flex items-center justify-between sticky top-0 z-30 shadow-md">
-  <button onClick={() => setShowMobileSidebar(true)} className="text-xl">☰</button>
-  <h2 className="font-bold text-white">Metro Map</h2>
-  <button onClick={() => navigate(-1)}><FaArrowLeft /></button>
-</header>
+          <button onClick={() => setShowMobileSidebar(true)} className="text-xl">☰</button>
+          <h2 className="font-bold text-white">Metro Map</h2>
+          <button onClick={() => navigate(-1)}><FaArrowLeft /></button>
+        </header>
 
         <div className="p-4 space-y-4">
           {renderHeaderMobile()}
@@ -572,7 +572,7 @@ export default function GirviTimelinePage() {
       return (
         <div className="text-right border-r border-gray-100 pr-6 mr-2">
           <p className="text-[11px] text-gray-500 font-medium mb-0.5">Loan Provided (Actual)</p>
-          <p className={`text-base font-black ${colorClass}`}>{formatCurrency(event.principalBefore)}</p>
+          <p className={`text-base font-black ${colorClass}`}>{formatCurrency(event.principalAfter)}</p>
         </div>
       );
     }
