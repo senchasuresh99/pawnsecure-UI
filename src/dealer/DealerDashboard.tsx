@@ -18,12 +18,16 @@ import {
   FaSignOutAlt,
   FaEye,
   FaUserCheck,
+  FaLock,
+  FaPercentage,
 } from "react-icons/fa";
 
 const DUE_TODAY_COUNT_API = `${API_BASE}/girvi/due-today/count`;
 const OVERDUE_COUNT_API = `${API_BASE}/girvi/overdue/count`;
 const TODAY_GIRVI_SUMMARY_API = `${API_BASE}/girvi/today/summary`;
 const TODAY_GIRVI_LIST_API = `${API_BASE}/girvi/today`;
+// New Endpoint for Dashboard Stats (Closed amount & Interest Paid)
+const DASHBOARD_STATS_API = `${API_BASE}/dashboard/stats`;
 
 type ActionItem = {
   icon: ReactNode;
@@ -128,11 +132,14 @@ export default function DealerDashboard() {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
+  // Added closedGirviToday and interestPaidToday to metrics
   const [metrics, setMetrics] = useState({
     todayPledges: "₹0",
     dueToday: 0,
     overdueAccounts: 0,
     totalLoanValue: "₹0",
+    closedGirviToday: "₹0",
+    interestPaidToday: "₹0",
   });
 
   const [activeCustomerCount, setActiveCustomerCount] =
@@ -195,48 +202,33 @@ export default function DealerDashboard() {
     return `Latest available rate: ${normalizedRateDate}`;
   }
 
-  // async function fetchTodayMetalRates() {
-  //   if (!dealerId || dealerId === "-") return;
+  // --- API CALL FOR NEW DASHBOARD STATS ---
+  async function fetchDashboardStats() {
+    if (!dealerId || dealerId === "-") return;
+    const token = localStorage.getItem("ps_token");
+    if (!token) return;
 
-  //   try {
-  //     setMetalRateLoading(true);
-  //     setMetalRateError("");
+    try {
+      const res = await fetch(DASHBOARD_STATS_API, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-DEALER-ID": dealerIdForHeader,
+        },
+      });
 
-  //     const token = localStorage.getItem("ps_token");
-
-  //     const res = await fetch(`${API_BASE}/dashboard/metal-rates`, {
-  //       method: "GET",
-  //       headers: {
-  //         Authorization: `Bearer ${token}`,
-  //         "X-DEALER-ID": dealerIdForHeader,
-  //       },
-  //     });
-
-  //     if (!res.ok) {
-  //       const msg = await res.text();
-
-  //       console.warn("Failed to load metal rates:", msg);
-
-  //       setMetalRateData(null);
-
-  //       // ✅ Do not show backend JSON error in UI
-  //       setMetalRateError("Rates not available");
-  //       return;
-  //     }
-
-  //     const data: MetalRateApiResponse = await res.json();
-
-  //     setMetalRateData(data);
-  //     setMetalRateError("");
-  //   } catch (err) {
-  //     console.error("Failed to fetch metal rates", err);
-
-  //     setMetalRateData(null);
-  //     setMetalRateError("Unable to load metal rates");
-  //   } finally {
-  //     setMetalRateLoading(false);
-  //   }
-  // }
+      if (res.ok) {
+        const data = await res.json();
+        setMetrics((prev) => ({
+          ...prev,
+          closedGirviToday: formatCurrency(data.todayClosedAmount || 0),
+          interestPaidToday: formatCurrency(data.todayInterestPaid || 0),
+        }));
+      }
+    } catch (err) {
+      console.error("Failed to load new dashboard stats", err);
+    }
+  }
 
   async function fetchGirviDueAndOverdueCounts() {
     if (!dealerId || dealerId === "-") return;
@@ -479,10 +471,10 @@ export default function DealerDashboard() {
 
     fetchDashboardSummary();
     fetchCustomerCount();
-    //fetchTodayMetalRates();
     fetchGirviDueAndOverdueCounts();
     fetchTodayGirviSummary();
     fetchTodayGirviActivities();
+    fetchDashboardStats(); // Fetch the new closed & interest stats
 
     const timer = setInterval(() => {
       setCurrentDate(new Date());
@@ -491,6 +483,7 @@ export default function DealerDashboard() {
     return () => clearInterval(timer);
   }, [dealerId]);
 
+  // Updated to 6 items to create the perfect 3x2 grid
   const stats: StatItem[] = [
     {
       title: "Today's Girvi",
@@ -528,56 +521,23 @@ export default function DealerDashboard() {
       cardBg: "bg-red-50",
       path: "/dealer/overdue-accounts",
     },
-  ];
-
-  const metalRates = [
     {
-      title: "GOLD 24K (999)",
-      value: metalRateLoading
-        ? "Loading..."
-        : metalRateData
-        ? `₹ ${metalRateData.gold24kRate.toLocaleString("en-IN")}`
-        : "₹ 0",
-      unit: "/gram",
-      change: metalRateData
-        ? getRateUpdateLabel(metalRateData.rateDate)
-        : metalRateError || "Rates not available",
-      isUp: !!metalRateData,
-      cardBg: "bg-[#fffbeb] border-[#fde68a]",
-      iconBg: "bg-[#fef3c7] text-[#b45309]",
-      icon: <FaCoins />,
+      title: "Closed Girvi (Today)",
+      value: metrics.closedGirviToday,
+      subtitle: "Settled today",
+      icon: <FaLock />,
+      iconBg: "bg-slate-500",
+      cardBg: "bg-slate-50",
+      path: "/dealer/customer", // points to your Girvi List page
+      state: { defaultStatus: "CLOSED" }, // automatically filters by closed status
     },
     {
-      title: "GOLD 22K (916)",
-      value: metalRateLoading
-        ? "Loading..."
-        : metalRateData
-        ? `₹ ${metalRateData.gold22kRate.toLocaleString("en-IN")}`
-        : "₹ 0",
-      unit: "/gram",
-      change: metalRateData
-        ? getRateUpdateLabel(metalRateData.rateDate)
-        : metalRateError || "Rates not available",
-      isUp: !!metalRateData,
-      cardBg: "bg-[#fffdf5] border-[#fef08a]",
-      iconBg: "bg-[#fef9c3] text-[#a16207]",
-      icon: <FaGem />,
-    },
-    {
-      title: "SILVER",
-      value: metalRateLoading
-        ? "Loading..."
-        : metalRateData
-        ? `₹ ${metalRateData.silverRate.toLocaleString("en-IN")}`
-        : "₹ 0",
-      unit: "/gram",
-      change: metalRateData
-        ? getRateUpdateLabel(metalRateData.rateDate)
-        : metalRateError || "Rates not available",
-      isUp: !!metalRateData,
-      cardBg: "bg-[#f8fafc] border-[#e2e8f0]",
-      iconBg: "bg-[#f1f5f9] text-[#475569]",
-      icon: <FaCoins />,
+      title: "Interest Paid (Today)",
+      value: metrics.interestPaidToday,
+      subtitle: "Collected today",
+      icon: <FaPercentage />,
+      iconBg: "bg-teal-500",
+      cardBg: "bg-teal-50",
     },
   ];
 
@@ -738,8 +698,8 @@ export default function DealerDashboard() {
               </div>
             </div>
 
-            {/* Compact Stats */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-5">
+            {/* Compact Stats - Changed to a 3-column grid for perfect symmetry */}
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-5 mb-5">
               {stats.map((item, index) => {
                 const isClickable = !!item.path && !isAdminView;
 
@@ -824,85 +784,6 @@ export default function DealerDashboard() {
                 ))}
               </div>
             </div>
-
-            {/* Desktop Live Metal Rates
-            <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm mb-5">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                    Live Metal Rates
-                  </h3>
-                  <span className="flex items-center gap-1 bg-green-50 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-green-200">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>{" "}
-                    Live
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={fetchTodayMetalRates}
-                  className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer hover:text-purple-600 transition"
-                >
-                  <FaSyncAlt
-                    className={`text-[10px] ${
-                      metalRateLoading ? "animate-spin" : ""
-                    }`}
-                  />
-                  <span>
-                    {metalRateData
-                      ? getRateUpdateLabel(metalRateData.rateDate)
-                      : metalRateLoading
-                      ? "Loading rates..."
-                      : "Rates unavailable"}
-                  </span>
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {metalRates.map((rate, i) => (
-                  <div
-                    key={i}
-                    className={`border rounded-2xl p-3 flex items-center justify-between shadow-xs transition hover:shadow-md ${rate.cardBg}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center text-base shrink-0 ${rate.iconBg}`}
-                      >
-                        {rate.icon}
-                      </div>
-
-                      <div>
-                        <p className="text-[10px] font-bold text-gray-400 tracking-wide uppercase">
-                          {rate.title}
-                        </p>
-
-                        <div className="flex items-baseline gap-1 mt-0.5">
-                          <span className="text-xl font-black text-gray-900">
-                            {rate.value}
-                          </span>
-                          <span className="text-xs text-gray-500 font-medium">
-                            {rate.unit}
-                          </span>
-                        </div>
-
-                        <p
-                          className={`text-xs font-semibold flex items-center gap-1 mt-1 ${
-                            rate.isUp ? "text-green-600" : "text-red-500"
-                          }`}
-                        >
-                          {rate.isUp ? (
-                            <FaArrowUp className="text-[10px]" />
-                          ) : (
-                            <FaArrowDown className="text-[10px]" />
-                          )}
-                          {rate.change}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div> */}
 
             {/* Desktop Activities */}
             <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm">
@@ -1171,77 +1052,6 @@ export default function DealerDashboard() {
               ))}
             </div>
           </div>
-
-          {/* <div className="mt-4 px-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-1.5">
-                <h2 className="text-base font-bold text-gray-900">
-                  Live Rates
-                </h2>
-                <span className="flex items-center gap-0.5 bg-green-50 text-green-700 text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-green-200">
-                  <span className="w-1 h-1 rounded-full bg-green-500 animate-pulse"></span>{" "}
-                  Live
-                </span>
-              </div>
-
-              <button
-                type="button"
-                onClick={fetchTodayMetalRates}
-                className="text-[10px] text-gray-400 flex items-center gap-1"
-              >
-                <FaSyncAlt
-                  className={`text-[9px] ${
-                    metalRateLoading ? "animate-spin" : ""
-                  }`}
-                />
-                {metalRateData
-                  ? getRateUpdateLabel(metalRateData.rateDate)
-                  : metalRateLoading
-                  ? "Loading..."
-                  : "Unavailable"}
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-3 pb-2">
-              {metalRates.map((rate, i) => (
-                <div
-                  key={i}
-                  className={`w-full border rounded-xl p-3 flex items-center justify-between shadow-xs ${rate.cardBg}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-10 h-10 rounded-lg flex items-center justify-center text-base shrink-0 ${rate.iconBg}`}
-                    >
-                      {rate.icon}
-                    </div>
-
-                    <div>
-                      <p className="text-[9px] font-bold text-gray-400 tracking-wide uppercase">
-                        {rate.title}
-                      </p>
-
-                      <div className="flex items-baseline gap-0.5 mt-0.5">
-                        <span className="text-lg font-black text-gray-900">
-                          {rate.value}
-                        </span>
-                        <span className="text-[10px] text-gray-500">
-                          {rate.unit}
-                        </span>
-                      </div>
-
-                      <p
-                        className={`text-[10px] font-semibold flex items-center gap-0.5 ${
-                          rate.isUp ? "text-green-600" : "text-red-500"
-                        }`}
-                      >
-                        {rate.isUp ? "▲" : "▼"} {rate.change}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div> */}
 
           {/* Mobile Activities */}
           <div className="mx-4 mt-4 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">

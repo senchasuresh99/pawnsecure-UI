@@ -182,6 +182,7 @@ export default function GirviList() {
   const [girviList, setGirviList] = useState<GirviResponseDTO[]>([]);
   const [filteredList, setFilteredList] = useState<GirviResponseDTO[]>([]);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -293,32 +294,39 @@ export default function GirviList() {
   useEffect(() => {
     const q = search.toLowerCase().trim();
 
-    if (!q) {
-      setFilteredList(girviList);
-      return;
+    let result = girviList;
+
+    // Filter by Status
+    if (statusFilter !== "ALL") {
+      result = result.filter(
+        (item) => String(item.status || "").toUpperCase() === statusFilter
+      );
     }
 
-    const result = girviList.filter((item) => {
-      const itemNames =
-        item.items?.map((girviItem) => girviItem.itemName || "").join(" ") ||
-        "";
+    // Filter by Search text
+    if (q) {
+      result = result.filter((item) => {
+        const itemNames =
+          item.items?.map((girviItem) => girviItem.itemName || "").join(" ") ||
+          "";
 
-      return (
-        item.customerName?.toLowerCase().includes(q) ||
-        item.itemName?.toLowerCase().includes(q) ||
-        itemNames.toLowerCase().includes(q) ||
-        item.itemType?.toLowerCase().includes(q) ||
-        item.goldKarat?.toLowerCase().includes(q) ||
-        String(item.itemCount || "").includes(q) ||
-        String(item.totalItemCount || "").includes(q) ||
-        item.status?.toLowerCase().includes(q) ||
-        String(item.id || "").includes(q) ||
-        String(item.customerId || "").includes(q)
-      );
-    });
+        return (
+          item.customerName?.toLowerCase().includes(q) ||
+          item.itemName?.toLowerCase().includes(q) ||
+          itemNames.toLowerCase().includes(q) ||
+          item.itemType?.toLowerCase().includes(q) ||
+          item.goldKarat?.toLowerCase().includes(q) ||
+          String(item.itemCount || "").includes(q) ||
+          String(item.totalItemCount || "").includes(q) ||
+          item.status?.toLowerCase().includes(q) ||
+          String(item.id || "").includes(q) ||
+          String(item.customerId || "").includes(q)
+        );
+      });
+    }
 
     setFilteredList(result);
-  }, [search, girviList]);
+  }, [search, statusFilter, girviList]);
 
   useEffect(() => {
     girviList.forEach((item) => {
@@ -1556,6 +1564,8 @@ Please find attached invoice PDF.`;
               totalElements={totalElements}
               search={search}
               setSearch={setSearch}
+              statusFilter={statusFilter}
+              setStatusFilter={setStatusFilter}
               goToAddGirvi={goToAddGirvi}
               openExportModal={() => setShowExportModal(true)}
               getImageSrc={getImageSrc}
@@ -1677,6 +1687,8 @@ Please find attached invoice PDF.`;
             totalElements={totalElements}
             search={search}
             setSearch={setSearch}
+            statusFilter={statusFilter}
+            setStatusFilter={setStatusFilter}
             getImageSrc={getImageSrc}
             openPhotoModal={openPhotoModal}
             formatCurrency={formatCurrency}
@@ -1902,6 +1914,8 @@ function RecordsPanel({
   totalElements,
   search,
   setSearch,
+  statusFilter,
+  setStatusFilter,
   goToAddGirvi,
   openExportModal,
   getImageSrc,
@@ -1948,15 +1962,25 @@ function RecordsPanel({
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full xl:w-auto">
-          <div className="w-full sm:w-80 flex items-center border border-gray-200 rounded-xl px-4 py-3 bg-gray-50/50 focus-within:border-[#4820C5] focus-within:ring-1 focus-within:ring-[#4820C5] transition">
+          <div className="w-full sm:w-72 flex items-center border border-gray-200 rounded-xl px-4 py-3 bg-gray-50/50 focus-within:border-[#4820C5] focus-within:ring-1 focus-within:ring-[#4820C5] transition">
             <FaSearch className="text-gray-400 mr-3 shrink-0 text-sm" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full outline-none bg-transparent text-sm font-medium text-gray-700"
-              placeholder="Search by customer, item, status..."
+              placeholder="Search by customer, item..."
             />
           </div>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="border border-gray-200 rounded-xl px-4 py-3 bg-gray-50/50 text-sm font-bold text-gray-700 outline-none focus:border-[#4820C5] focus:ring-1 focus:ring-[#4820C5] transition cursor-pointer"
+          >
+            <option value="ALL">All Status</option>
+            <option value="ACTIVE">Active</option>
+            <option value="CLOSED">Closed</option>
+          </select>
 
           <button
             type="button"
@@ -2261,6 +2285,8 @@ function MobileRecordsPanel({
   totalElements,
   search,
   setSearch,
+  statusFilter,
+  setStatusFilter,
   getImageSrc,
   openPhotoModal,
   formatCurrency,
@@ -2295,14 +2321,26 @@ function MobileRecordsPanel({
 }: any) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-xl p-4">
-      <div className="flex items-center border border-gray-200 rounded-xl px-3 py-3 bg-gray-50/50 mb-5 focus-within:border-[#4820C5] transition">
-        <FaSearch className="text-gray-400 mr-2.5 text-sm" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full outline-none bg-transparent text-sm text-gray-700 font-medium"
-          placeholder="Search items, names or details..."
-        />
+      <div className="grid grid-cols-[1fr_auto] gap-2 mb-5">
+        <div className="flex items-center border border-gray-200 rounded-xl px-3 py-2.5 bg-gray-50/50 focus-within:border-[#4820C5] transition">
+          <FaSearch className="text-gray-400 mr-2 text-sm" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full outline-none bg-transparent text-sm text-gray-700 font-medium"
+            placeholder="Search..."
+          />
+        </div>
+
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="border border-gray-200 rounded-xl px-3 py-2.5 bg-gray-50/50 text-xs font-bold text-gray-700 outline-none focus:border-[#4820C5] transition cursor-pointer"
+        >
+          <option value="ALL">All</option>
+          <option value="ACTIVE">Active</option>
+          <option value="CLOSED">Closed</option>
+        </select>
       </div>
 
       {loading && (
