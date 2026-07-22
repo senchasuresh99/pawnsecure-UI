@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -139,6 +139,7 @@ type GirviUpdateForm = {
 
 export default function GirviList() {
   const navigate = useNavigate();
+  const location = useLocation() as any;
 
   const query = new URLSearchParams(window.location.search);
   const isAdminView = query.get("adminView") === "true";
@@ -182,7 +183,10 @@ export default function GirviList() {
   const [girviList, setGirviList] = useState<GirviResponseDTO[]>([]);
   const [filteredList, setFilteredList] = useState<GirviResponseDTO[]>([]);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL");
+  
+  // Read the default filter state passed from Dashboard click
+  const initialStatus = location.state?.defaultStatus || "ALL";
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -377,40 +381,38 @@ export default function GirviList() {
     return primaryItem?.goldKarat || item.goldKarat || "";
   }
 
+  // --- FIXED AGGREGATE CALCULATIONS ---
   function getDisplayItemCount(item: GirviResponseDTO) {
-    return (
-      item.totalItemCount ||
-      item.itemCount ||
-      getPrimaryItem(item)?.itemCount ||
-      1
-    );
+    if (item.items && item.items.length > 0) {
+      return item.items.reduce((sum, i) => sum + Number(i.itemCount || 1), 0);
+    }
+    return item.totalItemCount || item.itemCount || getPrimaryItem(item)?.itemCount || 1;
   }
 
   function getDisplayGrossWeight(item: GirviResponseDTO) {
-    return (
-      item.totalGrossWeightGram ||
-      item.itemWeightGram ||
-      getPrimaryItem(item)?.itemWeightGram ||
-      0
-    );
+    if (item.items && item.items.length > 0) {
+      return item.items.reduce((sum, i) => sum + Number(i.itemWeightGram || 0), 0);
+    }
+    return item.totalGrossWeightGram || item.itemWeightGram || getPrimaryItem(item)?.itemWeightGram || 0;
   }
 
   function getDisplayLessWeight(item: GirviResponseDTO) {
-    return (
-      item.totalLessWeightGram ||
-      item.lessWeightGram ||
-      getPrimaryItem(item)?.lessWeightGram ||
-      0
-    );
+    if (item.items && item.items.length > 0) {
+      return item.items.reduce((sum, i) => sum + Number(i.lessWeightGram || 0), 0);
+    }
+    return item.totalLessWeightGram || item.lessWeightGram || getPrimaryItem(item)?.lessWeightGram || 0;
   }
 
   function getDisplayNetWeight(item: GirviResponseDTO) {
-    return (
-      item.totalNetWeightGram ||
-      item.netWeightGram ||
-      getPrimaryItem(item)?.netWeightGram ||
-      calculateNetWeight(item.itemWeightGram, item.lessWeightGram)
-    );
+    if (item.items && item.items.length > 0) {
+      return item.items.reduce((sum, i) => {
+        const net = i.netWeightGram !== undefined && i.netWeightGram !== null 
+          ? Number(i.netWeightGram) 
+          : calculateNetWeight(i.itemWeightGram, i.lessWeightGram);
+        return sum + net;
+      }, 0);
+    }
+    return item.totalNetWeightGram || item.netWeightGram || getPrimaryItem(item)?.netWeightGram || calculateNetWeight(item.itemWeightGram, item.lessWeightGram);
   }
 
   function getDisplayActualLoanAmount(item: GirviResponseDTO) {
@@ -421,7 +423,7 @@ export default function GirviList() {
     if (value === undefined || value === null || value === "") return "0 gm";
 
     return `${Number(value).toLocaleString("en-IN", {
-      maximumFractionDigits: 3,
+      maximumFractionDigits: 4, // Max 4 digits as requested
     })} gm`;
   }
 
@@ -1979,6 +1981,7 @@ function RecordsPanel({
           >
             <option value="ALL">All Status</option>
             <option value="ACTIVE">Active</option>
+            <option value="RELEASED">Released</option>
             <option value="CLOSED">Closed</option>
           </select>
 
@@ -2072,22 +2075,43 @@ function RecordsPanel({
                       </p>
 
                       <div className="mt-3">
-                        <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">
-                          Item(s)
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1.5">
+                          Item Breakdown ({item.items?.length || 1})
                         </p>
-                        <p className="font-bold text-gray-900 text-sm leading-snug break-words">
-                          {getDisplayItemName(item)}
-                        </p>
+                        <div className="space-y-1.5 max-h-[80px] overflow-y-auto pr-1">
+                          {item.items && item.items.length > 0 ? (
+                            item.items.map((subItem, idx) => (
+                              <div key={idx} className="flex items-center justify-between bg-gray-50 border border-gray-100 rounded-lg px-2 py-1.5 text-[11px] hover:bg-gray-100 transition">
+                                 <div className="flex items-center gap-1.5 truncate pr-2">
+                                   <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${String(subItem.itemType).toUpperCase() === 'GOLD' ? 'bg-amber-400' : 'bg-slate-400'}`}></span>
+                                   <span className="font-bold text-gray-800 truncate" title={subItem.itemName}>{subItem.itemName}</span>
+                                 </div>
+                                 <div className="flex items-center gap-1.5 shrink-0">
+                                   <span className="font-semibold text-gray-500">
+                                     {Number(subItem.netWeightGram || 0).toLocaleString("en-IN", { maximumFractionDigits: 4 })}g
+                                   </span>
+                                   <span className={`px-1 py-0.5 rounded text-[8px] font-bold tracking-wider ${String(subItem.status).toUpperCase() === 'RELEASED' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                      {String(subItem.status).toUpperCase() === 'RELEASED' ? 'REL' : 'ACT'}
+                                   </span>
+                                 </div>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="font-bold text-gray-900 text-sm leading-snug break-words">
+                              {item.itemName || "-"}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
 
                     <div className="col-span-2">
-                      <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-2">
-                        Asset Details
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-2">
+                        Total Aggregates
                       </p>
 
                       <span
-                        className={`inline-block px-2.5 py-1 rounded-md text-[11px] font-bold ${
+                        className={`inline-block px-2.5 py-1 rounded-md text-[10px] font-bold ${
                           typeLower === "gold"
                             ? "bg-amber-50 text-amber-700"
                             : "bg-slate-100 text-slate-700"
@@ -2098,7 +2122,7 @@ function RecordsPanel({
 
                       <div className="mt-2 space-y-1">
                         <p className="text-[11px] font-bold text-purple-700">
-                          No.Pc: {formatCount(getDisplayItemCount(item))}
+                          Total Pc: {formatCount(getDisplayItemCount(item))}
                         </p>
 
                         {typeLower === "gold" && getDisplayGoldKarat(item) && (
@@ -2339,6 +2363,7 @@ function MobileRecordsPanel({
         >
           <option value="ALL">All</option>
           <option value="ACTIVE">Active</option>
+          <option value="RELEASED">Released</option>
           <option value="CLOSED">Closed</option>
         </select>
       </div>
@@ -2401,7 +2426,7 @@ function MobileRecordsPanel({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="font-extrabold text-gray-900 text-base truncate leading-tight">
-                      {getDisplayItemName(item)}
+                      {item.customerName || "-"}
                     </h3>
 
                     <span
@@ -2412,43 +2437,48 @@ function MobileRecordsPanel({
                       {item.status || "ACTIVE"}
                     </span>
                   </div>
-
-                  <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        typeLower === "gold"
-                          ? "bg-amber-50 text-amber-700"
-                          : "bg-slate-100 text-slate-700"
-                      }`}
-                    >
-                      {displayItemType}
-                    </span>
-
-                    <span className="text-xs font-bold text-purple-700">
-                      No.Pc: {formatCount(getDisplayItemCount(item))}
-                    </span>
-
-                    <span className="text-xs font-bold text-green-700">
-                      Net: {formatWeight(getDisplayNetWeight(item))}
-                    </span>
-                  </div>
-
-                  <p className="text-sm font-bold text-gray-800 mt-2 truncate">
-                    {item.customerName || "-"}
+                  
+                  <p className="text-[10px] text-gray-400 font-medium mt-0.5">
+                    ID: {item.customerId || "-"}
                   </p>
 
-                  <p className="text-[11px] text-gray-400 font-medium">
-                    Cust ID: {item.customerId || "-"}
-                  </p>
-
-                  <div className="mt-2 text-[11px] text-gray-500 font-semibold space-y-0.5">
-                    {typeLower === "gold" && getDisplayGoldKarat(item) && (
-                      <p>Karat: {getDisplayGoldKarat(item)}</p>
+                  <div className="mt-2.5 space-y-1.5">
+                    {item.items && item.items.length > 0 ? (
+                      item.items.map((subItem, idx) => (
+                        <div key={idx} className="flex items-center justify-between bg-gray-50 border border-gray-100 rounded-lg px-2 py-1.5 text-[11px]">
+                           <div className="flex items-center gap-1.5 truncate pr-2">
+                             <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${String(subItem.itemType).toUpperCase() === 'GOLD' ? 'bg-amber-400' : 'bg-slate-400'}`}></span>
+                             <span className="font-bold text-gray-800 truncate">{subItem.itemName}</span>
+                           </div>
+                           <div className="flex items-center gap-1.5 shrink-0">
+                             <span className="font-semibold text-gray-500">
+                               {Number(subItem.netWeightGram || 0).toLocaleString("en-IN", { maximumFractionDigits: 4 })}g
+                             </span>
+                             <span className={`px-1 py-0.5 rounded text-[8px] font-bold tracking-wider ${String(subItem.status).toUpperCase() === 'RELEASED' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                {String(subItem.status).toUpperCase() === 'RELEASED' ? 'REL' : 'ACT'}
+                             </span>
+                           </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="font-bold text-gray-900 text-sm leading-snug break-words">
+                        {item.itemName || "-"}
+                      </p>
                     )}
-
-                    <p>Gross: {formatWeight(getDisplayGrossWeight(item))}</p>
-                    <p>Less: {formatWeight(getDisplayLessWeight(item))}</p>
                   </div>
+
+                  <div className="mt-2.5 bg-gray-50 rounded-xl p-2 border border-gray-100 flex flex-wrap items-center gap-x-3 gap-y-1">
+                     <span className={`text-[10px] font-bold ${typeLower === 'gold' ? 'text-amber-700' : 'text-slate-700'}`}>
+                       {displayItemType} {getDisplayGoldKarat(item) ? `(${getDisplayGoldKarat(item)})` : ''}
+                     </span>
+                     <span className="text-[10px] font-bold text-gray-600">
+                       Qty: {formatCount(getDisplayItemCount(item))}
+                     </span>
+                     <span className="text-[10px] font-extrabold text-green-700">
+                       Net: {formatWeight(getDisplayNetWeight(item))}
+                     </span>
+                  </div>
+
                 </div>
               </div>
 

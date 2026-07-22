@@ -7,15 +7,12 @@ import {
   FaWallet,
   FaGem,
   FaCheckCircle,
-  FaDownload,
-  FaPrint,
   FaRegUser,
   FaPhoneAlt,
   FaRegCalendarAlt,
   FaBolt,
   FaInfoCircle,
   FaTimes,
-  FaBox,
   FaCheck
 } from "react-icons/fa";
 import DealerSidebar from "../dealer/DealerSidebar";
@@ -205,37 +202,22 @@ export default function GirviTimelinePage() {
         <div className="text-xs text-gray-500 font-medium mb-3">
           Dashboard {">"} Girvi List {">"} Girvi Details {">"} <span className="text-gray-900 font-bold">Metro Map</span>
         </div>
-        <div className="flex justify-between items-start">
-          <div>
-            <div className="flex items-center gap-4 mb-1">
-              <button
-                onClick={() => navigate(-1)}
-                className="text-gray-600 hover:text-gray-900 transition"
-              >
-                <FaArrowLeft className="text-xl" />
-              </button>
-              <h1 className="text-2xl font-bold text-gray-900">Girvi Metro Map</h1>
-              {data && (
-                <span className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${
-                  data.status === "ACTIVE" ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-700"
-                }`}>
-                  {data.status}
-                </span>
-              )}
-            </div>
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate(-1)}
+              className="text-gray-600 hover:text-gray-900 transition"
+            >
+              <FaArrowLeft className="text-xl" />
+            </button>
+            <h1 className="text-2xl font-bold text-gray-900">Girvi Metro Map</h1>
             {data && (
-              <div className="text-sm text-gray-500 ml-9 border-l-2 pl-3 border-gray-300">
-                Girvi ID: GV-2026-{data.girviId} <span className="mx-2">|</span> Invoice: INV-{data.girviId}
-              </div>
+              <span className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${
+                data.status === "ACTIVE" ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-700"
+              }`}>
+                {data.status}
+              </span>
             )}
-          </div>
-          <div className="flex items-center gap-3">
-            <button className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-50 transition shadow-sm">
-              <FaDownload /> Download Report
-            </button>
-            <button className="flex items-center gap-2 bg-[#4820C5] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#3917a3] transition shadow-sm">
-              <FaPrint /> Print
-            </button>
           </div>
         </div>
       </div>
@@ -248,11 +230,6 @@ export default function GirviTimelinePage() {
         <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2 mb-2">
           Girvi Metro Map
         </h1>
-        {data && (
-          <div className="text-xs text-gray-500">
-            Girvi ID: GV-2026-{data.girviId} <br /> Invoice: INV-{data.girviId}
-          </div>
-        )}
       </div>
     );
   }
@@ -376,7 +353,9 @@ export default function GirviTimelinePage() {
                               {item.itemName || "Item"}
                             </td>
                             <td className="px-4 py-3 text-gray-600">{item.itemType?.toUpperCase() || "GOLD"}</td>
-                            <td className="px-4 py-3 text-gray-600">{item.itemWeightGram?.toFixed(3) || "0.000"}</td>
+                            <td className="px-4 py-3 text-gray-600">
+                              {Number(item.itemWeightGram || 0).toLocaleString("en-IN", { maximumFractionDigits: 4 })}
+                            </td>
                             <td className="px-4 py-3 text-gray-600">{formatCurrency(item.ratePerGram || 0)}</td>
                             <td className="px-4 py-3 font-medium text-gray-900">{formatCurrency(item.itemValue || 0)}</td>
                             <td className="px-4 py-3 text-center">
@@ -492,7 +471,9 @@ export default function GirviTimelinePage() {
                                       <FaGem className="text-yellow-500" /> {item.itemName}
                                     </td>
                                     <td className="px-3 py-2">{item.itemType}</td>
-                                    <td className="px-3 py-2">{item.itemWeightGram}</td>
+                                    <td className="px-3 py-2">
+                                      {Number(item.itemWeightGram || 0).toLocaleString("en-IN", { maximumFractionDigits: 4 })}
+                                    </td>
                                     <td className="px-3 py-2">{formatCurrency(item.ratePerGram)}</td>
                                     <td className="px-3 py-2 font-medium">{formatCurrency(item.itemValue)}</td>
                                   </tr>
