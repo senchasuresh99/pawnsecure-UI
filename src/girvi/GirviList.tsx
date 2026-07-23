@@ -137,6 +137,63 @@ type GirviUpdateForm = {
   closeGirvi: boolean;
 };
 
+// --- GLOBAL HELPER FUNCTIONS ---
+function calculateNetWeight(gross: any, less: any) {
+  const grossWeight = Number(gross || 0);
+  const lessWeight = Number(less || 0);
+  const net = grossWeight - lessWeight;
+  return net > 0 ? net : 0;
+}
+
+// Groups items by metal type (GOLD, SILVER, etc.) to show all types in Total Aggregates
+function getGroupedAggregates(item: GirviResponseDTO) {
+  const items =
+    item.items && item.items.length > 0
+      ? item.items
+      : [
+          {
+            itemType: item.itemType || "GOLD",
+            itemCount: item.itemCount || item.totalItemCount || 1,
+            itemWeightGram:
+              item.itemWeightGram || item.totalGrossWeightGram || 0,
+            lessWeightGram:
+              item.lessWeightGram || item.totalLessWeightGram || 0,
+            netWeightGram:
+              item.netWeightGram ||
+              item.totalNetWeightGram ||
+              calculateNetWeight(item.itemWeightGram, item.lessWeightGram),
+            goldKarat: item.goldKarat || "",
+          },
+        ];
+
+  const groups: Record<
+    string,
+    { count: number; gross: number; less: number; net: number; karats: Set<string> }
+  > = {};
+
+  items.forEach((i) => {
+    const metal = String(i.itemType || "GOLD").toUpperCase();
+    if (!groups[metal]) {
+      groups[metal] = { count: 0, gross: 0, less: 0, net: 0, karats: new Set() };
+    }
+    groups[metal].count += Number(i.itemCount || 1);
+    groups[metal].gross += Number(i.itemWeightGram || 0);
+    groups[metal].less += Number(i.lessWeightGram || 0);
+
+    const net =
+      i.netWeightGram !== undefined && i.netWeightGram !== null
+        ? Number(i.netWeightGram)
+        : calculateNetWeight(i.itemWeightGram, i.lessWeightGram);
+    groups[metal].net += net;
+
+    if (i.goldKarat && metal === "GOLD") {
+      groups[metal].karats.add(String(i.goldKarat));
+    }
+  });
+
+  return groups;
+}
+
 export default function GirviList() {
   const navigate = useNavigate();
   const location = useLocation() as any;
@@ -183,8 +240,7 @@ export default function GirviList() {
   const [girviList, setGirviList] = useState<GirviResponseDTO[]>([]);
   const [filteredList, setFilteredList] = useState<GirviResponseDTO[]>([]);
   const [search, setSearch] = useState("");
-  
-  // Read the default filter state passed from Dashboard click
+
   const initialStatus = location.state?.defaultStatus || "ALL";
   const [statusFilter, setStatusFilter] = useState(initialStatus);
 
@@ -237,7 +293,6 @@ export default function GirviList() {
     number | string | null
   >(null);
 
-  // --- EXPORT MODAL STATE ---
   const [showExportModal, setShowExportModal] = useState(false);
   const [downloadingAllPdf, setDownloadingAllPdf] = useState(false);
   const [exportFilters, setExportFilters] = useState({
@@ -263,7 +318,6 @@ export default function GirviList() {
     });
   }
 
-  // --- PASS ITEMS VIA STATE TO TIMELINE PAGE ---
   function goToTimeline(item: GirviResponseDTO) {
     if (item.id) {
       navigate(`/dealer/girvi/${item.id}/timeline`, {
@@ -297,17 +351,14 @@ export default function GirviList() {
 
   useEffect(() => {
     const q = search.toLowerCase().trim();
-
     let result = girviList;
 
-    // Filter by Status
     if (statusFilter !== "ALL") {
       result = result.filter(
         (item) => String(item.status || "").toUpperCase() === statusFilter
       );
     }
 
-    // Filter by Search text
     if (q) {
       result = result.filter((item) => {
         const itemNames =
@@ -347,18 +398,11 @@ export default function GirviList() {
     };
   }, []);
 
-  // Generate unique list of customers for the export dropdown
   const uniqueCustomers = Array.from(
-    new Map(girviList.map((item) => [item.customerId, item.customerName])).entries()
+    new Map(
+      girviList.map((item) => [item.customerId, item.customerName])
+    ).entries()
   ).map(([id, name]) => ({ id, name }));
-
-  function calculateNetWeight(gross: any, less: any) {
-    const grossWeight = Number(gross || 0);
-    const lessWeight = Number(less || 0);
-    const net = grossWeight - lessWeight;
-
-    return net > 0 ? net : 0;
-  }
 
   function getPrimaryItem(item: GirviResponseDTO) {
     return item.items && item.items.length > 0 ? item.items[0] : null;
@@ -381,38 +425,64 @@ export default function GirviList() {
     return primaryItem?.goldKarat || item.goldKarat || "";
   }
 
-  // --- FIXED AGGREGATE CALCULATIONS ---
   function getDisplayItemCount(item: GirviResponseDTO) {
     if (item.items && item.items.length > 0) {
       return item.items.reduce((sum, i) => sum + Number(i.itemCount || 1), 0);
     }
-    return item.totalItemCount || item.itemCount || getPrimaryItem(item)?.itemCount || 1;
+    return (
+      item.totalItemCount ||
+      item.itemCount ||
+      getPrimaryItem(item)?.itemCount ||
+      1
+    );
   }
 
   function getDisplayGrossWeight(item: GirviResponseDTO) {
     if (item.items && item.items.length > 0) {
-      return item.items.reduce((sum, i) => sum + Number(i.itemWeightGram || 0), 0);
+      return item.items.reduce(
+        (sum, i) => sum + Number(i.itemWeightGram || 0),
+        0
+      );
     }
-    return item.totalGrossWeightGram || item.itemWeightGram || getPrimaryItem(item)?.itemWeightGram || 0;
+    return (
+      item.totalGrossWeightGram ||
+      item.itemWeightGram ||
+      getPrimaryItem(item)?.itemWeightGram ||
+      0
+    );
   }
 
   function getDisplayLessWeight(item: GirviResponseDTO) {
     if (item.items && item.items.length > 0) {
-      return item.items.reduce((sum, i) => sum + Number(i.lessWeightGram || 0), 0);
+      return item.items.reduce(
+        (sum, i) => sum + Number(i.lessWeightGram || 0),
+        0
+      );
     }
-    return item.totalLessWeightGram || item.lessWeightGram || getPrimaryItem(item)?.lessWeightGram || 0;
+    return (
+      item.totalLessWeightGram ||
+      item.lessWeightGram ||
+      getPrimaryItem(item)?.lessWeightGram ||
+      0
+    );
   }
 
   function getDisplayNetWeight(item: GirviResponseDTO) {
     if (item.items && item.items.length > 0) {
       return item.items.reduce((sum, i) => {
-        const net = i.netWeightGram !== undefined && i.netWeightGram !== null 
-          ? Number(i.netWeightGram) 
-          : calculateNetWeight(i.itemWeightGram, i.lessWeightGram);
+        const net =
+          i.netWeightGram !== undefined && i.netWeightGram !== null
+            ? Number(i.netWeightGram)
+            : calculateNetWeight(i.itemWeightGram, i.lessWeightGram);
         return sum + net;
       }, 0);
     }
-    return item.totalNetWeightGram || item.netWeightGram || getPrimaryItem(item)?.netWeightGram || calculateNetWeight(item.itemWeightGram, item.lessWeightGram);
+    return (
+      item.totalNetWeightGram ||
+      item.netWeightGram ||
+      getPrimaryItem(item)?.netWeightGram ||
+      calculateNetWeight(item.itemWeightGram, item.lessWeightGram)
+    );
   }
 
   function getDisplayActualLoanAmount(item: GirviResponseDTO) {
@@ -423,7 +493,7 @@ export default function GirviList() {
     if (value === undefined || value === null || value === "") return "0 gm";
 
     return `${Number(value).toLocaleString("en-IN", {
-      maximumFractionDigits: 4, // Max 4 digits as requested
+      maximumFractionDigits: 4,
     })} gm`;
   }
 
@@ -431,7 +501,6 @@ export default function GirviList() {
     if (value === undefined || value === null || value === "") return "1.00";
 
     const num = Number(value || 1);
-
     if (Number.isNaN(num)) return "1.00";
 
     return num.toLocaleString("en-IN", {
@@ -481,7 +550,6 @@ export default function GirviList() {
   ) {
     setEditItems((prev) => {
       const next = [...prev];
-
       next[index] = {
         ...next[index],
         [key]: value,
@@ -493,15 +561,12 @@ export default function GirviList() {
             ? value || 0
             : next[index].itemWeightGram || 0
         );
-
         const less = Number(
           key === "lessWeightGram"
             ? value || 0
             : next[index].lessWeightGram || 0
         );
-
         const net = calculateNetWeight(gross, less);
-
         next[index].netWeightGram = net ? String(net) : "";
       }
 
@@ -594,12 +659,7 @@ export default function GirviList() {
           URL.revokeObjectURL(imageUrl);
           return prev;
         }
-
-        const next = {
-          ...prev,
-          [girviId]: imageUrl,
-        };
-
+        const next = { ...prev, [girviId]: imageUrl };
         photoMapRef.current = next;
         return next;
       });
@@ -617,7 +677,6 @@ export default function GirviList() {
     const confirmRenew = window.confirm(
       "Are you sure you want to renew this loan application record?"
     );
-
     if (!confirmRenew) return;
 
     const dealerId = localStorage.getItem("ps_dealer_id");
@@ -653,7 +712,6 @@ export default function GirviList() {
         "Girvi secure asset portfolio loan configuration extended/renewed successfully.",
         "success"
       );
-
       fetchGirviList();
     } catch (err) {
       console.error("Renewal transaction failure:", err);
@@ -749,14 +807,12 @@ export default function GirviList() {
 
     setEditForm({
       itemName: primaryItem?.itemName || item.itemName || "",
-
       itemCount:
         primaryItem?.itemCount !== undefined && primaryItem?.itemCount !== null
           ? String(primaryItem.itemCount)
           : item.itemCount !== undefined && item.itemCount !== null
           ? String(item.itemCount)
           : "1",
-
       itemWeightGram:
         primaryItem?.itemWeightGram !== undefined &&
         primaryItem?.itemWeightGram !== null
@@ -764,9 +820,7 @@ export default function GirviList() {
           : item.itemWeightGram !== undefined && item.itemWeightGram !== null
           ? String(item.itemWeightGram)
           : "",
-
       goldKarat: primaryItem?.goldKarat || item.goldKarat || "",
-
       lessWeightGram:
         primaryItem?.lessWeightGram !== undefined &&
         primaryItem?.lessWeightGram !== null
@@ -774,7 +828,6 @@ export default function GirviList() {
           : item.lessWeightGram !== undefined && item.lessWeightGram !== null
           ? String(item.lessWeightGram)
           : "",
-
       netWeightGram:
         primaryItem?.netWeightGram !== undefined &&
         primaryItem?.netWeightGram !== null
@@ -784,7 +837,6 @@ export default function GirviList() {
           : String(
               calculateNetWeight(item.itemWeightGram, item.lessWeightGram)
             ),
-
       ratePerGram:
         primaryItem?.ratePerGram !== undefined &&
         primaryItem?.ratePerGram !== null
@@ -792,22 +844,18 @@ export default function GirviList() {
           : item.ratePerGram !== undefined && item.ratePerGram !== null
           ? String(item.ratePerGram)
           : "",
-
       actualLoanAmount:
         item.actualLoanAmount !== undefined && item.actualLoanAmount !== null
           ? String(item.actualLoanAmount)
           : item.loanAmount !== undefined && item.loanAmount !== null
           ? String(item.loanAmount)
           : "",
-
       interestRate:
         item.interestRate !== undefined && item.interestRate !== null
           ? String(item.interestRate)
           : "",
-
       maturityDate: item.maturityDate || "",
       remarks: item.remarks || "",
-
       interestPaid: "",
       principalPaid: "",
       transactionRemarks: "",
@@ -830,7 +878,6 @@ export default function GirviList() {
       showToast("Dealer ID not found. Please login again.", "error");
       return;
     }
-
     if (!token) {
       showToast("Login token not found. Please login again.", "error");
       return;
@@ -843,27 +890,22 @@ export default function GirviList() {
 
     for (let i = 0; i < editItems.length; i++) {
       const item = editItems[i];
-
       if (!item.itemName.trim()) {
         showToast(`Item ${i + 1}: Item name is required`, "error");
         return;
       }
-
       if (!item.itemCount || Number(item.itemCount) <= 0) {
         showToast(`Item ${i + 1}: Valid No.Pc count is required`, "error");
         return;
       }
-
       if (!item.itemWeightGram || Number(item.itemWeightGram) <= 0) {
         showToast(`Item ${i + 1}: Valid gross weight is required`, "error");
         return;
       }
-
       if (Number(item.lessWeightGram || 0) < 0) {
         showToast(`Item ${i + 1}: Less weight cannot be negative`, "error");
         return;
       }
-
       if (Number(item.lessWeightGram || 0) > Number(item.itemWeightGram || 0)) {
         showToast(
           `Item ${i + 1}: Less weight cannot be greater than gross weight`,
@@ -871,17 +913,14 @@ export default function GirviList() {
         );
         return;
       }
-
       if (!item.netWeightGram || Number(item.netWeightGram) <= 0) {
         showToast(`Item ${i + 1}: Valid net weight is required`, "error");
         return;
       }
-
       if (!item.ratePerGram || Number(item.ratePerGram) <= 0) {
         showToast(`Item ${i + 1}: Valid rate per gram is required`, "error");
         return;
       }
-
       if (
         String(item.itemType || "").toUpperCase() === "GOLD" &&
         !item.goldKarat
@@ -915,7 +954,6 @@ export default function GirviList() {
 
     try {
       const firstItem = editItems[0];
-
       const totalCalculatedPieces = editItems.reduce(
         (acc, row) => acc + Number(row.itemCount || 1),
         0
@@ -992,7 +1030,6 @@ export default function GirviList() {
       setGirviList((prev) =>
         prev.map((item) => (item.id === updatedGirvi.id ? updatedGirvi : item))
       );
-
       setFilteredList((prev) =>
         prev.map((item) => (item.id === updatedGirvi.id ? updatedGirvi : item))
       );
@@ -1011,14 +1048,8 @@ export default function GirviList() {
   }
 
   function getImageSrc(item: GirviResponseDTO) {
-    if (item.id && photoMap[item.id]) {
-      return photoMap[item.id];
-    }
-
-    if (!item.itemPhotoBase64) {
-      return "";
-    }
-
+    if (item.id && photoMap[item.id]) return photoMap[item.id];
+    if (!item.itemPhotoBase64) return "";
     const contentType = item.itemPhotoContentType || "image/png";
     return `data:${contentType};base64,${item.itemPhotoBase64}`;
   }
@@ -1046,13 +1077,10 @@ export default function GirviList() {
 
   function buildInvoiceFormFromGirvi(item: GirviResponseDTO) {
     const primaryItem = getPrimaryItem(item);
-
     const itemWeightGram =
       primaryItem?.itemWeightGram ?? item.itemWeightGram ?? "";
-
     const lessWeightGram =
       primaryItem?.lessWeightGram ?? item.lessWeightGram ?? "";
-
     const netWeightGram =
       primaryItem?.netWeightGram ??
       item.netWeightGram ??
@@ -1088,19 +1116,13 @@ export default function GirviList() {
 
   function normalizeWhatsAppPhone(phone: string) {
     const digits = String(phone || "").replace(/\D/g, "");
-
     if (!digits) return "";
-
-    if (digits.length === 10) {
-      return `91${digits}`;
-    }
-
+    if (digits.length === 10) return `91${digits}`;
     return digits;
   }
 
   async function generateGirviInvoiceFile(item: GirviResponseDTO) {
     const invoiceId = getGirviInvoiceId(item);
-
     if (!invoiceId) {
       throw new Error(
         "Invoice ID not found for this Girvi. Please return invoiceId and invoiceNumber in Girvi list API."
@@ -1109,7 +1131,6 @@ export default function GirviList() {
 
     const dealerId = localStorage.getItem("ps_dealer_id");
     const token = localStorage.getItem("ps_token");
-
     if (!dealerId || !token) {
       throw new Error("Session expired. Please login again.");
     }
@@ -1129,7 +1150,6 @@ export default function GirviList() {
 
     const invoiceDetails = await res.json();
     const form = buildInvoiceFormFromGirvi(item);
-
     const invoiceNumber =
       invoiceDetails?.invoiceNumber || getGirviInvoiceNumber(item, invoiceId);
 
@@ -1152,31 +1172,22 @@ export default function GirviList() {
       form,
     });
 
-    return {
-      file,
-      invoiceNumber,
-      invoiceDetails,
-    };
+    return { file, invoiceNumber, invoiceDetails };
   }
 
   async function downloadGirviInvoicePdf(item: GirviResponseDTO) {
     const rowKey = getGirviRowKey(item);
-
     setDownloadingPdfGirviId(rowKey);
 
     try {
       const { file } = await generateGirviInvoiceFile(item);
-
       const url = window.URL.createObjectURL(file);
-
       const link = document.createElement("a");
       link.href = url;
       link.download = file.name;
-
       document.body.appendChild(link);
       link.click();
       link.remove();
-
       window.URL.revokeObjectURL(url);
     } catch (err: any) {
       console.error("Invoice PDF download failed:", err);
@@ -1244,7 +1255,6 @@ export default function GirviList() {
 
     try {
       const doc = new jsPDF("p", "mm", "a4");
-
       doc.setFillColor(72, 32, 197);
       doc.rect(0, 0, 210, 25, "F");
 
@@ -1520,18 +1530,18 @@ Please find attached invoice PDF.`;
   function getStatusClass(status?: string) {
     const s = status?.toLowerCase();
 
-    if (s === "active") return "bg-green-50 text-green-700 border-green-100";
+    if (s === "active") return "bg-emerald-50 text-emerald-700 border-emerald-200/60";
     if (s === "duetoday")
-      return "bg-yellow-50 text-yellow-700 border-yellow-100";
-    if (s === "due") return "bg-yellow-50 text-yellow-700 border-yellow-100";
-    if (s === "overdue") return "bg-red-50 text-red-700 border-red-100";
+      return "bg-amber-50 text-amber-700 border-amber-200/60";
+    if (s === "due") return "bg-amber-50 text-amber-700 border-amber-200/60";
+    if (s === "overdue") return "bg-rose-50 text-rose-700 border-rose-200/60";
     if (s === "partial_released")
-      return "bg-blue-50 text-blue-700 border-blue-100";
+      return "bg-blue-50 text-blue-700 border-blue-200/60";
     if (s === "released")
-      return "bg-indigo-50 text-indigo-700 border-indigo-100";
-    if (s === "closed") return "bg-gray-100 text-gray-600 border-gray-200";
+      return "bg-indigo-50 text-indigo-700 border-indigo-200/60";
+    if (s === "closed") return "bg-slate-100 text-slate-600 border-slate-200";
 
-    return "bg-purple-50 text-purple-700 border-purple-100";
+    return "bg-purple-50 text-purple-700 border-purple-200/60";
   }
 
   return (
@@ -1625,7 +1635,6 @@ Please find attached invoice PDF.`;
                   navigate("/admin/dashboard");
                   return;
                 }
-
                 setShowMobileSidebar(true);
               }}
               className="w-10 h-10 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-xl text-gray-700 active:bg-gray-100"
@@ -1637,9 +1646,7 @@ Please find attached invoice PDF.`;
               <h2 className="text-base font-bold text-gray-900">
                 Girvi Records
               </h2>
-              <p className="text-[11px] text-gray-500">
-                Manage pledge records
-              </p>
+              <p className="text-[11px] text-gray-500">Manage pledge records</p>
             </div>
           </div>
 
@@ -1759,7 +1766,10 @@ Please find attached invoice PDF.`;
                 <select
                   value={exportFilters.customerId}
                   onChange={(e) =>
-                    setExportFilters({ ...exportFilters, customerId: e.target.value })
+                    setExportFilters({
+                      ...exportFilters,
+                      customerId: e.target.value,
+                    })
                   }
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-indigo-600 text-sm font-medium transition bg-gray-50/30 text-gray-800"
                 >
@@ -1781,7 +1791,10 @@ Please find attached invoice PDF.`;
                     type="date"
                     value={exportFilters.startDate}
                     onChange={(e) =>
-                      setExportFilters({ ...exportFilters, startDate: e.target.value })
+                      setExportFilters({
+                        ...exportFilters,
+                        startDate: e.target.value,
+                      })
                     }
                     className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-indigo-600 text-sm font-medium transition bg-gray-50/30 text-gray-800"
                   />
@@ -1795,7 +1808,10 @@ Please find attached invoice PDF.`;
                     type="date"
                     value={exportFilters.endDate}
                     onChange={(e) =>
-                      setExportFilters({ ...exportFilters, endDate: e.target.value })
+                      setExportFilters({
+                        ...exportFilters,
+                        endDate: e.target.value,
+                      })
                     }
                     className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-indigo-600 text-sm font-medium transition bg-gray-50/30 text-gray-800"
                   />
@@ -1954,22 +1970,24 @@ function RecordsPanel({
   setSize,
 }: any) {
   return (
-    <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 sm:p-8">
+    <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-6 sm:p-8">
       <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 mb-8">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">Pledge Inventory</h2>
-          <p className="text-sm text-gray-400 font-medium mt-0.5">
+          <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
+            Pledge Inventory
+          </h2>
+          <p className="text-sm text-slate-400 font-medium mt-0.5">
             Showing continuous listings ({totalElements} overall items)
           </p>
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full xl:w-auto">
-          <div className="w-full sm:w-72 flex items-center border border-gray-200 rounded-xl px-4 py-3 bg-gray-50/50 focus-within:border-[#4820C5] focus-within:ring-1 focus-within:ring-[#4820C5] transition">
-            <FaSearch className="text-gray-400 mr-3 shrink-0 text-sm" />
+          <div className="w-full sm:w-72 flex items-center border border-slate-200 rounded-xl px-4 py-3 bg-slate-50/50 focus-within:border-[#4820C5] focus-within:ring-1 focus-within:ring-[#4820C5] transition">
+            <FaSearch className="text-slate-400 mr-3 shrink-0 text-sm" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full outline-none bg-transparent text-sm font-medium text-gray-700"
+              className="w-full outline-none bg-transparent text-sm font-medium text-slate-700"
               placeholder="Search by customer, item..."
             />
           </div>
@@ -1977,7 +1995,7 @@ function RecordsPanel({
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="border border-gray-200 rounded-xl px-4 py-3 bg-gray-50/50 text-sm font-bold text-gray-700 outline-none focus:border-[#4820C5] focus:ring-1 focus:ring-[#4820C5] transition cursor-pointer"
+            className="border border-slate-200 rounded-xl px-4 py-3 bg-slate-50/50 text-sm font-bold text-slate-700 outline-none focus:border-[#4820C5] focus:ring-1 focus:ring-[#4820C5] transition cursor-pointer"
           >
             <option value="ALL">All Status</option>
             <option value="ACTIVE">Active</option>
@@ -1989,17 +2007,17 @@ function RecordsPanel({
             type="button"
             onClick={openExportModal}
             disabled={filteredList.length === 0}
-            className="hidden lg:flex items-center justify-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-[#4820C5] border border-indigo-100 px-4 py-3 rounded-xl font-bold text-sm transition whitespace-nowrap disabled:opacity-50"
+            className="hidden lg:flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200/80 text-slate-700 border border-slate-200/80 px-4 py-3 rounded-xl font-bold text-sm transition whitespace-nowrap disabled:opacity-50"
             title="Export filtered list to PDF"
           >
-            <FaFilter className="text-sm" />
+            <FaFilter className="text-sm text-slate-500" />
             Export List PDF
           </button>
 
           <button
             type="button"
             onClick={goToAddGirvi}
-            className="hidden lg:flex items-center justify-center gap-2 bg-[#4820C5] hover:bg-[#3d1aab] text-white px-5 py-3 rounded-xl font-bold text-sm shadow-md shadow-purple-100 transition whitespace-nowrap"
+            className="hidden lg:flex items-center justify-center gap-2 bg-[#4820C5] hover:bg-[#3d1aab] text-white px-5 py-3 rounded-xl font-bold text-sm shadow-sm shadow-purple-200 transition whitespace-nowrap"
             title="Add Girvi"
           >
             <FaPlus className="text-sm" />
@@ -2009,14 +2027,14 @@ function RecordsPanel({
       </div>
 
       {loading && (
-        <div className="text-center py-16 text-gray-400 font-semibold text-sm">
+        <div className="text-center py-16 text-slate-400 font-semibold text-sm">
           <div className="w-8 h-8 border-3 border-[#4820C5] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
           Syncing Girvi inventory records...
         </div>
       )}
 
       {error && (
-        <div className="bg-red-50 text-red-600 border border-red-100 rounded-2xl px-4 py-3.5 mb-6 text-sm font-semibold">
+        <div className="bg-rose-50 text-rose-600 border border-rose-100 rounded-2xl px-4 py-3.5 mb-6 text-sm font-semibold">
           {error}
         </div>
       )}
@@ -2034,15 +2052,15 @@ function RecordsPanel({
               const whatsAppLoading = sendingWhatsAppGirviId === rowKey;
               const isPrepared = !!preparedShareData[rowKey];
 
-              const displayItemType = getDisplayItemType(item);
-              const typeLower = String(displayItemType || "").toLowerCase();
+              // Aggregates computed per metal type
+              const groupedAggregates = getGroupedAggregates(item);
 
               return (
                 <div
                   key={item.id || `${item.customerId}-${index}`}
-                  className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-purple-100 transition"
+                  className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs hover:shadow-md hover:border-purple-200/60 transition-all duration-200"
                 >
-                  <div className="grid grid-cols-12 gap-4 items-center">
+                  <div className="grid grid-cols-12 gap-5 items-center">
                     <div className="col-span-1 shrink-0">
                       {imageSrc ? (
                         <button
@@ -2053,7 +2071,7 @@ function RecordsPanel({
                               `${getDisplayItemName(item)} - Photo`
                             )
                           }
-                          className="w-14 h-14 rounded-2xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-[#4820C5] flex flex-col items-center justify-center gap-1 transition-all shadow-sm hover:scale-105 active:scale-95 group"
+                          className="w-14 h-14 rounded-2xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-[#4820C5] flex flex-col items-center justify-center gap-1 transition-all shadow-2xs hover:scale-105 active:scale-95 group"
                           title="Click to view item photo"
                         >
                           <FaCamera className="text-lg group-hover:scale-110 transition-transform" />
@@ -2067,37 +2085,66 @@ function RecordsPanel({
                     </div>
 
                     <div className="col-span-3 min-w-0">
-                      <p className="font-extrabold text-gray-900 text-sm truncate">
+                      <p className="font-extrabold text-slate-900 text-sm truncate">
                         {item.customerName || "-"}
                       </p>
-                      <p className="text-xs text-gray-400 font-medium mt-0.5">
+                      <p className="text-xs text-slate-400 font-medium mt-0.5">
                         Customer ID: {item.customerId || "-"}
                       </p>
 
                       <div className="mt-3">
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1.5">
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1.5">
                           Item Breakdown ({item.items?.length || 1})
                         </p>
-                        <div className="space-y-1.5 max-h-[80px] overflow-y-auto pr-1">
+                        <div className="space-y-1.5 max-h-[90px] overflow-y-auto pr-1">
                           {item.items && item.items.length > 0 ? (
-                            item.items.map((subItem, idx) => (
-                              <div key={idx} className="flex items-center justify-between bg-gray-50 border border-gray-100 rounded-lg px-2 py-1.5 text-[11px] hover:bg-gray-100 transition">
-                                 <div className="flex items-center gap-1.5 truncate pr-2">
-                                   <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${String(subItem.itemType).toUpperCase() === 'GOLD' ? 'bg-amber-400' : 'bg-slate-400'}`}></span>
-                                   <span className="font-bold text-gray-800 truncate" title={subItem.itemName}>{subItem.itemName}</span>
-                                 </div>
-                                 <div className="flex items-center gap-1.5 shrink-0">
-                                   <span className="font-semibold text-gray-500">
-                                     {Number(subItem.netWeightGram || 0).toLocaleString("en-IN", { maximumFractionDigits: 4 })}g
-                                   </span>
-                                   <span className={`px-1 py-0.5 rounded text-[8px] font-bold tracking-wider ${String(subItem.status).toUpperCase() === 'RELEASED' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                                      {String(subItem.status).toUpperCase() === 'RELEASED' ? 'REL' : 'ACT'}
-                                   </span>
-                                 </div>
-                              </div>
-                            ))
+                            item.items.map((subItem, idx) => {
+                              const subMetal = String(subItem.itemType).toUpperCase();
+                              const isReleased = String(subItem.status).toUpperCase() === "RELEASED";
+                              return (
+                                <div
+                                  key={idx}
+                                  className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-[11px] hover:bg-slate-100/80 transition"
+                                >
+                                  <div className="flex items-center gap-1.5 truncate pr-2">
+                                    <span
+                                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                        subMetal === "GOLD"
+                                          ? "bg-amber-400"
+                                          : "bg-slate-400"
+                                      }`}
+                                    ></span>
+                                    <span
+                                      className="font-bold text-slate-800 truncate"
+                                      title={subItem.itemName}
+                                    >
+                                      {subItem.itemName}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <span className="font-semibold text-slate-500">
+                                      {Number(
+                                        subItem.netWeightGram || 0
+                                      ).toLocaleString("en-IN", {
+                                        maximumFractionDigits: 4,
+                                      })}
+                                      g
+                                    </span>
+                                    <span
+                                      className={`px-1.5 py-0.5 rounded text-[8px] font-extrabold tracking-wider border ${
+                                        isReleased
+                                          ? "bg-rose-50 text-rose-600 border-rose-200"
+                                          : "bg-emerald-50 text-emerald-600 border-emerald-200"
+                                      }`}
+                                    >
+                                      {isReleased ? "REL" : "ACT"}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })
                           ) : (
-                            <p className="font-bold text-gray-900 text-sm leading-snug break-words">
+                            <p className="font-bold text-slate-800 text-sm leading-snug break-words">
                               {item.itemName || "-"}
                             </p>
                           )}
@@ -2105,88 +2152,108 @@ function RecordsPanel({
                       </div>
                     </div>
 
+                    {/* --- FIXED: TOTAL AGGREGATES GROUPS BY METAL --- */}
                     <div className="col-span-2">
-                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-2">
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-2">
                         Total Aggregates
                       </p>
 
-                      <span
-                        className={`inline-block px-2.5 py-1 rounded-md text-[10px] font-bold ${
-                          typeLower === "gold"
-                            ? "bg-amber-50 text-amber-700"
-                            : "bg-slate-100 text-slate-700"
-                        }`}
-                      >
-                        {displayItemType}
-                      </span>
+                      <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
+                        {Object.entries(groupedAggregates).map(
+                          ([metal, data]: [string, any]) => {
+                            const isGold = metal === "GOLD";
+                            const karatsList = Array.from(data.karats).join(", ");
+                            return (
+                              <div
+                                key={metal}
+                                className="p-2 rounded-xl bg-slate-50/80 border border-slate-100 shadow-2xs"
+                              >
+                                <div className="flex items-center justify-between mb-1">
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[9px] font-extrabold tracking-wide uppercase border ${
+                                      isGold
+                                        ? "bg-amber-50 text-amber-800 border-amber-200"
+                                        : "bg-slate-200/80 text-slate-700 border-slate-300"
+                                    }`}
+                                  >
+                                    {metal}
+                                  </span>
+                                  <span className="text-[11px] font-bold text-purple-700">
+                                    {formatCount(data.count)} Pc
+                                  </span>
+                                </div>
 
-                      <div className="mt-2 space-y-1">
-                        <p className="text-[11px] font-bold text-purple-700">
-                          Total Pc: {formatCount(getDisplayItemCount(item))}
-                        </p>
-
-                        {typeLower === "gold" && getDisplayGoldKarat(item) && (
-                          <p className="text-[11px] font-bold text-amber-700">
-                            Karat: {getDisplayGoldKarat(item)}
-                          </p>
+                                <div className="text-[11px] space-y-0.5 mt-1 leading-tight">
+                                  {isGold && karatsList && (
+                                    <p className="text-amber-700 font-bold">
+                                      Karat: {karatsList}
+                                    </p>
+                                  )}
+                                  <p className="text-slate-500 font-medium">
+                                    Gross:{" "}
+                                    <span className="text-slate-700 font-bold">
+                                      {formatWeight(data.gross)}
+                                    </span>
+                                  </p>
+                                  <p className="text-slate-500 font-medium">
+                                    Less:{" "}
+                                    <span className="text-slate-700 font-bold">
+                                      {formatWeight(data.less)}
+                                    </span>
+                                  </p>
+                                  <p className="text-emerald-700 font-extrabold pt-0.5 border-t border-slate-200/60 mt-0.5">
+                                    Net: {formatWeight(data.net)}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          }
                         )}
-
-                        <p className="text-xs font-bold text-gray-700">
-                          Gross: {formatWeight(getDisplayGrossWeight(item))}
-                        </p>
-
-                        <p className="text-xs font-bold text-gray-500">
-                          Less: {formatWeight(getDisplayLessWeight(item))}
-                        </p>
-
-                        <p className="text-xs font-extrabold text-green-700">
-                          Net: {formatWeight(getDisplayNetWeight(item))}
-                        </p>
                       </div>
                     </div>
 
                     <div className="col-span-2">
-                      <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                         Actual Loan Amount
                       </p>
 
-                      <p className="font-black text-green-600 text-base mt-1">
+                      <p className="font-black text-emerald-600 text-base mt-1">
                         {formatCurrency(getDisplayActualLoanAmount(item))}
                       </p>
 
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="text-xs text-slate-400 mt-1">
                         Value:{" "}
-                        <span className="font-bold text-gray-700">
+                        <span className="font-bold text-slate-700">
                           {formatCurrency(item.loanAmount)}
                         </span>
                       </p>
 
-                      <p className="text-xs text-gray-400 mt-2">
+                      <p className="text-xs text-slate-400 mt-1.5">
                         Interest:{" "}
-                        <span className="font-bold text-gray-700">
+                        <span className="font-bold text-slate-700">
                           {item.interestRate || 0}%
                         </span>
                       </p>
                     </div>
 
                     <div className="col-span-2">
-                      <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                         Timeline
                       </p>
 
-                      <div className="mt-1 text-xs font-medium text-gray-600 leading-relaxed">
+                      <div className="mt-1 text-xs font-medium text-slate-600 leading-relaxed">
                         <p>
-                          <span className="text-gray-400">Start:</span>{" "}
+                          <span className="text-slate-400">Start:</span>{" "}
                           {formatDate(item.girviDate)}
                         </p>
                         <p>
-                          <span className="text-gray-400">Maturity:</span>{" "}
+                          <span className="text-slate-400">Maturity:</span>{" "}
                           {formatDate(item.maturityDate)}
                         </p>
                       </div>
 
                       <span
-                        className={`inline-block mt-2 px-3 py-1 rounded-full border text-[10px] font-extrabold tracking-wide uppercase ${getStatusClass(
+                        className={`inline-block mt-2 px-2.5 py-0.5 rounded-full border text-[10px] font-extrabold tracking-wide uppercase ${getStatusClass(
                           item.status
                         )}`}
                       >
@@ -2194,23 +2261,24 @@ function RecordsPanel({
                       </span>
                     </div>
 
+                    {/* --- SLEEK REFINED RIGHT PANEL ACTIONS --- */}
                     <div className="col-span-2">
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
                           onClick={() => openEditModal(item)}
-                          className="w-full bg-purple-50 hover:bg-purple-100 text-[#4820C5] px-2 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition"
+                          className="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-slate-700 px-2 py-2 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95"
                         >
-                          <FaEdit />
+                          <FaEdit className="text-slate-500 text-[11px]" />
                           Edit
                         </button>
 
                         <button
                           type="button"
                           onClick={() => goToTimeline(item)}
-                          className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 px-2 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition"
+                          className="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-slate-700 px-2 py-2 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95"
                         >
-                          <FaHistory className="text-[11px]" />
+                          <FaHistory className="text-slate-500 text-[11px]" />
                           Timeline
                         </button>
 
@@ -2218,16 +2286,16 @@ function RecordsPanel({
                           type="button"
                           onClick={() => downloadGirviInvoicePdf(item)}
                           disabled={pdfLoading}
-                          className="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400"
+                          className="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-slate-700 px-2 py-2 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 disabled:opacity-50"
                         >
                           {pdfLoading ? (
                             <>
-                              <FaDownload className="animate-pulse" />
+                              <FaDownload className="animate-pulse text-indigo-600" />
                               PDF...
                             </>
                           ) : (
                             <>
-                              <FaFileInvoice />
+                              <FaFileInvoice className="text-indigo-600 text-[11px]" />
                               PDF
                             </>
                           )}
@@ -2243,7 +2311,7 @@ function RecordsPanel({
                             }
                           }}
                           disabled={whatsAppLoading}
-                          className="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400"
+                          className="w-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 text-emerald-700 px-2 py-2 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 disabled:opacity-50"
                         >
                           {whatsAppLoading ? (
                             <>
@@ -2268,12 +2336,17 @@ function RecordsPanel({
                             type="button"
                             onClick={() => downloadThirdPartyAuthPdf(item)}
                             disabled={isThirdPartyLoading}
-                            className="w-full mt-1 bg-orange-50 hover:bg-orange-100 text-orange-700 px-2 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400"
+                            className="w-full mt-0.5 bg-slate-100/80 hover:bg-slate-200/60 border border-slate-200 text-slate-600 px-2 py-2 rounded-xl font-bold text-[11px] flex items-center justify-center gap-1.5 transition active:scale-95 disabled:opacity-50"
                           >
                             {isThirdPartyLoading ? (
-                              <><FaDownload className="animate-pulse" /> Loading...</>
+                              <>
+                                <FaDownload className="animate-pulse" /> Loading...
+                              </>
                             ) : (
-                              <><FaFileSignature className="text-xs" /> 3rd Party Auth Only</>
+                              <>
+                                <FaFileSignature className="text-amber-600 text-xs" />{" "}
+                                3rd Party Auth Only
+                              </>
                             )}
                           </button>
                         </div>
@@ -2393,8 +2466,7 @@ function MobileRecordsPanel({
           const whatsAppLoading = sendingWhatsAppGirviId === rowKey;
           const isPrepared = !!preparedShareData[rowKey];
 
-          const displayItemType = getDisplayItemType(item);
-          const typeLower = String(displayItemType || "").toLowerCase();
+          const groupedAggregates = getGroupedAggregates(item);
 
           return (
             <div
@@ -2437,7 +2509,7 @@ function MobileRecordsPanel({
                       {item.status || "ACTIVE"}
                     </span>
                   </div>
-                  
+
                   <p className="text-[10px] text-gray-400 font-medium mt-0.5">
                     ID: {item.customerId || "-"}
                   </p>
@@ -2445,19 +2517,46 @@ function MobileRecordsPanel({
                   <div className="mt-2.5 space-y-1.5">
                     {item.items && item.items.length > 0 ? (
                       item.items.map((subItem, idx) => (
-                        <div key={idx} className="flex items-center justify-between bg-gray-50 border border-gray-100 rounded-lg px-2 py-1.5 text-[11px]">
-                           <div className="flex items-center gap-1.5 truncate pr-2">
-                             <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${String(subItem.itemType).toUpperCase() === 'GOLD' ? 'bg-amber-400' : 'bg-slate-400'}`}></span>
-                             <span className="font-bold text-gray-800 truncate">{subItem.itemName}</span>
-                           </div>
-                           <div className="flex items-center gap-1.5 shrink-0">
-                             <span className="font-semibold text-gray-500">
-                               {Number(subItem.netWeightGram || 0).toLocaleString("en-IN", { maximumFractionDigits: 4 })}g
-                             </span>
-                             <span className={`px-1 py-0.5 rounded text-[8px] font-bold tracking-wider ${String(subItem.status).toUpperCase() === 'RELEASED' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                                {String(subItem.status).toUpperCase() === 'RELEASED' ? 'REL' : 'ACT'}
-                             </span>
-                           </div>
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between bg-gray-50 border border-gray-100 rounded-lg px-2 py-1.5 text-[11px]"
+                        >
+                          <div className="flex items-center gap-1.5 truncate pr-2">
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                String(subItem.itemType).toUpperCase() ===
+                                "GOLD"
+                                  ? "bg-amber-400"
+                                  : "bg-slate-400"
+                              }`}
+                            ></span>
+                            <span className="font-bold text-gray-800 truncate">
+                              {subItem.itemName}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="font-semibold text-gray-500">
+                              {Number(
+                                subItem.netWeightGram || 0
+                              ).toLocaleString("en-IN", {
+                                maximumFractionDigits: 4,
+                              })}
+                              g
+                            </span>
+                            <span
+                              className={`px-1 py-0.5 rounded text-[8px] font-bold tracking-wider ${
+                                String(subItem.status).toUpperCase() ===
+                                "RELEASED"
+                                  ? "bg-red-100 text-red-700"
+                                  : "bg-green-100 text-green-700"
+                              }`}
+                            >
+                              {String(subItem.status).toUpperCase() ===
+                              "RELEASED"
+                                ? "REL"
+                                : "ACT"}
+                            </span>
+                          </div>
                         </div>
                       ))
                     ) : (
@@ -2467,18 +2566,46 @@ function MobileRecordsPanel({
                     )}
                   </div>
 
-                  <div className="mt-2.5 bg-gray-50 rounded-xl p-2 border border-gray-100 flex flex-wrap items-center gap-x-3 gap-y-1">
-                     <span className={`text-[10px] font-bold ${typeLower === 'gold' ? 'text-amber-700' : 'text-slate-700'}`}>
-                       {displayItemType} {getDisplayGoldKarat(item) ? `(${getDisplayGoldKarat(item)})` : ''}
-                     </span>
-                     <span className="text-[10px] font-bold text-gray-600">
-                       Qty: {formatCount(getDisplayItemCount(item))}
-                     </span>
-                     <span className="text-[10px] font-extrabold text-green-700">
-                       Net: {formatWeight(getDisplayNetWeight(item))}
-                     </span>
+                  {/* --- MOBILE AGGREGATES FIXED FOR MULTI-METAL --- */}
+                  <div className="mt-2.5 space-y-1.5">
+                    {Object.entries(groupedAggregates).map(
+                      ([metal, data]: [string, any]) => {
+                        const isGold = metal === "GOLD";
+                        const karatsList = Array.from(data.karats).join(", ");
+                        return (
+                          <div
+                            key={metal}
+                            className="bg-slate-50 rounded-xl p-2 border border-slate-100 flex flex-wrap items-center justify-between gap-1.5"
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase border ${
+                                  isGold
+                                    ? "bg-amber-50 text-amber-800 border-amber-200"
+                                    : "bg-slate-200 text-slate-700 border-slate-300"
+                                }`}
+                              >
+                                {metal}
+                              </span>
+                              {isGold && karatsList && (
+                                <span className="text-[10px] font-bold text-amber-700">
+                                  ({karatsList})
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2.5 text-[10px]">
+                              <span className="font-bold text-slate-600">
+                                Qty: {formatCount(data.count)}
+                              </span>
+                              <span className="font-extrabold text-emerald-700">
+                                Net: {formatWeight(data.net)}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      }
+                    )}
                   </div>
-
                 </div>
               </div>
 
@@ -2506,18 +2633,18 @@ function MobileRecordsPanel({
                 <button
                   type="button"
                   onClick={() => openEditModal(item)}
-                  className="bg-purple-50 hover:bg-purple-100 text-[#4820C5] py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition"
+                  className="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition"
                 >
-                  <FaEdit className="text-xs" />
+                  <FaEdit className="text-slate-500 text-xs" />
                   Edit
                 </button>
 
                 <button
                   type="button"
                   onClick={() => goToTimeline(item)}
-                  className="bg-blue-50 hover:bg-blue-100 text-blue-700 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition"
+                  className="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition"
                 >
-                  <FaHistory className="text-[11px]" />
+                  <FaHistory className="text-slate-500 text-[11px]" />
                   Timeline
                 </button>
 
@@ -2525,16 +2652,16 @@ function MobileRecordsPanel({
                   type="button"
                   onClick={() => downloadGirviInvoicePdf(item)}
                   disabled={pdfLoading}
-                  className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400"
+                  className="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:opacity-50"
                 >
                   {pdfLoading ? (
                     <>
-                      <FaDownload className="animate-pulse" />
+                      <FaDownload className="animate-pulse text-indigo-600" />
                       PDF...
                     </>
                   ) : (
-                     <>
-                      <FaFileInvoice className="text-xs" />
+                    <>
+                      <FaFileInvoice className="text-indigo-600 text-xs" />
                       PDF
                     </>
                   )}
@@ -2550,7 +2677,7 @@ function MobileRecordsPanel({
                     }
                   }}
                   disabled={whatsAppLoading}
-                  className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400"
+                  className="bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:opacity-50"
                 >
                   {whatsAppLoading ? (
                     <>
@@ -2575,7 +2702,7 @@ function MobileRecordsPanel({
                     type="button"
                     onClick={() => downloadThirdPartyAuthPdf(item)}
                     disabled={isThirdPartyLoading}
-                    className="w-full mt-1 bg-orange-50 hover:bg-orange-100 text-orange-700 px-2 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400"
+                    className="w-full mt-1 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-600 px-2 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:opacity-50"
                   >
                     {isThirdPartyLoading ? (
                       <>
@@ -2583,8 +2710,8 @@ function MobileRecordsPanel({
                       </>
                     ) : (
                       <>
-                        <FaFileSignature className="text-xs" /> 3rd Party Auth
-                        Only
+                        <FaFileSignature className="text-amber-600 text-xs" />{" "}
+                        3rd Party Auth Only
                       </>
                     )}
                   </button>
@@ -2628,7 +2755,6 @@ function EditModal({
     0
   );
 
-  // RULE 3: If Girvi is closed, lock absolutely everything
   const isGirviClosed =
     String(selectedGirvi?.status || "").toUpperCase() === "CLOSED";
 
@@ -2710,7 +2836,7 @@ function EditModal({
                   <EditInput
                     label="Item Component Name"
                     value={item.itemName}
-                    disabled={true} 
+                    disabled={true}
                     onChange={(value: string) =>
                       updateEditItem(index, "itemName", value)
                     }
@@ -2798,7 +2924,9 @@ function EditModal({
                 </div>
 
                 <div className="flex items-center gap-2 text-green-700 font-bold text-sm bg-green-50 px-3 py-1.5 rounded-lg border border-green-100 w-max">
-                  <span className="text-[10px] uppercase text-green-600">Item Value</span>
+                  <span className="text-[10px] uppercase text-green-600">
+                    Item Value
+                  </span>
                   {formatCurrency(rowValue)}
                 </div>
               </div>
@@ -2855,7 +2983,9 @@ function EditModal({
                 disabled={isGirviClosed}
                 onChange={(e) => updateEditForm("closeGirvi", e.target.checked)}
                 className={`w-4 h-4 accent-red-600 rounded mt-0.5 ${
-                  isGirviClosed ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                  isGirviClosed
+                    ? "cursor-not-allowed opacity-60"
+                    : "cursor-pointer"
                 }`}
               />
               <label
@@ -2867,8 +2997,13 @@ function EditModal({
                 }`}
               >
                 Close Girvi Account
-                <span className={`block text-[10px] font-medium mt-0.5 ${isGirviClosed ? "text-gray-400" : "text-red-500"}`}>
-                  This sets outstanding principal to zero and requires all items to be released.
+                <span
+                  className={`block text-[10px] font-medium mt-0.5 ${
+                    isGirviClosed ? "text-gray-400" : "text-red-500"
+                  }`}
+                >
+                  This sets outstanding principal to zero and requires all items
+                  to be released.
                 </span>
               </label>
             </div>
@@ -2876,7 +3011,7 @@ function EditModal({
 
           <div className="pt-4 border-t border-gray-100 space-y-3">
             <h3 className="text-sm font-black text-gray-900">Loan Terms</h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <EditInput
                 label="Outstanding Loan (₹)"
@@ -2919,7 +3054,9 @@ function EditModal({
                 onChange={(e) => updateEditForm("remarks", e.target.value)}
                 rows={2}
                 className={`w-full border border-gray-300 rounded-lg px-3 py-2 outline-none text-sm resize-none transition focus:border-[#4820C5] focus:ring-1 focus:ring-[#4820C5] ${
-                  isGirviClosed ? "bg-gray-100 text-gray-500 cursor-not-allowed" : "bg-white text-gray-800"
+                  isGirviClosed
+                    ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                    : "bg-white text-gray-800"
                 }`}
                 placeholder="Log remarks..."
               />
@@ -2928,13 +3065,17 @@ function EditModal({
 
           <div className="bg-gray-50 rounded-xl p-3 border border-gray-200 flex justify-between items-center">
             <div>
-              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Total Item Value</p>
+              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">
+                Total Item Value
+              </p>
               <p className="text-lg font-black text-green-700 leading-tight">
                 {formatCurrency(totalItemValue)}
               </p>
             </div>
             <div className="text-right">
-              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Outstanding Loan</p>
+              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">
+                Outstanding Loan
+              </p>
               <p className="text-lg font-black text-gray-900 leading-tight">
                 {formatCurrency(editForm.actualLoanAmount)}
               </p>
@@ -2991,7 +3132,9 @@ function EditInput({
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
         className={`w-full border border-gray-300 rounded-lg px-3 py-2 outline-none text-sm font-medium transition focus:border-[#4820C5] focus:ring-1 focus:ring-[#4820C5] ${
-          disabled ? "bg-gray-100 text-gray-500 cursor-not-allowed" : "bg-white text-gray-800"
+          disabled
+            ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+            : "bg-white text-gray-800"
         }`}
         placeholder={label}
       />
@@ -3018,7 +3161,9 @@ function EditItemTypeSelect({
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
         className={`w-full border border-gray-300 rounded-lg px-3 py-2 outline-none text-sm font-medium transition focus:border-[#4820C5] focus:ring-1 focus:ring-[#4820C5] ${
-          disabled ? "bg-gray-100 text-gray-500 cursor-not-allowed" : "bg-white text-gray-800"
+          disabled
+            ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+            : "bg-white text-gray-800"
         }`}
       >
         <option value="GOLD">Gold</option>
@@ -3047,7 +3192,9 @@ function EditStatusSelect({
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
         className={`w-full border border-gray-300 rounded-lg px-3 py-2 outline-none text-sm font-medium transition focus:border-[#4820C5] focus:ring-1 focus:ring-[#4820C5] ${
-          disabled ? "bg-gray-100 text-gray-500 cursor-not-allowed" : "bg-white text-gray-800"
+          disabled
+            ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+            : "bg-white text-gray-800"
         }`}
       >
         <option value="ACTIVE">Active</option>
@@ -3078,7 +3225,9 @@ function EditKaratSelect({
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
         className={`w-full border border-gray-300 rounded-lg px-3 py-2 outline-none text-sm font-medium transition focus:border-[#4820C5] focus:ring-1 focus:ring-[#4820C5] ${
-          disabled ? "bg-gray-100 text-gray-500 cursor-not-allowed" : "bg-white text-gray-800"
+          disabled
+            ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+            : "bg-white text-gray-800"
         }`}
       >
         <option value="">Select Karat</option>
@@ -3166,7 +3315,6 @@ function Pagination({
   onSizeChange: (size: number) => void;
 }) {
   const currentPage = page + 1;
-
   if (totalElements === 0) return null;
 
   const startRecord = page * size + 1;
@@ -3278,8 +3426,7 @@ function Toast({
   );
 }
 
-// --- THIRD PARTY PDF GENERATION LOGIC INSIDE GIRVILIST ---
-
+// --- THIRD PARTY PDF GENERATION LOGIC ---
 function escapeHtmlString(value: any) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -3291,7 +3438,6 @@ function escapeHtmlString(value: any) {
 
 function formatPlainAmountString(value: any) {
   const amount = Number(value || 0);
-
   if (Number.isNaN(amount)) return "0.00";
 
   return amount.toLocaleString("en-IN", {
@@ -3305,7 +3451,6 @@ function formatInvoiceDateString(value?: string) {
 
   try {
     const date = new Date(value);
-
     if (Number.isNaN(date.getTime())) return value;
 
     const day = String(date.getDate()).padStart(2, "0");
@@ -3321,7 +3466,6 @@ function formatInvoiceDateString(value?: string) {
 function filledValue(value: any) {
   const finalValue =
     value === undefined || value === null || value === "" ? "-" : value;
-
   return `<span class="filled-value">${escapeHtmlString(finalValue)}</span>`;
 }
 
@@ -3360,9 +3504,7 @@ function getThirdPartyAuthHtmlForPdf(input: any) {
   if (!savedGirviData) return "";
 
   const invoiceNumber =
-    savedInvoiceNumber ||
-    savedGirviData.invoiceNumber ||
-    `INV-${invoiceId}`;
+    savedInvoiceNumber || savedGirviData.invoiceNumber || `INV-${invoiceId}`;
 
   const shopName =
     savedGirviData.shopName ||
@@ -3377,9 +3519,7 @@ function getThirdPartyAuthHtmlForPdf(input: any) {
     "";
 
   const customerDisplayName =
-    savedGirviData.customerName ||
-    customerName ||
-    "";
+    savedGirviData.customerName || customerName || "";
 
   const rawAddress =
     savedGirviData.customerAddress ||
@@ -3402,7 +3542,6 @@ function getThirdPartyAuthHtmlForPdf(input: any) {
   }
 
   const girviDate = savedGirviData.girviDate || form?.girviDate;
-
   let loanAmount = 0;
 
   if (
@@ -3438,12 +3577,10 @@ function getThirdPartyAuthHtmlForPdf(input: any) {
           line-height: 1.55;
           position: relative;
         }
-
         .title {
           text-align: center;
           margin-bottom: 28px;
         }
-
         .shop-title {
           font-family: Georgia, serif;
           font-size: 25px;
@@ -3451,49 +3588,41 @@ function getThirdPartyAuthHtmlForPdf(input: any) {
           margin: 0 0 14px 0;
           line-height: 1.2;
         }
-
         .letter-title {
           font-size: 15px;
           font-weight: 800;
           margin: 0 0 5px 0;
           letter-spacing: 0.3px;
         }
-
         .subtitle {
           font-size: 11px;
           margin: 0;
         }
-
         .section {
           margin-bottom: 16px;
         }
-
         .filled-value {
           font-weight: 700;
           color: #000;
           padding: 0 3px;
           white-space: normal;
         }
-
         .inline-writing-line {
           display: inline-block;
           border-bottom: 1px solid #000;
           height: 18px;
           vertical-align: bottom;
         }
-
         .subject {
           margin-top: 18px;
           margin-bottom: 22px;
           font-size: 12.5px;
         }
-
         .customer-block {
           font-size: 12.5px;
           line-height: 1.9;
           margin-bottom: 14px;
         }
-
         .loan-table {
           width: 72%;
           border-collapse: collapse;
@@ -3502,38 +3631,32 @@ function getThirdPartyAuthHtmlForPdf(input: any) {
           margin-bottom: 22px;
           font-size: 12.5px;
         }
-
         .loan-table td {
           padding: 4px 0;
           vertical-align: bottom;
         }
-
         .loan-label {
           width: 165px;
           white-space: nowrap;
         }
-
         .loan-value {
           border-bottom: 1px solid #555;
           font-weight: 700;
           text-align: center;
           padding-bottom: 2px;
         }
-
         .bold-para {
           font-weight: 700;
           line-height: 1.7;
           margin-top: 18px;
           margin-bottom: 24px;
         }
-
         .representative-details {
           font-size: 12.5px;
           margin-bottom: 20px;
           padding-left: 15px;
           width: 92%;
         }
-
         .form-line-row {
           display: grid;
           grid-template-columns: auto 1fr;
@@ -3542,27 +3665,23 @@ function getThirdPartyAuthHtmlForPdf(input: any) {
           align-items: start;
           margin-bottom: 7px;
         }
-
         .form-line-label {
           white-space: nowrap;
           padding-top: 0;
           line-height: 1.2;
         }
-
         .form-line {
           display: block;
           width: 100%;
           height: 22px;
           border-bottom: 1px solid #000;
         }
-
         .declaration {
           font-size: 11.5px;
           line-height: 1.7;
           margin-bottom: 26px;
           text-align: justify;
         }
-
         .signature-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
@@ -3571,16 +3690,13 @@ function getThirdPartyAuthHtmlForPdf(input: any) {
           font-size: 12px;
           line-height: 1.6;
         }
-
         .signature-col {
           width: 100%;
         }
-
         .signature-title {
           display: block;
           margin-bottom: 10px;
         }
-
         .signature-field-row {
           display: grid;
           grid-template-columns: auto 1fr;
@@ -3589,20 +3705,17 @@ function getThirdPartyAuthHtmlForPdf(input: any) {
           align-items: start;
           margin-bottom: 7px;
         }
-
         .signature-field-label {
           white-space: nowrap;
           padding-top: 0;
           line-height: 1.2;
         }
-
         .signature-line {
           display: block;
           width: 100%;
           height: 22px;
           border-bottom: 1px solid #000;
         }
-
         .date-row {
           display: grid;
           grid-template-columns: auto 52px auto 52px auto 82px;
@@ -3611,13 +3724,11 @@ function getThirdPartyAuthHtmlForPdf(input: any) {
           align-items: start;
           margin-bottom: 7px;
         }
-
         .date-part-line {
           display: block;
           height: 22px;
           border-bottom: 1px solid #000;
         }
-
         .small-muted {
           font-size: 11.5px;
         }
@@ -3764,7 +3875,6 @@ async function generateThirdPartyAuthPdfFile(input: any) {
     `INV-${input.invoiceId}`;
 
   const container = document.createElement("div");
-
   container.style.position = "fixed";
   container.style.left = "-10000px";
   container.style.top = "0";
@@ -3777,7 +3887,6 @@ async function generateThirdPartyAuthPdfFile(input: any) {
     const element = container.querySelector(
       "#frontend-thirdparty-pdf"
     ) as HTMLElement;
-
     if (!element) {
       throw new Error("Third party template not found.");
     }
